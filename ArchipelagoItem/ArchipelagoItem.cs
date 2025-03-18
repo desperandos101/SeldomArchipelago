@@ -39,6 +39,8 @@ namespace SeldomArchipelago.ArchipelagoItem
         public void SetCheckType(string loc) => locType = loc;
         public void SetCheck()
         {
+            if (locType == null) throw new Exception("Attempted to SetCheck an Architem with no locType assigned.");
+
             if (chestCheckName is not null) return;
             
             ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
@@ -50,17 +52,27 @@ namespace SeldomArchipelago.ArchipelagoItem
                 return;
             }
 
-            if (state.chestRewardNames[locType].Count == 0)
+            if (!state.locGroupRewardNames.ContainsKey(locType))
+            {
+                throw new Exception("ArchItem was a locType that didn't exist in locGroupRewardNames.");
+            }
+
+            if (state.locGroupRewardNames[locType].Count == 0)
             {
                 chestCheckName = inactive;
                 Item.SetNameOverride(inactive);
                 return;
             }
-            (int, string) tuple = state.chestRewardNames[locType][0];
-            state.chestRewardNames[locType].RemoveAt(0);
+            (int, string) tuple = state.locGroupRewardNames[locType][0];
+            state.locGroupRewardNames[locType].RemoveAt(0);
 
             chestCheckName = $"{locType} {tuple.Item1}";
             Item.SetNameOverride(tuple.Item2);
+        }
+        public void SetCheck(string loc)
+        {
+            SetCheckType(loc);
+            SetCheck();
         }
         public override Microsoft.Xna.Framework.Color? GetAlpha(Microsoft.Xna.Framework.Color lightColor)
         {

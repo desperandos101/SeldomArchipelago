@@ -674,10 +674,10 @@ namespace SeldomArchipelago.Systems
             public int safeUnlock;
             public bool ReceiveHardmodeAsItem => safeUnlock == 1;
             public bool ReceiveAllEventsAsItems => safeUnlock == 2;
-            // Multiple lists that contain the names of the items within location groups.
+            // Multiple lists that contain the names of the items within enumerable location groups.
             // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
             // Item1 is the number of a location, and Item2 is the full name of the item at said location.
-            public Dictionary<string, List<(int, string)>> chestRewardNames;
+            public Dictionary<string, List<(int, string)>> locGroupRewardNames;
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
             public List<string> hardmodeBacklog = null;
             // Whether chests should be randomized.
@@ -813,12 +813,12 @@ namespace SeldomArchipelago.Systems
 
             String[] chestKeys = session.session.DataStorage[Scope.Slot, "ChestRewardNamesKeys"].To<String[]>();
             List<(int, string)>[] chestValues = session.session.DataStorage[Scope.Slot, "ChestRewardNamesValues"].To<List<(int, string)>[]>();
-            session.chestRewardNames = new Dictionary<string, List<(int, string)>>();
+            session.locGroupRewardNames = new Dictionary<string, List<(int, string)>>();
             if (chestKeys is not null)
             {
                 for (int i = 0; i < chestKeys.Length; i++)
                 {
-                    session.chestRewardNames[chestKeys[i]] = chestValues[i];
+                    session.locGroupRewardNames[chestKeys[i]] = chestValues[i];
                 }
             }
             else
@@ -826,7 +826,7 @@ namespace SeldomArchipelago.Systems
                 foreach (FlagID i in LocationSystem.GetChestFlags())
                 {
                     string baseName = LocationSystem.GetChestName(i);
-                    session.chestRewardNames[baseName] = new List<(int, string)>();
+                    session.locGroupRewardNames[baseName] = new List<(int, string)>();
                     int counter = 1;
                     while (true)
                     {
@@ -840,7 +840,7 @@ namespace SeldomArchipelago.Systems
                             ScoutedItemInfo[] itemInfoArray = session.session.Locations.ScoutLocationsAsync(HintCreationPolicy.None, itemID).Result.Values.ToArray();
                             ScoutedItemInfo itemInfo = itemInfoArray[0];
                             string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
-                            session.chestRewardNames[baseName].Add((counter, itemName));
+                            session.locGroupRewardNames[baseName].Add((counter, itemName));
                             counter++;
                         }
                         else
@@ -1184,8 +1184,8 @@ namespace SeldomArchipelago.Systems
             if (session != null)
             {
                 session.session.DataStorage[Scope.Slot, "CollectedLocations"] = session.collectedLocations.ToArray();
-                session.session.DataStorage[Scope.Slot, "ChestRewardNamesKeys"] = session.chestRewardNames.Keys.ToArray();
-                session.session.DataStorage[Scope.Slot, "ChestRewardNamesValues"] = session.chestRewardNames.Values.ToArray();
+                session.session.DataStorage[Scope.Slot, "ChestRewardNamesKeys"] = session.locGroupRewardNames.Keys.ToArray();
+                session.session.DataStorage[Scope.Slot, "ChestRewardNamesValues"] = session.locGroupRewardNames.Values.ToArray();
                 session.session.DataStorage[Scope.Slot, "HardmodeBacklog"] = session.hardmodeBacklog.ToArray();
             }
             tag["ApReceivedRewards"] = WorldState.receivedRewards;

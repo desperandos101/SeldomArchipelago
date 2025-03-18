@@ -14,16 +14,8 @@ namespace SeldomArchipelago.Locking
     public class TileLock : GlobalTile
     {
         private WorldState World => ModContent.GetInstance<ArchipelagoSystem>().world;
-        public override bool CanKillTile(int i, int j, int type, ref bool blockDamaged)
-        {
-            WorldState world = World;
-            return world.TileRegionUnlocked(i, j);
-        }
-        public override bool CanDrop(int i, int j, int type)
-        {
-            WorldState world = World;
-            return world.TileRegionUnlocked(i, j);
-        }
+        public override bool CanKillTile(int i, int j, int type, ref bool blockDamaged) => World.TileRegionUnlocked(i, j);
+        public override bool CanDrop(int i, int j, int type) => World.TileRegionUnlocked(i, j);
     }
     public class ShakingTreeLock : GlobalItem
     {

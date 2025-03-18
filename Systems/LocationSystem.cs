@@ -22,7 +22,7 @@ namespace SeldomArchipelago.Systems
             {FlagID.Dungeon, "Dungeon"},
             {FlagID.Underworld, "Shadow"},
         };
-        public const string EvilOrb = "Shadow Orb";
+        public const string EvilOrb = "Shadow/Crimson Orb";
         #endregion
         public static FlagID[] GetChestFlags() => biomeToChestLocationName.Keys.ToArray();
         public static string GetChestName(FlagID flag) => $"{biomeToChestLocationName[flag]} Chest";
