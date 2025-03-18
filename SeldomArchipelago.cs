@@ -1,5 +1,6 @@
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using MyExtensions;
 using SeldomArchipelago.NPCs;
 using SeldomArchipelago.Players;
 using SeldomArchipelago.Systems;
@@ -15,12 +16,14 @@ using Terraria.DataStructures;
 using Terraria.GameContent.Events;
 using Terraria.ID;
 using Terraria.ModLoader;
+using static SeldomArchipelago.Systems.ArchipelagoSystem;
 
 namespace SeldomArchipelago
 {
     // TODO Use a data-oriented approach to get rid of all this repetition
     public class SeldomArchipelago : Mod
     {
+        public const string gameName = "Terraria";
         // We reuse some parts of Terraria's code for multiple purposes in this mod. For example,
         // when you kill a boss, we have to prevent that code from making permanent world changes
         // and instead send a location, but we reuse that same code when making permanent changes
@@ -28,6 +31,11 @@ namespace SeldomArchipelago
         // such changes in that case. So, we use this flag to determine whether the code is run by
         // the game naturally (false) or run by us (true). Terraria is single-threaded, don't worry.
         public bool temp;
+
+        public bool guaranteeBloodMoon;
+        public bool guaranteeEclipse;
+
+        public static Dictionary<string, int> englishLangToTypeDict = new Dictionary<string, int>();
 
         public static MethodInfo desertScourgeHeadOnKill = null;
         public static MethodInfo giantClamOnKill = null; // downedCLAM and downedCLAMHardMode
@@ -66,8 +74,17 @@ namespace SeldomArchipelago
         public static MethodInfo supremeCalamitasOnKill = null;
         public static MethodInfo calamityGlobalNpcSetNewBossJustDowned = null;
 
+        WorldState GetWorld() => ModContent.GetInstance<ArchipelagoSystem>().world;
         public override void Load()
         {
+            int counter = 1;
+
+            while (Lang.GetItemNameValue(counter) is string itemName && counter < 10000)
+            {
+                englishLangToTypeDict[itemName] = counter;
+                counter++;
+            }
+
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
 
             // Begin cursed IL editing
@@ -136,16 +153,146 @@ namespace SeldomArchipelago
                         GameEventClearedID.DefeatedChristmassTree => "Everscream",
                         GameEventClearedID.DefeatedSantank => "Santa-NK1",
                         GameEventClearedID.DefeatedIceQueen => "Ice Queen",
-                        GameEventClearedID.DefeatedFrostArmy => "Frost Legion",
                         GameEventClearedID.DefeatedEmpressOfLight => "Empress of Light",
                         GameEventClearedID.DefeatedAncientCultist => "Lunatic Cultist",
                         GameEventClearedID.DefeatedMoonlord => "Moon Lord",
                         _ => null,
                     };
+                    switch (id)
+                    {
+                        case GameEventClearedID.DefeatedSlimeKing: NPC.downedSlimeKing = true; break;
+                        case GameEventClearedID.DefeatedEyeOfCthulu: NPC.downedBoss1 = true; break;
+                        case GameEventClearedID.DefeatedEaterOfWorldsOrBrainOfChtulu: NPC.downedBoss2 = true; break;
+                        case GameEventClearedID.DefeatedGoblinArmy: NPC.downedGoblins = true; break;
+                        case GameEventClearedID.DefeatedQueenBee: NPC.downedQueenBee = true; break;
+                        case GameEventClearedID.DefeatedSkeletron: break;
+                        case GameEventClearedID.DefeatedDeerclops: NPC.downedDeerclops = true; break;
+                        case GameEventClearedID.DefeatedWallOfFleshAndStartedHardmode: break;
+                        case GameEventClearedID.DefeatedPirates: NPC.downedPirates = true; break;
+                        case GameEventClearedID.DefeatedQueenSlime: NPC.downedQueenSlime = true; break;
+                        case GameEventClearedID.DefeatedTheTwins: NPC.downedMechBoss2 = true; break;
+                        case GameEventClearedID.DefeatedDestroyer: NPC.downedMechBoss1 = true; break;
+                        case GameEventClearedID.DefeatedSkeletronPrime: NPC.downedMechBoss3 = true; break;
+                        case GameEventClearedID.DefeatedPlantera:
+                        case GameEventClearedID.DefeatedGolem: break;
+                        case GameEventClearedID.DefeatedMartians: NPC.downedMartians = true; break;
+                        case GameEventClearedID.DefeatedFishron: NPC.downedFishron = true; break;
+                    };
 
                     if (location != null) archipelagoSystem.QueueLocation(location);
                 });
                 cursor.Emit(OpCodes.Ret);
+            };
+            // Daytime Events
+            Terraria.IL_Main.UpdateTime_StartDay += il =>
+            {
+                var cursor = new ILCursor(il);
+
+                cursor.OverrideField(typeof(NPC).GetField(nameof(NPC.downedMechBossAny)),
+                    () => GetWorld().IsFlagUnlocked(FlagID.Eclipse));
+
+                cursor.GotoNext(i => i.MatchCallvirt(out var m));
+                cursor.Index++;
+                cursor.EmitDelegate((int chance) =>
+                {
+                    if (guaranteeEclipse)
+                    {
+                        guaranteeEclipse = false;
+                        return 0;
+                    }
+                    return chance;
+                });
+
+                cursor.OverrideField(typeof(WorldGen).GetField(nameof(WorldGen.shadowOrbSmashed)),
+                    () => GetWorld().IsFlagUnlocked(FlagID.GoblinArmy));
+
+                cursor.OverrideField(typeof(WorldGen).GetField(nameof(WorldGen.altarCount)),
+                    () => GetWorld().IsFlagUnlocked(FlagID.PirateInvasion));
+            };
+
+            // Nighttime Events
+            Terraria.IL_Main.UpdateTime_StartNight += il =>
+            {
+                var cursor = new ILCursor(il);
+
+                cursor.OverrideField(typeof(NPC).GetField(nameof(NPC.downedBoss2)),
+                    () => GetWorld().IsFlagUnlocked(FlagID.Meteor));
+
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.tenthAnniversaryWorld))));
+                cursor.GotoNext(i => i.MatchCallvirt(out var m));
+                cursor.Index++;
+                cursor.EmitDelegate((int chance) =>
+                {
+                    if (guaranteeBloodMoon)
+                    {
+                        guaranteeBloodMoon = false;
+                        return 0;
+                    }
+                    return chance;
+                });
+                cursor.GotoNext(i => i.MatchCallvirt(out var m));
+                cursor.Index++;
+                cursor.EmitPop();
+                cursor.EmitDelegate(() => {
+                    return GetWorld().IsFlagUnlocked(FlagID.BloodMoon) ? 5 : 0;
+                });
+            };
+
+            // Jungle Upgrade
+            Terraria.IL_WorldGen.UpdateWorld_GrassGrowth += il =>
+            {
+                var cursor = new ILCursor(il);
+                var label = cursor.DefineLabel();
+
+                cursor.OverrideField(typeof(NPC).GetField(nameof(NPC.downedMechBoss1)),
+                    () => GetWorld().IsFlagUnlocked(FlagID.JungleUpgrade));
+                cursor.EmitBrtrue(label);
+                cursor.EmitLdcI4(0);
+                cursor.GotoNext(i => i.MatchCall(out var m));
+                cursor.MarkLabel(label);
+            };
+
+            // Invasion Item Trigger
+            Terraria.IL_Main.CanStartInvasion += il =>
+            {
+                var cursor = new ILCursor(il);
+
+                cursor.GotoNext(i => i.MatchCgt());
+                cursor.Index++;
+                cursor.EmitPop();
+                cursor.EmitLdarg0();
+                cursor.EmitDelegate((int invasionType) =>
+                {
+                    switch (invasionType)
+                    {
+                        case 1: return GetWorld().IsFlagUnlocked(FlagID.GoblinArmy);
+                        case 3: return GetWorld().IsFlagUnlocked(FlagID.PirateInvasion);
+                        default: return false;
+                    }
+                });
+            };
+
+            Terraria.IL_Main.StartInvasion += il =>
+            {
+                var cursor = new ILCursor(il);
+                var label = il.DefineLabel();
+
+                cursor.GotoNext(i => i.MatchRet());
+                cursor.Index += 2;
+                cursor.EmitPop();
+                cursor.EmitBr(label);
+                cursor.GotoNext(i => i.MatchLdarg0());
+                cursor.MarkLabel(label);
+            };
+
+            // Meteor Trigger on Evil Boss Death
+            Terraria.IL_NPC.DoDeathEvents += il =>
+            {
+                var cursor = new ILCursor(il);
+
+                cursor.GotoNext(i => i.MatchStsfld(typeof(WorldGen).GetField(nameof(WorldGen.spawnMeteor))));
+                cursor.EmitPop();
+                cursor.EmitLdcI4(0);
             };
 
             // Old One's Army locations
@@ -222,6 +369,55 @@ namespace SeldomArchipelago
             };
 
             if (Main.netMode != NetmodeID.Server) Main.Achievements.OnAchievementCompleted += OnAchievementCompleted;
+
+            // Change Town NPCs' Spawn Conditions
+
+            Terraria.IL_Main.UpdateTime_SpawnTownNPCs += il =>
+            {
+                var cursor = new ILCursor(il);
+
+                List<int> overridenNPCids = new List<int>();
+
+                void OverrideCondition(FieldInfo fieldInfo, int npcID)
+                {
+                    var label = il.DefineLabel();
+
+                    cursor.GotoNext(i => i.MatchLdsfld(fieldInfo));
+                    cursor.Index++;
+                    cursor.EmitPop();
+                    cursor.EmitBr(label);
+
+                    cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.townNPCCanSpawn))));
+                    cursor.MarkLabel(label);
+                    cursor.Index += 3;
+                    cursor.EmitPop();
+                    cursor.EmitDelegate(() =>
+                    {
+                        return GetWorld().FreeNPCSpawnable(npcID);
+                    });
+
+                    overridenNPCids.Add(npcID);
+                }
+
+                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss1)), NPCID.Dryad);
+                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss3)), NPCID.Clothier);
+                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedFrost)), NPCID.SantaClaus);
+                OverrideCondition(typeof(Main).GetField(nameof(Main.tenthAnniversaryWorld)), NPCID.Steampunker);
+                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedQueenBee)), NPCID.WitchDoctor);
+                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedPirates)), NPCID.Pirate);
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.hardMode))));
+                cursor.Index++; //We skip the Main.hardMode flag in the truffle's condition. I'm so sorry for this
+                OverrideCondition(typeof(Main).GetField(nameof(Main.hardMode)), NPCID.Cyborg);
+
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(WorldGen).GetField(nameof(WorldGen.prioritizedTownNPCType))));
+                cursor.Index++;
+                cursor.EmitDelegate<Func<int, int>>((priorityNPC) =>
+                {
+                    return overridenNPCids.Find(i => !NPC.AnyNPCs(i));
+                });
+
+
+            };
 
             // Unmaintainable reflection
 
@@ -581,7 +777,7 @@ namespace SeldomArchipelago
 
         void EditCalamityGlobalNPCOnKill(ILContext il)
         {
-            var seldomArchipelago = ModContent.GetInstance<ArchipelagoSystem>();
+            var SeldomArchipelago = ModContent.GetInstance<ArchipelagoSystem>();
             var cursor = new ILCursor(il);
 
             cursor.GotoNext(i => i.MatchLdcI4(NPCID.WallofFlesh));

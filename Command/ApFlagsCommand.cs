@@ -19,7 +19,7 @@ namespace SeldomArchipelago.Command
 
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
 
-            foreach (var flag in archipelagoSystem.flags)
+            foreach (var flag in archipelagoSystem.Flags)
             {
                 if (archipelagoSystem.CheckFlag(flag)) caller.Reply(flag);
             }

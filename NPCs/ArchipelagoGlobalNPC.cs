@@ -15,10 +15,10 @@ namespace SeldomArchipelago.NPCs
 
         void CalamityOnKill(int npc)
         {
-            var seldomArchipelago = ModContent.GetInstance<ArchipelagoSystem>();
+            var SeldomArchipelago = ModContent.GetInstance<ArchipelagoSystem>();
 
-            if (npc == NPCID.BloodNautilus) seldomArchipelago.QueueLocation("Dreadnautilus");
-            else if (npc == ModContent.NPCType<CalamityMod.NPCs.PrimordialWyrm.PrimordialWyrmHead>()) seldomArchipelago.QueueLocation("Primordial Wyrm");
+            if (npc == NPCID.BloodNautilus) SeldomArchipelago.QueueLocation("Dreadnautilus");
+            else if (npc == ModContent.NPCType<CalamityMod.NPCs.PrimordialWyrm.PrimordialWyrmHead>()) SeldomArchipelago.QueueLocation("Primordial Wyrm");
         }
     }
 }
