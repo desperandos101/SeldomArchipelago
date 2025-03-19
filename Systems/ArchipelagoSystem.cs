@@ -823,14 +823,13 @@ namespace SeldomArchipelago.Systems
             }
             else
             {
-                foreach (FlagID i in LocationSystem.GetChestFlags())
+                foreach (String loc in LocationSystem.GetAllLocNames())
                 {
-                    string baseName = LocationSystem.GetChestName(i);
-                    session.locGroupRewardNames[baseName] = new List<(int, string)>();
+                    session.locGroupRewardNames[loc] = new List<(int, string)>();
                     int counter = 1;
                     while (true)
                     {
-                        string fullName = $"{baseName} {counter}";
+                        string fullName = $"{loc} {counter}";
                         if (session.collectedLocations.Contains(fullName))
                         {
                             counter++;
@@ -840,7 +839,7 @@ namespace SeldomArchipelago.Systems
                             ScoutedItemInfo[] itemInfoArray = session.session.Locations.ScoutLocationsAsync(HintCreationPolicy.None, itemID).Result.Values.ToArray();
                             ScoutedItemInfo itemInfo = itemInfoArray[0];
                             string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
-                            session.locGroupRewardNames[baseName].Add((counter, itemName));
+                            session.locGroupRewardNames[loc].Add((counter, itemName));
                             counter++;
                         }
                         else

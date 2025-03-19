@@ -26,5 +26,11 @@ namespace SeldomArchipelago.Systems
         #endregion
         public static FlagID[] GetChestFlags() => biomeToChestLocationName.Keys.ToArray();
         public static string GetChestName(FlagID flag) => $"{biomeToChestLocationName[flag]} Chest";
+        public static string[] GetAllLocNames()
+        {
+            List<String> list =  biomeToChestLocationName.Values.ToList();
+            list.Add(EvilOrb);
+            return list.ToArray();
+        }
     }
 }

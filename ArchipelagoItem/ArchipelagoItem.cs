@@ -24,6 +24,7 @@ namespace SeldomArchipelago.ArchipelagoItem
     public class ArchipelagoItem : ModItem
     {
         private const string inactive = "Inactive AP Item";
+        public const string dummy = "null";
         private string? locType;
         private string? chestCheckName = null;
         public static List<(string, string, int)>[] chestMatrix = new List<(string, string, int)>[9];
@@ -42,6 +43,12 @@ namespace SeldomArchipelago.ArchipelagoItem
             if (locType == null) throw new Exception("Attempted to SetCheck an Architem with no locType assigned.");
 
             if (chestCheckName is not null) return;
+
+            if (locType == dummy)
+            {
+                chestCheckName = "Dummy Archipelago Item";
+                return;
+            }
             
             ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
             SessionState state = system.session;
@@ -74,6 +81,14 @@ namespace SeldomArchipelago.ArchipelagoItem
             SetCheckType(loc);
             SetCheck();
         }
+        public static ArchipelagoItem CreateItem(string loc)
+        {
+            var item = new Item(ModContent.ItemType<ArchipelagoItem>());
+            var archItem = item.ModItem as ArchipelagoItem;
+            archItem.SetCheck(loc);
+            return archItem;
+        }
+        public static ArchipelagoItem CreateDummyItem() => CreateItem(dummy);
         public override Microsoft.Xna.Framework.Color? GetAlpha(Microsoft.Xna.Framework.Color lightColor)
         {
             if (chestCheckName == inactive)
@@ -87,9 +102,15 @@ namespace SeldomArchipelago.ArchipelagoItem
         }
         public override void UpdateInventory(Player player)
         {
-            ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-            if (system.session is null) system.world.chestLocationFlagBacklog.Add(locType);
-            else { system.QueueLocationClient(chestCheckName); }
+            if (locType == dummy)
+            {
+                Main.NewText("Huzzah and forsooth, the dummy item has activated!");
+            } else
+            {
+                ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
+                if (system.session is null) system.world.chestLocationFlagBacklog.Add(locType);
+                else { system.QueueLocationClient(chestCheckName); }
+            }
             Item.TurnToAir();
             /*Main.AmbienceServer.ForceEntitySpawn(new AmbienceServer.AmbienceSpawnInfo
             {

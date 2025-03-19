@@ -8,17 +8,17 @@ using System;
 using SeldomArchipelago;
 using Terraria.GameContent.ItemDropRules;
 using System.Linq;
+using SeldomArchipelago.ArchipelagoItem;
 using System.Collections.Generic;
 using System.Numerics;
-using SeldomArchipelago.ArchipelagoItem;
 using System.Media;
 using SeldomArchipelago.Systems;
 
-namespace OrbLock
+namespace SeldomArchipelago.Locations
 {
     public class EntitySource_TileBreak_Rando : IEntitySource
     {
-        public string? Context { get; }
+        public string Context { get; }
     }
     public class CheckTileDrop : GlobalItem
     {
@@ -45,10 +45,9 @@ namespace OrbLock
                 };
                 if (orbItems.Contains(item.type))
                 {
-                    item.SetDefaults(ModContent.ItemType<ArchipelagoItem>());
-                    ArchipelagoItem archItem = item.ModItem as ArchipelagoItem;
-                    archItem.SetCheck(LocationSystem.EvilOrb);
-                    }
+                    item.SetDefaults(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
+                    var archItem = item.ModItem as ArchipelagoItem.ArchipelagoItem;
+                    archItem.SetCheck(ArchipelagoItem.ArchipelagoItem.dummy);
                 }
             }
         }
