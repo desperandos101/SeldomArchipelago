@@ -57,6 +57,9 @@ namespace SeldomArchipelago.Systems
             Dungeon,
             DungeonUpgrade,
             Mushroom,
+            Marble,
+            Granite,
+            Web,
             Underworld,
             BloodMoon,
             Dryad,
@@ -216,6 +219,9 @@ namespace SeldomArchipelago.Systems
                     }))
                     },
                     {"Mushroom Biome",          new Flag(FlagID.Mushroom) },
+                    {"Marble Biome",            new Flag(FlagID.Marble) },
+                    {"Granite Biome",           new Flag(FlagID.Granite) },
+                    {"Spider Nest",             new Flag(FlagID.Web) },
                     {"Underworld",              new Flag(FlagID.Underworld, theSideEffects: delegate(bool safe)
                     {
                         var chestList = from chest in Main.chest
@@ -336,6 +342,9 @@ namespace SeldomArchipelago.Systems
                     FlagID.Underworld,
                     FlagID.Jungle,
                     FlagID.Mushroom,
+                    FlagID.Marble,
+                    FlagID.Granite,
+                    FlagID.Web,
                     FlagID.Ocean,
                     FlagID.Evil
             ];
@@ -397,7 +406,9 @@ namespace SeldomArchipelago.Systems
                                             TileID.Sandstone, TileID.CorruptSandstone, TileID.CrimsonSandstone, TileID.HallowSandstone}),
                     (FlagID.Jungle, new int[] {    TileID.Hive, TileID.Larva, TileID.JunglePlants, TileID.JunglePlants2, TileID.JungleGrass, TileID.RichMahogany}),
                     (FlagID.JungleUpgrade, new int[] {TileID.Chlorophyte}),
-                    (FlagID.Mushroom, new int[] {  TileID.MushroomBlock, TileID.MushroomGrass, TileID.MushroomPlants})
+                    (FlagID.Mushroom, new int[] {  TileID.MushroomBlock, TileID.MushroomGrass, TileID.MushroomPlants}),
+                    (FlagID.Marble, new int[] { TileID.Marble}),
+                    (FlagID.Granite, new int[] { TileID.Granite})
 ];
 
             private static readonly (FlagID, int[])[] BiomeTreeSet =
@@ -463,7 +474,10 @@ namespace SeldomArchipelago.Systems
             #endregion
             #region Chest Checks
             private static readonly (FlagID, int[])[] BiomeChestSet = {
-                    (FlagID.Forest, new int[] {0, 12, 1, 15, 50, 51, 56}),
+                    (FlagID.Forest, new int[] {0, 12, 1, 56}),
+                    (FlagID.Granite, new int [] {50}),
+                    (FlagID.Marble, new int[] {51}),
+                    (FlagID.Web, new int[] {15}),
                     (FlagID.Snow, new int[] {11}),
                     (FlagID.Desert, new int[] {62, 69}),
                     (FlagID.Jungle, new int[] {10, 8}),
@@ -549,8 +563,10 @@ namespace SeldomArchipelago.Systems
                     (FlagID.Forest,new int[]   {NPCID.GreenSlime, NPCID.BlueSlime, NPCID.PurpleSlime, NPCID.Pinky, NPCID.Zombie, NPCID.DemonEye, NPCID.Raven, NPCID.GoblinScout, NPCID.KingSlime, NPCID.PossessedArmor, NPCID.WanderingEye, NPCID.Wraith, NPCID.Werewolf, NPCID.HoppinJack,
                                                 NPCID.GiantWormHead, NPCID.RedSlime, NPCID.YellowSlime, NPCID.DiggerHead, NPCID.ToxicSludge,
                                                 NPCID.BlackSlime, NPCID.MotherSlime, NPCID.BabySlime, NPCID.Skeleton, NPCID.CaveBat, NPCID.Salamander, NPCID.Crawdad, NPCID.GiantShelly, NPCID.UndeadMiner, NPCID.Tim, NPCID.Nymph, NPCID.CochinealBeetle,
-                                                NPCID.Mimic, NPCID.ArmoredSkeleton, NPCID.GiantBat, NPCID.RockGolem, NPCID.SkeletonArcher, NPCID.RuneWizard,
-                                                NPCID.GraniteGolem, NPCID.GraniteFlyer, NPCID.GreekSkeleton, NPCID.Medusa, NPCID.BlackRecluse, NPCID.WallCreeper}),
+                                                NPCID.Mimic, NPCID.ArmoredSkeleton, NPCID.GiantBat, NPCID.RockGolem, NPCID.SkeletonArcher, NPCID.RuneWizard}),
+                    (FlagID.Marble, new int[]  {NPCID.GreekSkeleton, NPCID.Medusa}),
+                    (FlagID.Granite, new int[] {NPCID.GraniteFlyer, NPCID.GraniteGolem}),
+                    (FlagID.Web, new int[]     {NPCID.BlackRecluse, NPCID.WallCreeper}),
                     (FlagID.Snow,  new int[]   {NPCID.IceSlime, NPCID.ZombieEskimo, NPCID.CorruptPenguin, NPCID.CrimsonPenguin, NPCID.IceElemental, NPCID.Wolf, NPCID.IceGolem,
                                                 NPCID.IceBat, NPCID.SnowFlinx, NPCID.SpikedIceSlime, NPCID.UndeadViking, NPCID.CyanBeetle, NPCID.ArmoredViking, NPCID.IceTortoise, NPCID.IceElemental, NPCID.IcyMerman, NPCID.IceMimic, NPCID.PigronCorruption, NPCID.PigronCrimson, NPCID.PigronHallow}),
                     (FlagID.Desert, new int[]  {NPCID.Vulture, NPCID.Antlion, NPCID.Mummy, NPCID.LightMummy, NPCID.DarkMummy, NPCID.BloodMummy,
@@ -581,6 +597,7 @@ namespace SeldomArchipelago.Systems
                 {
                 NPCID.SleepingAngler,
                 NPCID.BoundGoblin,
+                NPCID.WebbedStylist,
                 NPCID.BoundWizard,
                 NPCID.BartenderUnconscious,
                 NPCID.MartianProbe,
@@ -592,6 +609,7 @@ namespace SeldomArchipelago.Systems
                 {
                     case NPCID.SleepingAngler:          return !FlagIsActive(FlagID.Ocean);
                     case NPCID.BoundGoblin:             return !FlagIsActive(FlagID.GoblinTinkerer);
+                    case NPCID.WebbedStylist:           return !FlagIsActive(FlagID.Web);
                     case NPCID.BoundWizard:             return !FlagIsActive(FlagID.Wizard);
                     case NPCID.BartenderUnconscious:    return !FlagIsActive(FlagID.Tavernkeep);
                     case NPCID.MartianProbe:            return !FlagIsActive(FlagID.Martians);
@@ -833,19 +851,17 @@ namespace SeldomArchipelago.Systems
                         if (session.collectedLocations.Contains(fullName))
                         {
                             counter++;
+                            continue;
                         }
-                        else if (session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, fullName) is long itemID && itemID != -1)
-                        {
-                            ScoutedItemInfo[] itemInfoArray = session.session.Locations.ScoutLocationsAsync(HintCreationPolicy.None, itemID).Result.Values.ToArray();
-                            ScoutedItemInfo itemInfo = itemInfoArray[0];
-                            string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
-                            session.locGroupRewardNames[loc].Add((counter, itemName));
-                            counter++;
-                        }
-                        else
-                        {
-                            break;
-                        }
+                        long itemID = session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, fullName);
+                        if (itemID == -1) break;
+                        var itemInfoArrayPredecessor = session.session.Locations.ScoutLocationsAsync(HintCreationPolicy.None, itemID);
+                        ScoutedItemInfo[] itemInfoArray = itemInfoArrayPredecessor.Result.Values.ToArray();
+                        if (itemInfoArray.Length == 0) break;
+                        ScoutedItemInfo itemInfo = itemInfoArray[0];
+                        string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
+                        session.locGroupRewardNames[loc].Add((counter, itemName));
+                        counter++;
                     }
                 }
             }
@@ -1149,7 +1165,7 @@ namespace SeldomArchipelago.Systems
 
             while (session.session.Items.Any())
             {
-                var item = session.session.Items.DequeueItem();
+                ItemInfo item = session.session.Items.DequeueItem();
                 var itemName = item.ItemName;
 
                 if (session.currentItem++ < world.collectedItems)
