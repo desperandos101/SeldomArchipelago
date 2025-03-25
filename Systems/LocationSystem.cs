@@ -13,12 +13,15 @@ namespace SeldomArchipelago.Systems
         private static Dictionary<FlagID, string> biomeToChestLocationName = new Dictionary<FlagID, string>()
         {
             {FlagID.Forest, "Gold or Wooden"},
+            {FlagID.Granite, "Granite" },
+            {FlagID.Marble, "Marble" },
+            {FlagID.Web, "Web Covered" },
             {FlagID.Snow, "Frozen"},
             {FlagID.Desert, "Sandstone"},
             {FlagID.Jungle, "Ivy or Mahogany"},
             {FlagID.Ocean, "Water"},
             {FlagID.Sky, "Floating Island" },
-            {FlagID.Mushroom, "Mushroom Biome"},
+            {FlagID.Mushroom, "Mushroom"},
             {FlagID.Dungeon, "Dungeon"},
             {FlagID.Underworld, "Shadow"},
         };

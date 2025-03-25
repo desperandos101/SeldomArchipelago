@@ -37,6 +37,7 @@ using Microsoft.Xna.Framework.Content;
 using static SeldomArchipelago.Systems.ArchipelagoSystem.WorldState.Flag;
 using static SeldomArchipelago.Systems.ArchipelagoSystem.WorldState;
 using System.Runtime.Intrinsics.Arm;
+using Steamworks;
 
 namespace SeldomArchipelago.Systems
 {
@@ -694,8 +695,8 @@ namespace SeldomArchipelago.Systems
             public bool ReceiveAllEventsAsItems => safeUnlock == 2;
             // Multiple lists that contain the names of the items within enumerable location groups.
             // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
-            // Item1 is the number of a location, and Item2 is the full name of the item at said location.
-            public Dictionary<string, List<(int, string)>> locGroupRewardNames;
+            // Item1 is the name of a location, and Item2 is the full name of the item at said location.
+            public Dictionary<string, List<(string, string)>> locGroupRewardNames;
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
             public List<string> hardmodeBacklog = null;
             // Whether chests should be randomized.
@@ -829,39 +830,34 @@ namespace SeldomArchipelago.Systems
                 }
             }
 
-            String[] chestKeys = session.session.DataStorage[Scope.Slot, "ChestRewardNamesKeys"].To<String[]>();
-            List<(int, string)>[] chestValues = session.session.DataStorage[Scope.Slot, "ChestRewardNamesValues"].To<List<(int, string)>[]>();
-            session.locGroupRewardNames = new Dictionary<string, List<(int, string)>>();
-            if (chestKeys is not null)
+            String[] locKeys = session.session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<String[]>();
+            List<(string, string)>[] locValues = session.session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string)>[]>();
+            session.locGroupRewardNames = new Dictionary<string, List<(string, string)>>();
+            if (locKeys is not null)
             {
-                for (int i = 0; i < chestKeys.Length; i++)
+                for (int i = 0; i < locKeys.Length; i++)
                 {
-                    session.locGroupRewardNames[chestKeys[i]] = chestValues[i];
+                    session.locGroupRewardNames[locKeys[i]] = locValues[i];
                 }
             }
             else
             {
-                foreach (String loc in LocationSystem.GetAllLocNames())
+                object multiLocDictObject = success.SlotData["multi_loc_slot_dicts"];
+                var multiLocDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(multiLocDictObject.ToString());
+                foreach (string baseLoc in multiLocDict.Keys)
                 {
-                    session.locGroupRewardNames[loc] = new List<(int, string)>();
-                    int counter = 1;
-                    while (true)
+                    session.locGroupRewardNames[baseLoc] = new List<(string, string)>();
+                    string[] locs = multiLocDict[baseLoc].ToArray();
+                    long[] itemIDs = (from loc in locs select session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, loc)).ToArray();
+                    if (itemIDs.Contains(-1)) throw new Exception($"Some retrieved locations under {baseLoc} turned up -1 ids.");
+                    var itemInfoDictValues = session.session.Locations.ScoutLocationsAsync(itemIDs).Result.Values;
+                    foreach (ScoutedItemInfo itemInfo in itemInfoDictValues)
                     {
-                        string fullName = $"{loc} {counter}";
-                        if (session.collectedLocations.Contains(fullName))
-                        {
-                            counter++;
+                        string loc = itemInfo.LocationName;
+                        if (session.collectedLocations.Contains(loc))
                             continue;
-                        }
-                        long itemID = session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, fullName);
-                        if (itemID == -1) break;
-                        var itemInfoArrayPredecessor = session.session.Locations.ScoutLocationsAsync(HintCreationPolicy.None, itemID);
-                        ScoutedItemInfo[] itemInfoArray = itemInfoArrayPredecessor.Result.Values.ToArray();
-                        if (itemInfoArray.Length == 0) break;
-                        ScoutedItemInfo itemInfo = itemInfoArray[0];
                         string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
-                        session.locGroupRewardNames[loc].Add((counter, itemName));
-                        counter++;
+                        session.locGroupRewardNames[baseLoc].Add((loc, itemName));
                     }
                 }
             }
@@ -1199,8 +1195,8 @@ namespace SeldomArchipelago.Systems
             if (session != null)
             {
                 session.session.DataStorage[Scope.Slot, "CollectedLocations"] = session.collectedLocations.ToArray();
-                session.session.DataStorage[Scope.Slot, "ChestRewardNamesKeys"] = session.locGroupRewardNames.Keys.ToArray();
-                session.session.DataStorage[Scope.Slot, "ChestRewardNamesValues"] = session.locGroupRewardNames.Values.ToArray();
+                session.session.DataStorage[Scope.Slot, "LocRewardNamesKeys"] = session.locGroupRewardNames.Keys.ToArray();
+                session.session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = session.locGroupRewardNames.Values.ToArray();
                 session.session.DataStorage[Scope.Slot, "HardmodeBacklog"] = session.hardmodeBacklog.ToArray();
             }
             tag["ApReceivedRewards"] = WorldState.receivedRewards;

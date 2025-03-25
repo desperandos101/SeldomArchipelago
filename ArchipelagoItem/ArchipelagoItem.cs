@@ -70,10 +70,9 @@ namespace SeldomArchipelago.ArchipelagoItem
                 Item.SetNameOverride(inactive);
                 return;
             }
-            (int, string) tuple = state.locGroupRewardNames[locType][0];
-            state.locGroupRewardNames[locType].RemoveAt(0);
+            (string, string) tuple = state.locGroupRewardNames[locType][0];
 
-            chestCheckName = $"{locType} {tuple.Item1}";
+            chestCheckName = tuple.Item1;
             Item.SetNameOverride(tuple.Item2);
         }
         public void SetCheck(string loc)
@@ -109,7 +108,25 @@ namespace SeldomArchipelago.ArchipelagoItem
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
                 if (system.session is null) system.world.chestLocationFlagBacklog.Add(locType);
-                else { system.QueueLocationClient(chestCheckName); }
+                else
+                {
+                    bool locFoundAndRemoved = false;
+                    var locList = system.session.locGroupRewardNames[locType];
+                    for (int i = 0; i < locList.Count; i++)
+                    {
+                        if (locList[i].Item1 == chestCheckName)
+                        {
+                            locList.RemoveAt(i);
+                            system.QueueLocationClient(chestCheckName);
+                            locFoundAndRemoved = true;
+                            break;
+                        }
+                    }
+                    if (!locFoundAndRemoved)
+                    {
+                        throw new Exception($"Location {chestCheckName} not found in {locType} list.");
+                    }
+                }
             }
             Item.TurnToAir();
             /*Main.AmbienceServer.ForceEntitySpawn(new AmbienceServer.AmbienceSpawnInfo
