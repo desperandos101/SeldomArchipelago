@@ -34,7 +34,6 @@ using System.Security.Policy;
 
 using SeldomArchipelago.ArchipelagoItem;
 using Microsoft.Xna.Framework.Content;
-using static SeldomArchipelago.Systems.ArchipelagoSystem.WorldState.Flag;
 using static SeldomArchipelago.Systems.ArchipelagoSystem.WorldState;
 using System.Runtime.Intrinsics.Arm;
 using Steamworks;
@@ -90,8 +89,9 @@ namespace SeldomArchipelago.Systems
         {
 
         }
-        // Data that's reset between worlds
-        public class WorldState
+
+        // System that stores, manages, and processes flags
+        public class FlagSystem : TagSerializable
         {
             public class Flag
             {
@@ -121,7 +121,7 @@ namespace SeldomArchipelago.Systems
                     flagSet.Add(id);
                     return ActivateResult.Activated;
                 }
-                
+
                 public Flag(FlagID theID, Action<bool> theSideEffects = null, Flag theNestedFlag = null)
                 {
                     SideEffects = theSideEffects;
@@ -130,73 +130,25 @@ namespace SeldomArchipelago.Systems
                 }
                 #endregion
             }
-            // Achievements can be completed while loading into the world, but those complete before
-            // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
-            // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
-            // `ArchipelagoPlayer` knows not to clear them.
-            public List<string> achieved = new List<string>();
-            // Stores locations that were collected before Archipelago is started so they can be
-            // queued once it's started
-            public List<string> locationBacklog = new List<string>();
-            // Stores the flags of chest locations that were collected before Archipelago is started.
-            public List<string> chestLocationFlagBacklog = new List<string>();
-            // Number of items the player has collected in this world
-            public int collectedItems;
-            // List of rewards received in this world, so they don't get reapplied. Saved in the
-            // Terraria world instead of Archipelago data in case the player is, for example,
-            // playing Hardcore and wants to receive all the rewards again when making a new player/
-            // world.
-            public static List<int> receivedRewards = new List<int>();
-            //Whether this world has had its chests randomized.
-            public bool chestsRandomized;
-            #region Flag and Item Distribution
-
-            
-            
-            public static void GiveItem(int? item, Action<Player> giveItem)
-            {
-                if (item != null) receivedRewards.Add(item.Value);
-
-                for (var i = 0; i < Main.maxPlayers; i++)
-                {
-                    var player = Main.player[i];
-                    if (player.active)
-                    {
-                        giveItem(player);
-                        if (item != null)
-                        {
-                            if (Main.netMode == NetmodeID.Server)
-                            {
-                                var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
-                                packet.Write("YouGotAnItem");
-                                packet.Write(item.Value);
-                                packet.Send(i);
-                            }
-                            else player.GetModPlayer<ArchipelagoPlayer>().ReceivedReward(item.Value);
-                        }
-                    }
-                }
-            }
-
-            public static void GiveItem(int item) => GiveItem(item, player => player.QuickSpawnItem(player.GetSource_GiftOrReward(), item, 1));
-            public static void GiveItem<T>() where T : ModItem => GiveItem(ModContent.ItemType<T>());
-            #endregion
-            #region Flag Data Management
-            public void LoadFlagData(TagCompound tag)
-            {
-                if (tag.ContainsKey("activeFlags"))
-                    foreach (int i in tag.GetList<int>("activeFlags")) activeFlags.Add((FlagID)i);
-                activeFlags.Add(FlagID.Forest);
-            }
-            public void SaveFlagData(TagCompound tag)
-            {
-                tag["activeFlags"] = (from flag in activeFlags select (int)flag).ToList();
-            }
-            public bool IsFlagUnlocked(FlagID flag) => activeFlags.Contains(flag);
-            #endregion
             private HashSet<FlagID> activeFlags = new HashSet<FlagID>();
-
-            public bool FlagIsActive(FlagID flag) => activeFlags.Contains(flag);
+            public TagCompound SerializeData()
+            {
+                return new TagCompound
+                {
+                    ["activeFlags"] = activeFlags.ToList()
+                };
+            }
+            public static FlagSystem Load(TagCompound tag)
+            {
+                FlagSystem flagSystem = new();
+                if (tag.ContainsKey("activeFlags"))
+                {
+                    foreach (int i in tag.GetList<int>("activeFlags")) flagSystem.activeFlags.Add((FlagID)i);
+                }
+                flagSystem.activeFlags.Add(FlagID.Forest);
+                return flagSystem;
+            }
+            #region Static Data
             public static Dictionary<string, Flag> locToFlag = new Dictionary<string, Flag>()
                 {
                     {"Grappling Hook",          new Flag(FlagID.Hook, theSideEffects: delegate(bool safe)
@@ -349,7 +301,116 @@ namespace SeldomArchipelago.Systems
                     FlagID.Ocean,
                     FlagID.Evil
             ];
-            public ActivateResult UnlockFlag(string flagName, int receiveItemAs)
+            private static readonly (FlagID, int[])[] OtherTiles =
+[
+        (FlagID.Forest, new int[] {TileID.Plants, TileID.Iron, TileID.Copper, TileID.Gold, TileID.Silver,
+                                        TileID.Tin, TileID.Lead, TileID.Tungsten, TileID.Platinum,
+                                        TileID.ExposedGems, TileID.Sapphire, TileID.Ruby, TileID.Emerald, TileID.Topaz, TileID.Amethyst, TileID.Diamond}),
+                    (FlagID.Snow, new int[] {  TileID.SnowBlock, TileID.IceBlock, TileID.HallowedIce, TileID.CorruptIce, TileID.FleshIce}),
+                    (FlagID.Evil, new int[] {  TileID.ShadowOrbs, TileID.CorruptPlants, TileID.CrimsonPlants, TileID.Demonite, TileID.Crimtane, TileID.Ebonstone, TileID.Crimstone, TileID.CorruptGrass, TileID.CrimsonGrass,
+                                        TileID.Ebonsand, TileID.Crimsand, TileID.CorruptSandstone, TileID.CrimsonSandstone,
+                                        TileID.CorruptIce, TileID.FleshIce}),
+                    (FlagID.Dungeon, new int[] {TileID.Books}),
+                    (FlagID.Desert, new int[] {    TileID.AmberStoneBlock,
+                                            TileID.HardenedSand, TileID.CorruptHardenedSand, TileID.CrimsonHardenedSand, TileID.HallowHardenedSand,
+                                            TileID.Sandstone, TileID.CorruptSandstone, TileID.CrimsonSandstone, TileID.HallowSandstone}),
+                    (FlagID.Jungle, new int[] {    TileID.Hive, TileID.Larva, TileID.JunglePlants, TileID.JunglePlants2, TileID.JungleGrass, TileID.RichMahogany}),
+                    (FlagID.JungleUpgrade, new int[] {TileID.Chlorophyte}),
+                    (FlagID.Mushroom, new int[] {  TileID.MushroomBlock, TileID.MushroomGrass, TileID.MushroomPlants}),
+                    (FlagID.Marble, new int[] { TileID.Marble}),
+                    (FlagID.Granite, new int[] { TileID.Granite})
+];
+            private static readonly (FlagID, int[])[] BiomeTreeSet =
+            {
+                    (FlagID.Forest, new int[]         {ItemRef.ForestTree, ItemRef.SakuraTree, ItemRef.YellowWillowTree,
+                                                       ItemRef.TopazTree, ItemRef.AmethystTree, ItemRef.SapphireTree, ItemRef.EmeraldTree, ItemRef.RubyTree, ItemRef.DiamondTree, ItemRef.AmberTree}),
+                    (FlagID.Snow, new int[]            {ItemRef.SnowTree}),
+                    (FlagID.Desert, new int[]          {ItemRef.Cactus}),
+                    (FlagID.Jungle, new int[]          {ItemRef.JungleTree, ItemRef.UndergroundJungleTree}),
+                    (FlagID.Ocean, new int[]   {ItemRef.PalmTree}),
+                    (FlagID.Mushroom, new int[]        {ItemRef.GiantGlowingMushroom, ItemRef.GiantGlowingMushroomSurface}),
+                    (FlagID.Underworld, new int[]            {ItemRef.AshTree}),
+                    (FlagID.Evil, new int[]            {ItemRef.CorruptTree, ItemRef.CrimsonTree})
+                };
+            private static readonly Dictionary<int, FlagID> BiomeHerbSet = new Dictionary<int, FlagID>()
+                {
+                    {0, FlagID.Forest},
+                    {1, FlagID.Jungle},
+                    {2, FlagID.Forest},
+                    {3, FlagID.Evil},
+                    {4, FlagID.Desert},
+                    {5, FlagID.Underworld},
+                    {6, FlagID.Snow},
+                };
+            private static readonly (FlagID, int[])[] BiomeChestSet = {
+                    (FlagID.Forest, new int[] {0, 12, 1, 56}),
+                    (FlagID.Granite, new int [] {50}),
+                    (FlagID.Marble, new int[] {51}),
+                    (FlagID.Web, new int[] {15}),
+                    (FlagID.Snow, new int[] {11}),
+                    (FlagID.Desert, new int[] {62, 69}),
+                    (FlagID.Jungle, new int[] {10, 8}),
+                    (FlagID.Ocean, new int[] {17}),
+                    (FlagID.Sky, new int[] {13}),
+                    (FlagID.Mushroom, new int[] {32}),
+                    (FlagID.Dungeon, new int[] {2}),
+                    (FlagID.Underworld, new int[] {4}),
+                };
+            public static FlagID? GetChestRegion(int i, int j)
+            {
+                Terraria.Tile chest = Main.tile[i, j];
+                int id = chest.IDChest();
+                return BiomeChestSet.UseAsDict(id);
+            }
+            private static readonly (FlagID, int[])[] BiomeHerbItemIDSet =
+    [
+    (FlagID.Forest, [ItemID.Daybloom, ItemID.DaybloomSeeds, ItemID.Blinkroot, ItemID.BlinkrootSeeds] ),
+                (FlagID.Jungle, [ItemID.Moonglow, ItemID.MoonglowSeeds] ),
+                (FlagID.Evil, [ItemID.Deathweed, ItemID.DeathweedSeeds] ),
+                (FlagID.Desert, [ItemID.Waterleaf, ItemID.WaterleafSeeds] ),
+                (FlagID.Underworld, [ItemID.Fireblossom, ItemID.FireblossomSeeds] ),
+                (FlagID.Snow, [ItemID.Shiverthorn, ItemID.ShiverthornSeeds] ),
+                ];
+            private static readonly (FlagID, int[])[] FlagNPCSet = [
+                    (FlagID.Forest,new int[]   {NPCID.GreenSlime, NPCID.BlueSlime, NPCID.PurpleSlime, NPCID.Pinky, NPCID.Zombie, NPCID.DemonEye, NPCID.Raven, NPCID.GoblinScout, NPCID.KingSlime, NPCID.PossessedArmor, NPCID.WanderingEye, NPCID.Wraith, NPCID.Werewolf, NPCID.HoppinJack,
+                                                NPCID.GiantWormHead, NPCID.RedSlime, NPCID.YellowSlime, NPCID.DiggerHead, NPCID.ToxicSludge,
+                                                NPCID.BlackSlime, NPCID.MotherSlime, NPCID.BabySlime, NPCID.Skeleton, NPCID.CaveBat, NPCID.Salamander, NPCID.Crawdad, NPCID.GiantShelly, NPCID.UndeadMiner, NPCID.Tim, NPCID.Nymph, NPCID.CochinealBeetle,
+                                                NPCID.Mimic, NPCID.ArmoredSkeleton, NPCID.GiantBat, NPCID.RockGolem, NPCID.SkeletonArcher, NPCID.RuneWizard}),
+                    (FlagID.Marble, new int[]  {NPCID.GreekSkeleton, NPCID.Medusa}),
+                    (FlagID.Granite, new int[] {NPCID.GraniteFlyer, NPCID.GraniteGolem}),
+                    (FlagID.Web, new int[]     {NPCID.BlackRecluse, NPCID.WallCreeper}),
+                    (FlagID.Snow,  new int[]   {NPCID.IceSlime, NPCID.ZombieEskimo, NPCID.CorruptPenguin, NPCID.CrimsonPenguin, NPCID.IceElemental, NPCID.Wolf, NPCID.IceGolem,
+                                                NPCID.IceBat, NPCID.SnowFlinx, NPCID.SpikedIceSlime, NPCID.UndeadViking, NPCID.CyanBeetle, NPCID.ArmoredViking, NPCID.IceTortoise, NPCID.IceElemental, NPCID.IcyMerman, NPCID.IceMimic, NPCID.PigronCorruption, NPCID.PigronCrimson, NPCID.PigronHallow}),
+                    (FlagID.Desert, new int[]  {NPCID.Vulture, NPCID.Antlion, NPCID.Mummy, NPCID.LightMummy, NPCID.DarkMummy, NPCID.BloodMummy,
+                                                NPCID.Tumbleweed, NPCID.SandElemental, NPCID.SandShark, NPCID.SandsharkCorrupt, NPCID.SandsharkCrimson, NPCID.SandsharkHallow,
+                                                NPCID.WalkingAntlion, NPCID.LarvaeAntlion, NPCID.FlyingAntlion, NPCID.GiantWalkingAntlion, NPCID.GiantFlyingAntlion, NPCID.SandSlime, NPCID.TombCrawlerHead,
+                                                NPCID.DesertBeast, NPCID.DesertScorpionWalk, NPCID.DesertLamiaLight, NPCID.DesertLamiaDark, NPCID.DuneSplicerHead, NPCID.DesertGhoul, NPCID.DesertGhoulCorruption, NPCID.DesertGhoulCrimson, NPCID.DesertGhoulHallow, NPCID.DesertDjinn}),
+                    (FlagID.Jungle, new int[]  {NPCID.JungleSlime, NPCID.JungleBat, NPCID.Snatcher, NPCID.DoctorBones, NPCID.Derpling, NPCID.GiantTortoise, NPCID.GiantFlyingFox, NPCID.Arapaima, NPCID.AngryTrapper,
+                                                NPCID.Hornet, NPCID.ManEater, NPCID.SpikedJungleSlime, NPCID.LacBeetle, NPCID.JungleCreeper, NPCID.Moth, NPCID.MossHornet}),
+                    (FlagID.Ocean, new int[]   {NPCID.BlueJellyfish, NPCID.PinkJellyfish, NPCID.GreenJellyfish, NPCID.Piranha, NPCID.AnglerFish, NPCID.Crab, NPCID.Squid, NPCID.SeaSnail, NPCID.Shark}),
+                    (FlagID.Sky,   new int[]   {NPCID.Harpy, NPCID.WyvernHead}),
+                    (FlagID.Underworld,new int[]{NPCID.Hellbat, NPCID.LavaSlime, NPCID.FireImp, NPCID.Demon, NPCID.VoodooDemon, NPCID.BoneSerpentHead, NPCID.Lavabat, NPCID.RedDevil}),
+                    (FlagID.Evil,  new int[]   {NPCID.EaterofSouls, NPCID.CorruptGoldfish, NPCID.DevourerHead, NPCID.Corruptor, NPCID.CorruptSlime, NPCID.Slimeling, NPCID.Slimer, NPCID.Slimer2, NPCID.SeekerHead, NPCID.DarkMummy,
+                                                NPCID.CursedHammer, NPCID.Clinger, NPCID.BigMimicCorruption, NPCID.DesertGhoulCorruption, NPCID.PigronCorruption,
+                                                NPCID.BloodCrawler, NPCID.CrimsonGoldfish, NPCID.FaceMonster, NPCID.Crimera, NPCID.Herpling, NPCID.Crimslime, NPCID.BloodJelly, NPCID.BloodFeeder, NPCID.BloodMummy,
+                                                NPCID.CrimsonAxe, NPCID.IchorSticker, NPCID.FloatyGross, NPCID.BigMimicCrimson, NPCID.DesertGhoulCrimson, NPCID.PigronCrimson}),
+                    (FlagID.Mushroom, new int[] {NPCID.AnomuraFungus, NPCID.FungiBulb, NPCID.MushiLadybug, NPCID.SporeBat, NPCID.SporeSkeleton, NPCID.ZombieMushroom,
+                                                NPCID.FungoFish, NPCID.GiantFungiBulb})
+                ];
+            public static FlagID? GetNPCRegion(NPC npc) => FlagNPCSet.UseAsDict(npc.IDNPC());
+            private static readonly Dictionary<int, FlagID> FreeNPCSet = new()
+                {
+                    {NPCID.Dryad, FlagID.Dryad },
+                    {NPCID.WitchDoctor, FlagID.WitchDoctor },
+                    {NPCID.Steampunker, FlagID.Steampunker },
+                    {NPCID.Clothier, FlagID.Clothier },
+                    {NPCID.Pirate, FlagID.Pirate },
+                    {NPCID.Cyborg, FlagID.Cyborg },
+                    {NPCID.SantaClaus, FlagID.SantaClaus },
+                };
+            #endregion
+            public bool FlagIsActive(FlagID flag) => activeFlags.Contains(flag);
+            public Flag.ActivateResult UnlockFlag(string flagName, int receiveItemAs)
             {
                 Flag flag = locToFlag[flagName];
                 bool safeUnlock = receiveItemAs == 2 || (receiveItemAs == 1 && flagName == "Hardmode");
@@ -392,48 +453,7 @@ namespace SeldomArchipelago.Systems
             public bool IllegalDepth(int j) => j >= Main.UnderworldLayer && !FlagIsActive(FlagID.Underworld);
             #endregion
             #region Tile Checks
-            private static readonly (FlagID, int[])[] OtherTiles =
-[
-        (FlagID.Forest, new int[] {TileID.Plants, TileID.Iron, TileID.Copper, TileID.Gold, TileID.Silver,
-                                        TileID.Tin, TileID.Lead, TileID.Tungsten, TileID.Platinum,
-                                        TileID.ExposedGems, TileID.Sapphire, TileID.Ruby, TileID.Emerald, TileID.Topaz, TileID.Amethyst, TileID.Diamond}),
-                    (FlagID.Snow, new int[] {  TileID.SnowBlock, TileID.IceBlock, TileID.HallowedIce, TileID.CorruptIce, TileID.FleshIce}),
-                    (FlagID.Evil, new int[] {  TileID.ShadowOrbs, TileID.CorruptPlants, TileID.CrimsonPlants, TileID.Demonite, TileID.Crimtane, TileID.Ebonstone, TileID.Crimstone, TileID.CorruptGrass, TileID.CrimsonGrass,
-                                        TileID.Ebonsand, TileID.Crimsand, TileID.CorruptSandstone, TileID.CrimsonSandstone,
-                                        TileID.CorruptIce, TileID.FleshIce}),
-                    (FlagID.Dungeon, new int[] {TileID.Books}),
-                    (FlagID.Desert, new int[] {    TileID.AmberStoneBlock,
-                                            TileID.HardenedSand, TileID.CorruptHardenedSand, TileID.CrimsonHardenedSand, TileID.HallowHardenedSand,
-                                            TileID.Sandstone, TileID.CorruptSandstone, TileID.CrimsonSandstone, TileID.HallowSandstone}),
-                    (FlagID.Jungle, new int[] {    TileID.Hive, TileID.Larva, TileID.JunglePlants, TileID.JunglePlants2, TileID.JungleGrass, TileID.RichMahogany}),
-                    (FlagID.JungleUpgrade, new int[] {TileID.Chlorophyte}),
-                    (FlagID.Mushroom, new int[] {  TileID.MushroomBlock, TileID.MushroomGrass, TileID.MushroomPlants}),
-                    (FlagID.Marble, new int[] { TileID.Marble}),
-                    (FlagID.Granite, new int[] { TileID.Granite})
-];
-
-            private static readonly (FlagID, int[])[] BiomeTreeSet =
-            {
-                    (FlagID.Forest, new int[]         {ItemRef.ForestTree, ItemRef.SakuraTree, ItemRef.YellowWillowTree,
-                                                       ItemRef.TopazTree, ItemRef.AmethystTree, ItemRef.SapphireTree, ItemRef.EmeraldTree, ItemRef.RubyTree, ItemRef.DiamondTree, ItemRef.AmberTree}),
-                    (FlagID.Snow, new int[]            {ItemRef.SnowTree}),
-                    (FlagID.Desert, new int[]          {ItemRef.Cactus}),
-                    (FlagID.Jungle, new int[]          {ItemRef.JungleTree, ItemRef.UndergroundJungleTree}),
-                    (FlagID.Ocean, new int[]   {ItemRef.PalmTree}),
-                    (FlagID.Mushroom, new int[]        {ItemRef.GiantGlowingMushroom, ItemRef.GiantGlowingMushroomSurface}),
-                    (FlagID.Underworld, new int[]            {ItemRef.AshTree}),
-                    (FlagID.Evil, new int[]            {ItemRef.CorruptTree, ItemRef.CrimsonTree})
-                };
-            private static readonly Dictionary<int, FlagID> BiomeHerbSet = new Dictionary<int, FlagID>()
-                {
-                    {0, FlagID.Forest},
-                    {1, FlagID.Jungle},
-                    {2, FlagID.Forest},
-                    {3, FlagID.Evil},
-                    {4, FlagID.Desert},
-                    {5, FlagID.Underworld},
-                    {6, FlagID.Snow},
-                };
+            
 
             public bool TileRegionUnlocked(int i, int j, Player player = null)
             {
@@ -474,27 +494,7 @@ namespace SeldomArchipelago.Systems
             }
             #endregion
             #region Chest Checks
-            private static readonly (FlagID, int[])[] BiomeChestSet = {
-                    (FlagID.Forest, new int[] {0, 12, 1, 56}),
-                    (FlagID.Granite, new int [] {50}),
-                    (FlagID.Marble, new int[] {51}),
-                    (FlagID.Web, new int[] {15}),
-                    (FlagID.Snow, new int[] {11}),
-                    (FlagID.Desert, new int[] {62, 69}),
-                    (FlagID.Jungle, new int[] {10, 8}),
-                    (FlagID.Ocean, new int[] {17}),
-                    (FlagID.Sky, new int[] {13}),
-                    (FlagID.Mushroom, new int[] {32}),
-                    (FlagID.Dungeon, new int[] {2}),
-                    (FlagID.Underworld, new int[] {4}),
-                };
-            public List<int> chestChecked = new();
-            public static FlagID? GetChestRegion(int i, int j)
-            {
-                Terraria.Tile chest = Main.tile[i, j];
-                int id = chest.IDChest();
-                return BiomeChestSet.UseAsDict(id);
-            }
+            
             public bool ChestRegionUnlocked(int i, int j)
             {
                 if (IllegalDepth(j)) return false;
@@ -539,54 +539,20 @@ namespace SeldomArchipelago.Systems
                     }
                 }
             }
-            private static readonly (FlagID, int[])[] BiomeHerbItemIDSet =
-                [
-                (FlagID.Forest, [ItemID.Daybloom, ItemID.DaybloomSeeds, ItemID.Blinkroot, ItemID.BlinkrootSeeds] ),
-                (FlagID.Jungle, [ItemID.Moonglow, ItemID.MoonglowSeeds] ),
-                (FlagID.Evil, [ItemID.Deathweed, ItemID.DeathweedSeeds] ),
-                (FlagID.Desert, [ItemID.Waterleaf, ItemID.WaterleafSeeds] ),
-                (FlagID.Underworld, [ItemID.Fireblossom, ItemID.FireblossomSeeds] ),
-                (FlagID.Snow, [ItemID.Shiverthorn, ItemID.ShiverthornSeeds] ),
-                ];
+
             public int[] GetLegalHerbs()
             {
                 List<int> herbList = new List<int>();
                 foreach ((FlagID, int[]) tuple in BiomeHerbItemIDSet)
                 {
                     FlagID flag = tuple.Item1;
-                    if (IsFlagUnlocked(flag)) herbList.AddRange(tuple.Item2);
+                    if (FlagIsActive(flag)) herbList.AddRange(tuple.Item2);
                 }
                 return herbList.ToArray();
             }
             #endregion
             #region NPC Checks
-            private static readonly (FlagID, int[])[] FlagNPCSet = [
-                    (FlagID.Forest,new int[]   {NPCID.GreenSlime, NPCID.BlueSlime, NPCID.PurpleSlime, NPCID.Pinky, NPCID.Zombie, NPCID.DemonEye, NPCID.Raven, NPCID.GoblinScout, NPCID.KingSlime, NPCID.PossessedArmor, NPCID.WanderingEye, NPCID.Wraith, NPCID.Werewolf, NPCID.HoppinJack,
-                                                NPCID.GiantWormHead, NPCID.RedSlime, NPCID.YellowSlime, NPCID.DiggerHead, NPCID.ToxicSludge,
-                                                NPCID.BlackSlime, NPCID.MotherSlime, NPCID.BabySlime, NPCID.Skeleton, NPCID.CaveBat, NPCID.Salamander, NPCID.Crawdad, NPCID.GiantShelly, NPCID.UndeadMiner, NPCID.Tim, NPCID.Nymph, NPCID.CochinealBeetle,
-                                                NPCID.Mimic, NPCID.ArmoredSkeleton, NPCID.GiantBat, NPCID.RockGolem, NPCID.SkeletonArcher, NPCID.RuneWizard}),
-                    (FlagID.Marble, new int[]  {NPCID.GreekSkeleton, NPCID.Medusa}),
-                    (FlagID.Granite, new int[] {NPCID.GraniteFlyer, NPCID.GraniteGolem}),
-                    (FlagID.Web, new int[]     {NPCID.BlackRecluse, NPCID.WallCreeper}),
-                    (FlagID.Snow,  new int[]   {NPCID.IceSlime, NPCID.ZombieEskimo, NPCID.CorruptPenguin, NPCID.CrimsonPenguin, NPCID.IceElemental, NPCID.Wolf, NPCID.IceGolem,
-                                                NPCID.IceBat, NPCID.SnowFlinx, NPCID.SpikedIceSlime, NPCID.UndeadViking, NPCID.CyanBeetle, NPCID.ArmoredViking, NPCID.IceTortoise, NPCID.IceElemental, NPCID.IcyMerman, NPCID.IceMimic, NPCID.PigronCorruption, NPCID.PigronCrimson, NPCID.PigronHallow}),
-                    (FlagID.Desert, new int[]  {NPCID.Vulture, NPCID.Antlion, NPCID.Mummy, NPCID.LightMummy, NPCID.DarkMummy, NPCID.BloodMummy,
-                                                NPCID.Tumbleweed, NPCID.SandElemental, NPCID.SandShark, NPCID.SandsharkCorrupt, NPCID.SandsharkCrimson, NPCID.SandsharkHallow,
-                                                NPCID.WalkingAntlion, NPCID.LarvaeAntlion, NPCID.FlyingAntlion, NPCID.GiantWalkingAntlion, NPCID.GiantFlyingAntlion, NPCID.SandSlime, NPCID.TombCrawlerHead,
-                                                NPCID.DesertBeast, NPCID.DesertScorpionWalk, NPCID.DesertLamiaLight, NPCID.DesertLamiaDark, NPCID.DuneSplicerHead, NPCID.DesertGhoul, NPCID.DesertGhoulCorruption, NPCID.DesertGhoulCrimson, NPCID.DesertGhoulHallow, NPCID.DesertDjinn}),
-                    (FlagID.Jungle, new int[]  {NPCID.JungleSlime, NPCID.JungleBat, NPCID.Snatcher, NPCID.DoctorBones, NPCID.Derpling, NPCID.GiantTortoise, NPCID.GiantFlyingFox, NPCID.Arapaima, NPCID.AngryTrapper,
-                                                NPCID.Hornet, NPCID.ManEater, NPCID.SpikedJungleSlime, NPCID.LacBeetle, NPCID.JungleCreeper, NPCID.Moth, NPCID.MossHornet}),
-                    (FlagID.Ocean, new int[]   {NPCID.BlueJellyfish, NPCID.PinkJellyfish, NPCID.GreenJellyfish, NPCID.Piranha, NPCID.AnglerFish, NPCID.Crab, NPCID.Squid, NPCID.SeaSnail, NPCID.Shark}),
-                    (FlagID.Sky,   new int[]   {NPCID.Harpy, NPCID.WyvernHead}),
-                    (FlagID.Underworld,new int[]{NPCID.Hellbat, NPCID.LavaSlime, NPCID.FireImp, NPCID.Demon, NPCID.VoodooDemon, NPCID.BoneSerpentHead, NPCID.Lavabat, NPCID.RedDevil}),
-                    (FlagID.Evil,  new int[]   {NPCID.EaterofSouls, NPCID.CorruptGoldfish, NPCID.DevourerHead, NPCID.Corruptor, NPCID.CorruptSlime, NPCID.Slimeling, NPCID.Slimer, NPCID.Slimer2, NPCID.SeekerHead, NPCID.DarkMummy,
-                                                NPCID.CursedHammer, NPCID.Clinger, NPCID.BigMimicCorruption, NPCID.DesertGhoulCorruption, NPCID.PigronCorruption,
-                                                NPCID.BloodCrawler, NPCID.CrimsonGoldfish, NPCID.FaceMonster, NPCID.Crimera, NPCID.Herpling, NPCID.Crimslime, NPCID.BloodJelly, NPCID.BloodFeeder, NPCID.BloodMummy,
-                                                NPCID.CrimsonAxe, NPCID.IchorSticker, NPCID.FloatyGross, NPCID.BigMimicCrimson, NPCID.DesertGhoulCrimson, NPCID.PigronCrimson}),
-                    (FlagID.Mushroom, new int[] {NPCID.AnomuraFungus, NPCID.FungiBulb, NPCID.MushiLadybug, NPCID.SporeBat, NPCID.SporeSkeleton, NPCID.ZombieMushroom,
-                                                NPCID.FungoFish, NPCID.GiantFungiBulb})
-                ];
-            public static FlagID? GetNPCRegion(NPC npc) => FlagNPCSet.UseAsDict(npc.IDNPC());
+            
             public bool NPCRegionUnlocked(DropAttemptInfo info)
             {
                 FlagID? biome = GetNPCRegion(info.npc);
@@ -608,13 +574,13 @@ namespace SeldomArchipelago.Systems
             {
                 switch (id)
                 {
-                    case NPCID.SleepingAngler:          return !FlagIsActive(FlagID.Ocean);
-                    case NPCID.BoundGoblin:             return !FlagIsActive(FlagID.GoblinTinkerer);
-                    case NPCID.WebbedStylist:           return !FlagIsActive(FlagID.Web);
-                    case NPCID.BoundWizard:             return !FlagIsActive(FlagID.Wizard);
-                    case NPCID.BartenderUnconscious:    return !FlagIsActive(FlagID.Tavernkeep);
-                    case NPCID.MartianProbe:            return !FlagIsActive(FlagID.Martians);
-                    case NPCID.EmpressButterfly:        return !FlagIsActive(FlagID.PrismaticLacewing);
+                    case NPCID.SleepingAngler: return !FlagIsActive(FlagID.Ocean);
+                    case NPCID.BoundGoblin: return !FlagIsActive(FlagID.GoblinTinkerer);
+                    case NPCID.WebbedStylist: return !FlagIsActive(FlagID.Web);
+                    case NPCID.BoundWizard: return !FlagIsActive(FlagID.Wizard);
+                    case NPCID.BartenderUnconscious: return !FlagIsActive(FlagID.Tavernkeep);
+                    case NPCID.MartianProbe: return !FlagIsActive(FlagID.Martians);
+                    case NPCID.EmpressButterfly: return !FlagIsActive(FlagID.PrismaticLacewing);
                     default: return false;
                 }
             }
@@ -643,16 +609,7 @@ namespace SeldomArchipelago.Systems
                     dict[id] = BoundNPCFindable(id, info) ? 1f : 0f;
                 }
             }
-            private static readonly Dictionary<int, FlagID> FreeNPCSet = new()
-                {
-                    {NPCID.Dryad, FlagID.Dryad },
-                    {NPCID.WitchDoctor, FlagID.WitchDoctor },
-                    {NPCID.Steampunker, FlagID.Steampunker },
-                    {NPCID.Clothier, FlagID.Clothier },
-                    {NPCID.Pirate, FlagID.Pirate },
-                    {NPCID.Cyborg, FlagID.Cyborg },
-                    {NPCID.SantaClaus, FlagID.SantaClaus },
-                };
+
             public bool FreeNPCSpawnable(int npcID) => FlagIsActive(FreeNPCSet[npcID]) && !NPC.AnyNPCs(npcID);
             #endregion
             #region Item Checks
@@ -660,22 +617,83 @@ namespace SeldomArchipelago.Systems
             {
                 switch (id)
                 {
-                    case ItemID.SolarTable:             return FlagIsActive(FlagID.Eclipse);
-                    case ItemID.BloodMoonStarter:       return FlagIsActive(FlagID.BloodMoon);
-                    case ItemID.GoblinBattleStandard:   return FlagIsActive(FlagID.GoblinArmy);
-                    case ItemID.PirateMap:              return FlagIsActive(FlagID.PirateInvasion);
-                    case ItemID.PumpkinMoonMedallion:   return FlagIsActive(FlagID.PumpkinMoon);
-                    case ItemID.NaughtyPresent:         return FlagIsActive(FlagID.FrostMoon);
+                    case ItemID.SolarTable: return FlagIsActive(FlagID.Eclipse);
+                    case ItemID.BloodMoonStarter: return FlagIsActive(FlagID.BloodMoon);
+                    case ItemID.GoblinBattleStandard: return FlagIsActive(FlagID.GoblinArmy);
+                    case ItemID.PirateMap: return FlagIsActive(FlagID.PirateInvasion);
+                    case ItemID.PumpkinMoonMedallion: return FlagIsActive(FlagID.PumpkinMoon);
+                    case ItemID.NaughtyPresent: return FlagIsActive(FlagID.FrostMoon);
                     default: return true;
                 }
             }
             #endregion
+        }
 
+        // Data that's reset and specific between worlds
+        public class WorldState
+        {
+            
+            // Achievements can be completed while loading into the world, but those complete before
+            // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
+            // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
+            // `ArchipelagoPlayer` knows not to clear them.
+            public List<string> achieved = new List<string>();
+            // Stores locations that were collected before Archipelago is started so they can be
+            // queued once it's started
+            public List<string> locationBacklog = new List<string>();
+            // Stores the flags of chest locations that were collected before Archipelago is started.
+            public List<string> chestLocationFlagBacklog = new List<string>();
+            // Number of items the player has collected in this world
+            public int collectedItems;
+            // List of rewards received in this world, so they don't get reapplied. Saved in the
+            // Terraria world instead of Archipelago data in case the player is, for example,
+            // playing Hardcore and wants to receive all the rewards again when making a new player/
+            // world.
+            public static List<int> receivedRewards = new List<int>();
+            //Whether this world has had its chests randomized.
+            public bool chestsRandomized;
+
+        }
+
+        // SessionState data that's saved to a world in case of offline play
+        public class SessionMemory : TagSerializable
+        {
+            public FlagSystem flagSystem;
+            // Stores locations that were collected before Archipelago is started so they can be
+            // queued once it's started
+            public SessionMemory(SessionState state = null)
+            {
+                if (state == null) return;
+                flagSystem = state.flagSystem;
+                locationBacklog = state.recei
+            }
+            public TagCompound SerializeData()
+            {
+                return new TagCompound
+                {
+                    ["FlagSystem"] = flagSystem,
+                    ["locationBacklog"] = locationBacklog,
+                    ["chestLocationFlagBacklog"] = chestLocationFlagBacklog,
+                    ["collectedItems"] = collectedItems,
+                    ["receivedRewards"] = receivedRewards
+                };
+            }
+            public static SessionMemory Load(TagCompound tag)
+            {
+                SessionMemory sessionMemory = new SessionMemory();
+                sessionMemory.flagSystem = tag.Get<FlagSystem>("FlagSystem");
+                sessionMemory.locationBacklog = tag.Get<List<string>>("locationBacklog");
+                sessionMemory.chestLocationFlagBacklog = tag.Get<List<string>>("chestLocationFlagBacklog");
+                sessionMemory.collectedItems = tag.GetInt("collectedItems");
+                sessionMemory.receivedRewards = tag.Get<List<int>>("receivedRewards");
+                return sessionMemory;
+            }
         }
 
         // Data that's reset between Archipelago sessions
         public class SessionState
         {
+            public FlagSystem flagSystem = new();
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -725,7 +743,7 @@ namespace SeldomArchipelago.Systems
             world.chestsRandomized = tag.ContainsKey("ApChestsRandomized") ? tag.GetBool("ApChestsRandomized") : false;
             if (!world.chestsRandomized && session is not null && session.randomizeChests)
             {
-                WorldState.UpdateChests();
+                FlagSystem.UpdateChests();
                 world.chestsRandomized = true;
             }
             else if (world.chestsRandomized && session is not null && !session.randomizeChests)
@@ -766,6 +784,7 @@ namespace SeldomArchipelago.Systems
 
             session = new();
             session.session = newSession;
+            FlagSystem flagSystem = session.flagSystem;
 
             var locations = session.session.DataStorage[Scope.Slot, "CollectedLocations"].To<String[]>();
             if (locations != null)
@@ -799,12 +818,12 @@ namespace SeldomArchipelago.Systems
 
             if (!(bool)success.SlotData["biome_locks"])
             {
-                world.UnlockBiomesNormally();
+                flagSystem.UnlockBiomesNormally();
             }
 
             if (!(bool)success.SlotData["grappling_hook_rando"])
             {
-                world.UnlockHookNormally();
+                flagSystem.UnlockHookNormally();
             }
 
             session.slot = success.Slot;
