@@ -51,12 +51,11 @@ namespace SeldomArchipelago.ArchipelagoItem
             }
             
             ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-            SessionState state = system.session;
+            SessionMemory state = system.Session;
 
             if (state is null)
             {
-                Item.SetNameOverride($"{locType} Item");
-                return;
+                throw new Exception("Attempted to activate an APitem in a non-AP world!");
             }
 
             if (!state.locGroupRewardNames.ContainsKey(locType))
@@ -107,8 +106,7 @@ namespace SeldomArchipelago.ArchipelagoItem
             } else
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-                if (system.session is null) system.world.chestLocationFlagBacklog.Add(locType);
-                else
+                SessionMemory session = system.Session;
                 {
                     bool locFoundAndRemoved = false;
                     var locList = system.session.locGroupRewardNames[locType];

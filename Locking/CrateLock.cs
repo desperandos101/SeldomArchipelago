@@ -24,7 +24,7 @@ namespace SeldomArchipelago.Locking
     }
     public class HerbBagDropsItemDropFlagRule : IItemDropRule // I COPY PASTED THIS FROM SOURCE CODE DON'T LOOK
     {
-        public new int[] dropIds => ModContent.GetInstance<ArchipelagoSystem>().world.GetLegalHerbs();
+        public new int[] dropIds => ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem.GetLegalHerbs();
 
         public List<IItemDropRuleChainAttempt> ChainedRules
         {

@@ -14,12 +14,12 @@ namespace SeldomArchipelago.Locking
     internal class ItemLock : GlobalItem
     {
         public override bool CanUseItem(Item item, Player player) {
-            WorldState world = ModContent.GetInstance<ArchipelagoSystem>().world;
-            if (!world.ItemIsUsable(item.type)) {
+            var flags = ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem;
+            if (!flags.ItemIsUsable(item.type)) {
                 Main.NewText("You have not unlocked this event yet!");
                 return false;
             }
-            if (item.IsGrapplingHook() && !world.IsFlagUnlocked(FlagID.Hook))
+            if (item.IsGrapplingHook() && !flags.FlagIsActive(FlagID.Hook))
             {
                 Main.NewText("You cannot use a grappling hook until you receive the Grappling Hook item.");
                 return false;

@@ -12,8 +12,8 @@ namespace SeldomArchipelago.Command
 
         public override void Action(CommandCaller caller, string input, string[] args)
         {
-            var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>().world;
-            archipelagoSystem.UnlockBiomesNormally();
+            var session = ModContent.GetInstance<ArchipelagoSystem>().session;
+            session.flagSystem.UnlockBiomesNormally();
             Main.NewText("Biomes unlocked.");
         }
     }

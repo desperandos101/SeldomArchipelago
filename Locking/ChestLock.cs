@@ -17,10 +17,6 @@ namespace SeldomArchipelago.Locking
 	{
         public override void RightClick(int i, int j, int type)
         {
-            
-
-            var world = ModContent.GetInstance<ArchipelagoSystem>().world;
-
             Terraria.Tile tile = Main.tile[i, j];
             int left = i;
 			int top = j;
@@ -32,10 +28,11 @@ namespace SeldomArchipelago.Locking
 				top--;
 			}
 
-			FlagID? flag = WorldState.GetChestRegion(left, top);
+			FlagID? flag = FlagSystem.GetChestRegion(left, top);
 			if (flag is null) return;
+            var session = ModContent.GetInstance<ArchipelagoSystem>().Session;
 
-            bool chestUnlocked = world.IsFlagUnlocked((FlagID)flag);
+            bool chestUnlocked = session.flagSystem.FlagIsActive((FlagID)flag);
             if (!chestUnlocked)
             {
                 Main.playerInventory = false;

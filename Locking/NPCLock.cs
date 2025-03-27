@@ -36,9 +36,9 @@ namespace SeldomArchipelago.Locking
             private FlagID? region = region;
             public bool CanDrop(DropAttemptInfo info)
             {
-                WorldState world = ModContent.GetInstance<ArchipelagoSystem>().world;
-                if (evaluateBiomeOnCondition) return world.NPCRegionUnlocked(info);
-                return world.IsFlagUnlocked((FlagID)region);
+                FlagSystem flags = ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem;
+                if (evaluateBiomeOnCondition) return flags.NPCRegionUnlocked(info);
+                return flags.FlagIsActive((FlagID)region);
             } 
             public string GetConditionDescription()
             {
@@ -48,7 +48,7 @@ namespace SeldomArchipelago.Locking
         }
         public override void ModifyNPCLoot(NPC npc, NPCLoot npcLoot)
         {
-            FlagID? npcBiome = WorldState.GetNPCRegion(npc);
+            FlagID? npcBiome = FlagSystem.GetNPCRegion(npc);
             if (npcBiome is not null)
             {
                 List<IItemDropRule> ruleList = npcLoot.Get(false);
@@ -73,20 +73,20 @@ namespace SeldomArchipelago.Locking
             globalLoot.Add(megaRule);
         }
         public override void EditSpawnPool(IDictionary<int, float> pool, NPCSpawnInfo spawnInfo) {
-            WorldState world = ModContent.GetInstance<ArchipelagoSystem>().world;
-            world.SetBoundNPCsInSpawnDict(pool, spawnInfo);
+            FlagSystem flags = ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem;
+            flags.SetBoundNPCsInSpawnDict(pool, spawnInfo);
             if (spawnInfo.SpawnTileY <= Main.worldSurface && Main.dayTime && Main.eclipse)
             {
                 pool[0] = 0f;
-                (int, float)[] dictSet = world.IsFlagUnlocked(FlagID.EclipseUpgrade) ? ItemRef.eclipseWeights2 : ItemRef.eclipseWeights1;
+                (int, float)[] dictSet = flags.FlagIsActive(FlagID.EclipseUpgrade) ? ItemRef.eclipseWeights2 : ItemRef.eclipseWeights1;
                 foreach ((int, float) tuple in dictSet) pool[tuple.Item1] = tuple.Item2;
-                if (world.IsFlagUnlocked(FlagID.EclipseUpgrade) && !NPC.AnyNPCs(NPCID.Mothron)) pool[NPCID.Mothron] = 1f;
+                if (flags.FlagIsActive(FlagID.EclipseUpgrade) && !NPC.AnyNPCs(NPCID.Mothron)) pool[NPCID.Mothron] = 1f;
             }
         }
         public override void OnSpawn(NPC npc, IEntitySource source)
         {
-            WorldState world = ModContent.GetInstance<ArchipelagoSystem>().world;
-            if (world.NPCShouldDespawn(npc.type)) npc.EncourageDespawn(0);
+            FlagSystem flags = ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem;
+            if (flags.NPCShouldDespawn(npc.type)) npc.EncourageDespawn(0);
         }
         public override void ModifyShop(NPCShop shop)
         {

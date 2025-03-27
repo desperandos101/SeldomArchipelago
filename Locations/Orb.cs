@@ -24,6 +24,7 @@ namespace SeldomArchipelago.Locations
     {
         public override void OnSpawn(Item item, IEntitySource source)
         {
+            if (!ModContent.GetInstance<ArchipelagoSystem>().Session.randomizeChests) return;
             if (source is EntitySource_TileBreak && item.type == ItemID.MusketBall && item.stack == 100)
             { //specifically to get rid of musket balls that always drop from shadow orbs
                 item.TurnToAir();

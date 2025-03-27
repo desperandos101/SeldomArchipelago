@@ -37,6 +37,8 @@ using Microsoft.Xna.Framework.Content;
 using static SeldomArchipelago.Systems.ArchipelagoSystem.WorldState;
 using System.Runtime.Intrinsics.Arm;
 using Steamworks;
+using System.Resources;
+using System.Collections.Immutable;
 
 namespace SeldomArchipelago.Systems
 {
@@ -130,12 +132,17 @@ namespace SeldomArchipelago.Systems
                 }
                 #endregion
             }
+
             private HashSet<FlagID> activeFlags = new HashSet<FlagID>();
+            private List<int> ActiveIntFlags
+            {
+                get => (from id in activeFlags select (int)id).ToList();
+            }
             public TagCompound SerializeData()
             {
                 return new TagCompound
                 {
-                    ["activeFlags"] = activeFlags.ToList()
+                    ["activeFlags"] = ActiveIntFlags
                 };
             }
             public static FlagSystem Load(TagCompound tag)
@@ -149,6 +156,7 @@ namespace SeldomArchipelago.Systems
                 return flagSystem;
             }
             #region Static Data
+            private static void GiveItem(int id) => SessionState.GiveItem(id);
             public static Dictionary<string, Flag> locToFlag = new Dictionary<string, Flag>()
                 {
                     {"Grappling Hook",          new Flag(FlagID.Hook, theSideEffects: delegate(bool safe)
@@ -430,7 +438,7 @@ namespace SeldomArchipelago.Systems
                 List<string> hardmodeBacklog = HardmodeBacklog;
                 foreach (string flagName in hardmodeBacklog)
                 {
-                    ActivateResult result = locToFlag[flagName].ActivateFlag(activeFlags, true);
+                    Flag.ActivateResult result = locToFlag[flagName].ActivateFlag(activeFlags, true);
                 }
                 hardmodeBacklog.Clear();
             }
@@ -630,7 +638,7 @@ namespace SeldomArchipelago.Systems
         }
 
         // Data that's reset and specific between worlds
-        public class WorldState
+        public class WorldState : TagSerializable
         {
             
             // Achievements can be completed while loading into the world, but those complete before
@@ -638,62 +646,108 @@ namespace SeldomArchipelago.Systems
             // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
             // `ArchipelagoPlayer` knows not to clear them.
             public List<string> achieved = new List<string>();
-            // Stores locations that were collected before Archipelago is started so they can be
-            // queued once it's started
-            public List<string> locationBacklog = new List<string>();
-            // Stores the flags of chest locations that were collected before Archipelago is started.
-            public List<string> chestLocationFlagBacklog = new List<string>();
-            // Number of items the player has collected in this world
-            public int collectedItems;
-            // List of rewards received in this world, so they don't get reapplied. Saved in the
-            // Terraria world instead of Archipelago data in case the player is, for example,
-            // playing Hardcore and wants to receive all the rewards again when making a new player/
-            // world.
-            public static List<int> receivedRewards = new List<int>();
             //Whether this world has had its chests randomized.
-            public bool chestsRandomized;
+            public bool chestsRandomized = false;
+            public TagCompound SerializeData()
+            {
+                return new TagCompound
+                {
+                    ["achieved"] = achieved,
+                    ["chestsRandomized"] = chestsRandomized
+                };
+            }
+            public static WorldState Load(TagCompound tag)
+            {
+                WorldState state = new WorldState();
+                state.achieved = tag.GetList<string>("achieved").ToList();
+                state.chestsRandomized = tag.GetBool("chestsRandomized");
+                return state;
+            }
 
         }
 
         // SessionState data that's saved to a world in case of offline play
         public class SessionMemory : TagSerializable
         {
-            public FlagSystem flagSystem;
+            public string seedName = "";
+            public string slotName = "";
+            public FlagSystem flagSystem = new();
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
-            public SessionMemory(SessionState state = null)
-            {
-                if (state == null) return;
-                flagSystem = state.flagSystem;
-                locationBacklog = state.recei
-            }
+            public List<string> locationBacklog = new List<string>();
+            // Multiple lists that contain the names of the items within enumerable location groups.
+            // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
+            // Item1 is the name of a location, and Item2 is the full name of the item at said location.
+            public Dictionary<string, List<(string, string)>> locGroupRewardNames = new();
+            // Number of items the player has collected in this world
+            public int collectedItems = 0;
+            // List of rewards received in this world, so they don't get reapplied. Saved in the
+            // Terraria world instead of Archipelago data in case the player is, for example,
+            // playing Hardcore and wants to receive all the rewards again when making a new player/
+            // world.
+            public List<int> receivedRewards = new List<int>();
+            // All Enemy-specific Items
+            public HashSet<string> enemyItems = new();
+            // Backlog of hardmode-only items to be cashed in once Hardmode activates.
+            public List<string> hardmodeBacklog = new();
+            // Whether chests should be randomized.
+            public bool randomizeChests = false;
             public TagCompound SerializeData()
             {
-                return new TagCompound
+                TagCompound tag = new TagCompound
                 {
+                    ["SeedName"] = seedName,
+                    ["SlotName"] = slotName,
                     ["FlagSystem"] = flagSystem,
                     ["locationBacklog"] = locationBacklog,
-                    ["chestLocationFlagBacklog"] = chestLocationFlagBacklog,
                     ["collectedItems"] = collectedItems,
-                    ["receivedRewards"] = receivedRewards
+                    ["receivedRewards"] = receivedRewards,
+                    ["enemyItems"] = enemyItems.ToList(),
+                    ["hardmodeBacklog"] = hardmodeBacklog,
+                    ["randomizeChests"] = randomizeChests,
+                    ["locGroupRewardNamesKeys"] = locGroupRewardNames.Keys.ToList(),
                 };
+                foreach ((string key, List<(string, string)> values) in locGroupRewardNames)
+                {
+                    tag[key + "1"] = from value in values select value.Item1;
+                    tag[key + "2"] = from value in values select value.Item2;
+                }
+                return tag;
             }
             public static SessionMemory Load(TagCompound tag)
             {
                 SessionMemory sessionMemory = new SessionMemory();
+                sessionMemory.seedName = tag.GetString("SeedName");
+                sessionMemory.slotName = tag.GetString("SlotName");
                 sessionMemory.flagSystem = tag.Get<FlagSystem>("FlagSystem");
                 sessionMemory.locationBacklog = tag.Get<List<string>>("locationBacklog");
-                sessionMemory.chestLocationFlagBacklog = tag.Get<List<string>>("chestLocationFlagBacklog");
                 sessionMemory.collectedItems = tag.GetInt("collectedItems");
                 sessionMemory.receivedRewards = tag.Get<List<int>>("receivedRewards");
+                sessionMemory.enemyItems = tag.Get<List<string>>("enemyItems").ToHashSet();
+                sessionMemory.hardmodeBacklog = tag.Get<List<string>>("hardmodeBacklog");
+                sessionMemory.randomizeChests = tag.GetBool("randomizeChests");
+                List<string> keyList = tag.Get<List<string>>("locGroupRewardNamesKeys");
+                foreach (string key in keyList)
+                {
+                    if (!tag.ContainsKey(key + "1")) throw new Exception($"TAG ERROR: Key {key} missing the 1 value.");
+                    if (!tag.ContainsKey(key + "2")) throw new Exception($"TAG ERROR: Key {key} missing the 2 value.");
+                    List<string> values1 = tag.Get<List<string>>(key + "1");
+                    List<string> values2 = tag.Get<List<string>>(key + "2");
+                    if (values1.Count != values2.Count) throw new Exception($"TAG ERROR: Key {key} has value mismatch; List 1 has {values1.Count} items, List 2 has {values2.Count} items.");
+                    List<(string, string)> completeValues = new();
+                    for (int i = 0; i < values1.Count; i++)
+                    {
+                        completeValues.Append((values1[i], values2[i]));
+                    }
+                    sessionMemory.locGroupRewardNames[key] = completeValues;
+                }
                 return sessionMemory;
             }
         }
 
         // Data that's reset between Archipelago sessions
-        public class SessionState
+        public class SessionState : SessionMemory
         {
-            public FlagSystem flagSystem = new();
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -709,51 +763,93 @@ namespace SeldomArchipelago.Systems
             public int slot;
 
             public int safeUnlock;
+            public HashSet<string> hardmodeItems = new HashSet<string>();
             public bool ReceiveHardmodeAsItem => safeUnlock == 1;
             public bool ReceiveAllEventsAsItems => safeUnlock == 2;
-            // Multiple lists that contain the names of the items within enumerable location groups.
-            // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
-            // Item1 is the name of a location, and Item2 is the full name of the item at said location.
-            public Dictionary<string, List<(string, string)>> locGroupRewardNames;
-            // All Enemy-specific Items
-            public HashSet<string> enemyItems;
-            // Backlog of hardmode-only items to be cashed in once Hardmode activates.
-            public List<string> hardmodeBacklog = null;
-            // Whether chests should be randomized.
-            public bool randomizeChests;
+            public static void GiveItem(int? item, Action<Player> giveItem)
+            {
+                if (item != null)
+                {
+                    SessionState state = ModContent.GetInstance<SessionState>();
+                    state.receivedRewards.Add(item.Value);
+                }
+
+                for (var i = 0; i < Main.maxPlayers; i++)
+                {
+                    var player = Main.player[i];
+                    if (player.active)
+                    {
+                        giveItem(player);
+                        if (item != null)
+                        {
+                            if (Main.netMode == NetmodeID.Server)
+                            {
+                                var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
+                                packet.Write("YouGotAnItem");
+                                packet.Write(item.Value);
+                                packet.Send(i);
+                            }
+                            else player.GetModPlayer<ArchipelagoPlayer>().ReceivedReward(item.Value);
+                        }
+                    }
+                }
+            }
+
+            public static void GiveItem(int item) => GiveItem(item, player => player.QuickSpawnItem(player.GetSource_GiftOrReward(), item, 1));
+            public static void GiveItem<T>() where T : ModItem => GiveItem(ModContent.ItemType<T>());
         }
 
         public WorldState world = new();
         public SessionState session;
+        public SessionMemory sessionMemory = new();
+        public SessionMemory Session
+        {
+            get => session ?? sessionMemory;
+        }
 
         public string[] CollectedLocations
         {
             get
             {
-                return session is null ? [.. world.locationBacklog] : [.. session.collectedLocations];
+                return [.. Session.locationBacklog];
             }
         }
-
+        // This method does everything that needs to be done with sessionMemory when
+        // play switches from offline to online, then sets it to null.
+        public void UseSessionMemory()
+        {
+            if (session is null) throw new Exception("UseSessionMemory: session is null!");
+            if (sessionMemory is null) return;
+            foreach (var location in sessionMemory.locationBacklog) QueueLocation(location);
+            sessionMemory.locationBacklog.Clear();
+            sessionMemory = null;
+        }
         public override void LoadWorldData(TagCompound tag)
         {
-            world.collectedItems = tag.ContainsKey("ApCollectedItems") ? tag.Get<int>("ApCollectedItems") : 0;
-            WorldState.receivedRewards = tag.ContainsKey("ApReceivedRewards") ? tag.Get<List<int>>("ApReceivedRewards") : new();
-            world.locationBacklog = tag.ContainsKey("ApLocationBacklog") ? tag.Get<List<string>>("ApLocationBacklog") : new();
+            world = tag.ContainsKey("WorldState") ? tag.Get<WorldState>("WorldState") : new();
+            sessionMemory = tag.ContainsKey("SessionState") ? tag.Get<SessionMemory>("SessionState") : null;
+            if (sessionMemory != null && session != null)
+            {
+                if (sessionMemory.slotName != session.slotName || sessionMemory.seedName != session.seedName)
+                {
+                    Chat("WARNING: Disparity between current AP connection and world data detected!");
+                    Chat("Please update the mod's config with the correct credentials, or try a different world.");
+                    Chat($"CURRENT CONNECTION: {session.slotName} in APworld seed {sessionMemory.seedName}");
+                    Chat($"WORLD DATA: {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
+                    return;
+                }
+                UseSessionMemory();
+            } else if (session is null)
+            {
+                Chat("Unable to connect to AP.");
+                Chat($"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
+            }
 
-            world.chestsRandomized = tag.ContainsKey("ApChestsRandomized") ? tag.GetBool("ApChestsRandomized") : false;
-            if (!world.chestsRandomized && session is not null && session.randomizeChests)
+            if (!world.chestsRandomized && Session is not null && Session.randomizeChests)
             {
                 FlagSystem.UpdateChests();
                 world.chestsRandomized = true;
             }
-            else if (world.chestsRandomized && session is not null && !session.randomizeChests)
-            {
-                Chat("WARNING: You have connected to a slot that has chest randomization disabled,");
-                Chat("but the chests in this world have had their items randomized.");
-                Chat("Please load a new world.");
-            }
-
-            world.LoadFlagData(tag);
         }
 
         public override void OnWorldLoad()
@@ -784,6 +880,7 @@ namespace SeldomArchipelago.Systems
 
             session = new();
             session.session = newSession;
+            UseSessionMemory();
             FlagSystem flagSystem = session.flagSystem;
 
             var locations = session.session.DataStorage[Scope.Slot, "CollectedLocations"].To<String[]>();
@@ -794,6 +891,11 @@ namespace SeldomArchipelago.Systems
 
             session.hardmodeBacklog = session.session.DataStorage[Scope.Slot, "HardmodeBacklog"].To<List<string>>();
             if (session.hardmodeBacklog is null) session.hardmodeBacklog = new List<string>();
+
+            session.receivedRewards = session.session.DataStorage[Scope.Slot, "ReceivedRewards"].To<List<int>>();
+            if (session.receivedRewards is null) session.receivedRewards = new List<int>();
+
+            session.collectedItems = session.session.DataStorage[Scope.Slot, "CollectedItems"];
 
             var success = (LoginSuccessful)result;
             session.goals = new List<string>(((JArray)success.SlotData["goal"]).ToObject<string[]>());
@@ -827,29 +929,10 @@ namespace SeldomArchipelago.Systems
             }
 
             session.slot = success.Slot;
+            session.seedName = newSession.RoomState.Seed;
+            session.slotName = newSession.Players.GetPlayerName(session.slot);
 
             session.randomizeChests = (bool)success.SlotData["chest_loot"];
-
-            foreach (var location in world.locationBacklog) QueueLocation(location);
-            world.locationBacklog.Clear();
-            foreach (string baseName in world.chestLocationFlagBacklog)
-            {
-                int counter = 1;
-                while (true)
-                {
-                    string locName = $"{baseName} {counter}";
-                    if (session.collectedLocations.Contains(locName))
-                    {
-                        counter++;
-                    }
-                    else if (session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, FullName) != -1)
-                    {
-                        QueueLocation(locName);
-                        break;
-                    }
-                    else { break; }
-                }
-            }
 
             String[] locKeys = session.session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<String[]>();
             List<(string, string)>[] locValues = session.session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string)>[]>();
@@ -893,22 +976,24 @@ namespace SeldomArchipelago.Systems
             }
             object enemyItems = success.SlotData["enemy_items"];
             session.enemyItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(enemyItems.ToString());
+            object hardmodeItems = success.SlotData["hardmode_items"];
+            session.hardmodeItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(hardmodeItems.ToString());
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
         }
 
         public string[] Flags {
             get
             {
-                List<string> flagList = locToFlag.Keys.ToList();
+                List<string> flagList = FlagSystem.locToFlag.Keys.ToList();
                 flagList.AddRange(["Post-OOA Tier 1", "Post-OOA Tier 2", "Post-OOA Tier 3"]);
                 return flagList.ToArray();
             }
         }
         public bool CheckFlag(string flag)
         {
-            if (locToFlag.ContainsKey(flag))
+            if (FlagSystem.locToFlag.ContainsKey(flag))
             {
-                return world.IsFlagUnlocked(locToFlag[flag].id);
+                return session.flagSystem.FlagIsActive(FlagSystem.locToFlag[flag].id);
             }
             return flag switch
             {
@@ -920,18 +1005,22 @@ namespace SeldomArchipelago.Systems
         } 
         public void Collect(string item)
         {
-            if (locToFlag.ContainsKey(item))
+            if (FlagSystem.locToFlag.ContainsKey(item))
             {
-                ActivateResult result = world.UnlockFlag(item, session.safeUnlock);
-                if (result == ActivateResult.ActivateOnHardmode)
+                FlagSystem.Flag.ActivateResult result = session.flagSystem.UnlockFlag(item, session.safeUnlock);
+                if (result == FlagSystem.Flag.ActivateResult.ActivateOnHardmode)
                 {
                     session.hardmodeBacklog.Add(item);
                 }
                 return;
             }
+            if (session.hardmodeItems.Contains(item))
+            {
+                session.hardmodeBacklog.Add(item);
+            }
             switch (item)
             {
-                case "Reward: Torch God's Favor": WorldState.GiveItem(ItemID.TorchGodsFavor); break;
+                case "Reward: Torch God's Favor": SessionState.GiveItem(ItemID.TorchGodsFavor); break;
                 case "Post-OOA Tier 1": DD2Event.DownedInvasionT1 = true; break;
                 case "Post-OOA Tier 2": DD2Event.DownedInvasionT2 = true; break;
                 case "Post-OOA Tier 3": DD2Event.DownedInvasionT3 = true; break;
@@ -942,7 +1031,7 @@ namespace SeldomArchipelago.Systems
                     if (SeldomArchipelago.englishLangToTypeDict.ContainsKey(strippedItem))
                     {
                         int itemID = SeldomArchipelago.englishLangToTypeDict[strippedItem];
-                        WorldState.GiveItem(itemID);
+                        SessionState.GiveItem(itemID);
                     }
                     else
                     {
@@ -1196,14 +1285,14 @@ namespace SeldomArchipelago.Systems
                 ItemInfo item = session.session.Items.DequeueItem();
                 var itemName = item.ItemName;
 
-                if (session.currentItem++ < world.collectedItems)
+                if (session.currentItem++ < Session.collectedItems)
                 {
                     continue;
                 }
 
                 Collect(itemName);
 
-                world.collectedItems++;
+                Session.collectedItems++;
             }
 
             if (ModLoader.HasMod("CalamityMod")) ModContent.GetInstance<CalamitySystem>().CalamityPostUpdateWorld();
@@ -1223,20 +1312,19 @@ namespace SeldomArchipelago.Systems
 
         public override void SaveWorldData(TagCompound tag)
         {
-            tag["ApCollectedItems"] = world.collectedItems;
             if (session != null)
             {
                 session.session.DataStorage[Scope.Slot, "CollectedLocations"] = session.collectedLocations.ToArray();
                 session.session.DataStorage[Scope.Slot, "LocRewardNamesKeys"] = session.locGroupRewardNames.Keys.ToArray();
                 session.session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = session.locGroupRewardNames.Values.ToArray();
                 session.session.DataStorage[Scope.Slot, "HardmodeBacklog"] = session.hardmodeBacklog.ToArray();
+                session.session.DataStorage[Scope.Slot, "ReceivedRewards"] = session.receivedRewards.ToArray();
+                session.session.DataStorage[Scope.Slot, "CollectedItems"] = session.collectedItems;
             }
-            tag["ApReceivedRewards"] = WorldState.receivedRewards;
-            WorldState.receivedRewards.Clear();
-            tag["ApLocationBacklog"] = world.locationBacklog;
-            tag["ApChestsRandomized"] = world.chestsRandomized;
-
-            world.SaveFlagData(tag);
+            tag["WorldState"] = world;
+            tag["SessionState"] = Session;
+            world = new();
+            sessionMemory = new();
         }
 
         public void Reset()
@@ -1287,17 +1375,17 @@ namespace SeldomArchipelago.Systems
             else
             {
                 info.Add("You are in a world");
-                if (world.locationBacklog.Count > 0)
+                if (Session.locationBacklog.Count > 0)
                 {
                     info.Add("You have locations in the backlog, which should only be the case if Archipelago is inactive");
-                    info.Add($"Location backlog: [{string.Join("; ", world.locationBacklog)}]");
+                    info.Add($"Location backlog: [{string.Join("; ", Session.locationBacklog)}]");
                 }
                 else
                 {
                     info.Add("No locations in the backlog, which is usually normal");
                 }
 
-                info.Add($"You've collected {world.collectedItems} items");
+                info.Add($"You've collected {Session.collectedItems} items");
             }
 
             if (session == null)
@@ -1374,7 +1462,7 @@ namespace SeldomArchipelago.Systems
         {
             if (session == null)
             {
-                world.locationBacklog.Add(locationName);
+                sessionMemory.locationBacklog.Add(locationName);
                 return;
             }
 
@@ -1467,7 +1555,7 @@ namespace SeldomArchipelago.Systems
             var platinum = count / 10000;
             var gold = count % 10000 / 100;
             var silver = count % 100;
-            WorldState.GiveItem(null, player =>
+            SessionState.GiveItem(null, player =>
             {
                 if (platinum > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.PlatinumCoin, platinum);
                 if (gold > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.GoldCoin, gold);
@@ -1475,7 +1563,7 @@ namespace SeldomArchipelago.Systems
             });
         }
 
-        public List<int> ReceivedRewards() => WorldState.receivedRewards;
+        public List<int> ReceivedRewards() => Session.receivedRewards;
 
         public override void ModifyHardmodeTasks(List<GenPass> list)
         {

@@ -74,7 +74,7 @@ namespace SeldomArchipelago
         public static MethodInfo supremeCalamitasOnKill = null;
         public static MethodInfo calamityGlobalNpcSetNewBossJustDowned = null;
 
-        WorldState GetWorld() => ModContent.GetInstance<ArchipelagoSystem>().world;
+        FlagSystem GetFlags() => ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem;
         public override void Load()
         {
             int counter = 1;
@@ -189,7 +189,7 @@ namespace SeldomArchipelago
                 var cursor = new ILCursor(il);
 
                 cursor.OverrideField(typeof(NPC).GetField(nameof(NPC.downedMechBossAny)),
-                    () => GetWorld().IsFlagUnlocked(FlagID.Eclipse));
+                    () => GetFlags().FlagIsActive(FlagID.Eclipse));
 
                 cursor.GotoNext(i => i.MatchCallvirt(out var m));
                 cursor.Index++;
@@ -204,10 +204,10 @@ namespace SeldomArchipelago
                 });
 
                 cursor.OverrideField(typeof(WorldGen).GetField(nameof(WorldGen.shadowOrbSmashed)),
-                    () => GetWorld().IsFlagUnlocked(FlagID.GoblinArmy));
+                    () => GetFlags().FlagIsActive(FlagID.GoblinArmy));
 
                 cursor.OverrideField(typeof(WorldGen).GetField(nameof(WorldGen.altarCount)),
-                    () => GetWorld().IsFlagUnlocked(FlagID.PirateInvasion));
+                    () => GetFlags().FlagIsActive(FlagID.PirateInvasion));
             };
 
             // Nighttime Events
@@ -216,7 +216,7 @@ namespace SeldomArchipelago
                 var cursor = new ILCursor(il);
 
                 cursor.OverrideField(typeof(NPC).GetField(nameof(NPC.downedBoss2)),
-                    () => GetWorld().IsFlagUnlocked(FlagID.Meteor));
+                    () => GetFlags().FlagIsActive(FlagID.Meteor));
 
                 cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.tenthAnniversaryWorld))));
                 cursor.GotoNext(i => i.MatchCallvirt(out var m));
@@ -234,7 +234,7 @@ namespace SeldomArchipelago
                 cursor.Index++;
                 cursor.EmitPop();
                 cursor.EmitDelegate(() => {
-                    return GetWorld().IsFlagUnlocked(FlagID.BloodMoon) ? 5 : 0;
+                    return GetFlags().FlagIsActive(FlagID.BloodMoon) ? 5 : 0;
                 });
             };
 
@@ -245,7 +245,7 @@ namespace SeldomArchipelago
                 var label = cursor.DefineLabel();
 
                 cursor.OverrideField(typeof(NPC).GetField(nameof(NPC.downedMechBoss1)),
-                    () => GetWorld().IsFlagUnlocked(FlagID.JungleUpgrade));
+                    () => GetFlags().FlagIsActive(FlagID.JungleUpgrade));
                 cursor.EmitBrtrue(label);
                 cursor.EmitLdcI4(0);
                 cursor.GotoNext(i => i.MatchCall(out var m));
@@ -265,8 +265,8 @@ namespace SeldomArchipelago
                 {
                     switch (invasionType)
                     {
-                        case 1: return GetWorld().IsFlagUnlocked(FlagID.GoblinArmy);
-                        case 3: return GetWorld().IsFlagUnlocked(FlagID.PirateInvasion);
+                        case 1: return GetFlags().FlagIsActive(FlagID.GoblinArmy);
+                        case 3: return GetFlags().FlagIsActive(FlagID.PirateInvasion);
                         default: return false;
                     }
                 });
@@ -393,7 +393,7 @@ namespace SeldomArchipelago
                     cursor.EmitPop();
                     cursor.EmitDelegate(() =>
                     {
-                        return GetWorld().FreeNPCSpawnable(npcID);
+                        return GetFlags().FreeNPCSpawnable(npcID);
                     });
 
                     overridenNPCids.Add(npcID);
