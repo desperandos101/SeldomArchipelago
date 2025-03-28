@@ -95,6 +95,7 @@ namespace SeldomArchipelago.Systems
         // System that stores, manages, and processes flags
         public class FlagSystem : TagSerializable
         {
+            public static readonly Func<TagCompound, FlagSystem> DESERIALIZER = Load;
             public class Flag
             {
                 public enum ActivateResult
@@ -640,8 +641,7 @@ namespace SeldomArchipelago.Systems
         // Data that's reset and specific between worlds
         public class WorldState : TagSerializable
         {
-            
-            // Achievements can be completed while loading into the world, but those complete before
+            public static readonly Func<TagCompound, WorldState> DESERIALIZER = Load;            // Achievements can be completed while loading into the world, but those complete before
             // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
             // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
             // `ArchipelagoPlayer` knows not to clear them.
@@ -669,6 +669,7 @@ namespace SeldomArchipelago.Systems
         // SessionState data that's saved to a world in case of offline play
         public class SessionMemory : TagSerializable
         {
+            public static readonly Func<TagCompound, SessionMemory> DESERIALIZER = Load;
             public string seedName = "";
             public string slotName = "";
             public FlagSystem flagSystem = new();
@@ -688,6 +689,7 @@ namespace SeldomArchipelago.Systems
             public List<int> receivedRewards = new List<int>();
             // All Enemy-specific Items
             public HashSet<string> enemyItems = new();
+            // All Enemy 
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
             public List<string> hardmodeBacklog = new();
             // Whether chests should be randomized.

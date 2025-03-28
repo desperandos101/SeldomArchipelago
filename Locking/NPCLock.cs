@@ -21,7 +21,7 @@ namespace SeldomArchipelago.Locking
             if (source is EntitySource_Loot lootSource && lootSource.Entity is NPC)
             {
                 var system = ModContent.GetInstance<ArchipelagoSystem>();
-                if (system.session.enemyItems.Contains(item.Name))
+                if (system.Session.enemyItems.Contains(item.Name))
                 {
                     Main.NewText("ITEM BLOCKED: " + item.Name);
                     item.TurnToAir();
