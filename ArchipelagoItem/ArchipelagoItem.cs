@@ -102,7 +102,11 @@ namespace SeldomArchipelago.ArchipelagoItem
         }
         public override void PostUpdate()
         {
-            if (CheckTypeExhausted) Item.TurnToAir();
+            if (CheckTypeExhausted)
+            {
+                Item.TurnToAir();
+                return;
+            }
         }
         public override void UpdateInventory(Player player)
         {
