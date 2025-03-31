@@ -28,6 +28,7 @@ namespace SeldomArchipelago.ArchipelagoItem
         private string? locType;
         private string? chestCheckName = null;
         public static List<(string, string, int)>[] chestMatrix = new List<(string, string, int)>[9];
+        private bool CheckTypeExhausted => ModContent.GetInstance<ArchipelagoSystem>().Session.locGroupRewardNames[locType].Count == 0;
         public override void SetDefaults()
         {
             Item.width = 20;
@@ -67,6 +68,7 @@ namespace SeldomArchipelago.ArchipelagoItem
             {
                 chestCheckName = inactive;
                 Item.SetNameOverride(inactive);
+                Item.TurnToAir();
                 return;
             }
             (string, string) tuple = state.locGroupRewardNames[locType][0];
@@ -98,11 +100,18 @@ namespace SeldomArchipelago.ArchipelagoItem
             }
             return null;
         }
+        public override void PostUpdate()
+        {
+            if (CheckTypeExhausted) Item.TurnToAir();
+        }
         public override void UpdateInventory(Player player)
         {
             if (locType == dummy)
             {
                 Main.NewText("Huzzah and forsooth, the dummy item has activated!");
+            } else if (chestCheckName == inactive)
+            {
+                Main.NewText("Dumb Stupid Item Idiot");
             } else
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();

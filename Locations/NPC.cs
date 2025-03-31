@@ -28,7 +28,9 @@ namespace SeldomArchipelago.Locations
                 int killCeiling = session.enemyToKillCount[name];
                 if (killCount % killCeiling == 0)
                 {
-                             Main.NewText($"{name}: {killCeiling} batch killed!");
+                    Main.NewText($"{name}: {killCeiling} batch killed!");
+                    Item item = ArchipelagoItem.ArchipelagoItem.CreateItem(name).Item;
+                    Item.NewItem(new EntitySource_Death(npc, null), npc.Center, item);
                 }
             }
             /*

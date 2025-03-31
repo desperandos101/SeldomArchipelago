@@ -720,9 +720,10 @@ namespace SeldomArchipelago.Systems
                 }
                 return tag;
             }
-            public static SessionMemory Load(TagCompound tag)
+            public static SessionMemory Load(TagCompound tag) => Load(tag, null);
+            public static SessionMemory Load(TagCompound tag, SessionState state = null)
             {
-                SessionMemory sessionMemory = new SessionMemory();
+                SessionMemory sessionMemory = state ?? new SessionMemory();
                 sessionMemory.seedName = tag.GetString(nameof(seedName));
                 sessionMemory.slotName = tag.GetString(nameof(slotName));
                 sessionMemory.flagSystem = tag.Get<FlagSystem>(nameof(flagSystem));
@@ -755,11 +756,18 @@ namespace SeldomArchipelago.Systems
                 }
                 return sessionMemory;
             }
+            public static SessionState LoadState(TagCompound tag)
+            {
+                SessionState state = new();
+                Load(tag, state); // No need to capture return value in this instance
+                return state;
+            }
         }
 
         // Data that's reset between Archipelago sessions
         public class SessionState : SessionMemory
         {
+            public static new readonly Func<TagCompound, SessionState> DESERIALIZER = SessionMemory.LoadState;
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -782,7 +790,7 @@ namespace SeldomArchipelago.Systems
             {
                 if (item != null)
                 {
-                    SessionState state = ModContent.GetInstance<SessionState>();
+                    SessionMemory state = ModContent.GetInstance<ArchipelagoSystem>().Session;
                     state.receivedRewards.Add(item.Value);
                 }
 
@@ -818,6 +826,10 @@ namespace SeldomArchipelago.Systems
         {
             get => session ?? sessionMemory;
         }
+        public bool SessionDisparity
+        {
+            get => (session is not null && sessionMemory is not null && sessionMemory.slotName != "" && (sessionMemory.slotName != session.slotName || sessionMemory.seedName != session.seedName));
+        }
 
         public string[] CollectedLocations
         {
@@ -839,22 +851,22 @@ namespace SeldomArchipelago.Systems
         public override void LoadWorldData(TagCompound tag)
         {
             world = tag.ContainsKey("WorldState") ? tag.Get<WorldState>("WorldState") : new();
-            sessionMemory = tag.ContainsKey("SessionState") ? tag.Get<SessionMemory>("SessionState") : null;
+            sessionMemory = tag.ContainsKey("SessionMemory") ? tag.Get<SessionMemory>("SessionMemory") : null;
             if (sessionMemory != null && session != null)
             {
                 if (sessionMemory.slotName != session.slotName || sessionMemory.seedName != session.seedName)
                 {
-                    Chat("WARNING: Disparity between current AP connection and world data detected!");
-                    Chat("Please update the mod's config with the correct credentials, or try a different world.");
-                    Chat($"CURRENT CONNECTION: {session.slotName} in APworld seed {sessionMemory.seedName}");
-                    Chat($"WORLD DATA: {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
+                    Main.NewText("WARNING: Disparity between current AP connection and world data detected!");
+                    Main.NewText("Please update the mod's config with the correct credentials, or try a different world.");
+                    Main.NewText($"CURRENT CONNECTION: {session.slotName} in APworld seed {sessionMemory.seedName}");
+                    Main.NewText($"WORLD DATA: {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
                     return;
                 }
                 UseSessionMemory();
             } else if (session is null)
             {
-                Chat("Unable to connect to AP.");
-                Chat($"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
+                Main.NewText("Unable to connect to AP.");
+                Main.NewText($"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
             }
 
             if (!world.chestsRandomized && Session is not null && Session.randomizeChests)
@@ -1337,8 +1349,13 @@ namespace SeldomArchipelago.Systems
                 session.session.DataStorage[Scope.Slot, "CollectedItems"] = session.collectedItems;
             }
             tag["WorldState"] = world;
-            tag["SessionState"] = Session;
+            if (!SessionDisparity)
+            {
+                SessionMemory sess = Session; //explicit cast so it doesnt try to serialize SessionState
+                tag["SessionMemory"] = sess;
+            }
             world = new();
+            session = null;
             sessionMemory = new();
         }
 
@@ -1355,16 +1372,33 @@ namespace SeldomArchipelago.Systems
             world = new();
             Reset();
         }
-
-        public string[] Status() => (session == null) switch
+        public string[] Status()
         {
-            true => new[] {
+            if (session is not null && sessionMemory is not null
+                && SessionDisparity)
+            {
+                return
+                [
+                    "WARNING: Disparity between current AP connection and world data detected!",
+                    "Please update the mod's config with the correct credentials, or try a different world.",
+                    $"CURRENT CONNECTION: {session.slotName} in APworld seed {session.seedName}",
+                    $"WORLD DATA: {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}",
+                ];
+            }
+            else if (session is not null) return ["Archipelago is Active!"];
+            else
+            {
+                string[] defaultText = [
                 @"The world is not connected to Archipelago! Reload the world or run ""/apconnect"".",
                 "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
                 "Or in-game at Settings > Mod Configuration",
-            },
-            false => new[] { "Archipelago is active!" },
-        };
+                ];
+                string[] sessionMemoryText = sessionMemory is not null ? [$"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}"] : [];
+                return defaultText.Concat(sessionMemoryText).ToArray();
+            }
+            
+
+        }
 
         public bool SendCommand(string command)
         {
