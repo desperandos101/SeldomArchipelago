@@ -18,10 +18,18 @@ namespace SeldomArchipelago.Locations
     {
         public override void OnKill(NPC npc)
         {
+            if (npc.lastInteraction == 255) return;
             string name = npc.TypeName;
-            var system = ModContent.GetInstance<ArchipelagoSystem>();
-            if (system.session is not null && system.session.locGroupRewardNames.ContainsKey(name)) {
-                Main.NewText("ARCHI ENEMY DETECTED: " +  name);
+            var session = ModContent.GetInstance<ArchipelagoSystem>().Session;
+            if (session is not null && session.enemyToKillCount.ContainsKey(name)) {
+                int bannerID = Item.NPCtoBanner(npc.BannerID());
+                int killCount = NPC.killCount[bannerID];
+                Main.NewText($"{name}: {killCount}");
+                int killCeiling = session.enemyToKillCount[name];
+                if (killCount % killCeiling == 0)
+                {
+                             Main.NewText($"{name}: {killCeiling} batch killed!");
+                }
             }
             /*
             Item item = ArchipelagoItem.ArchipelagoItem.CreateDummyItem().Item;

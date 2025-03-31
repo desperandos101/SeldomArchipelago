@@ -134,7 +134,7 @@ namespace SeldomArchipelago.Systems
                 #endregion
             }
 
-            private HashSet<FlagID> activeFlags = new HashSet<FlagID>();
+            private HashSet<FlagID> activeFlags = new HashSet<FlagID>() { FlagID.Forest };
             private List<int> ActiveIntFlags
             {
                 get => (from id in activeFlags select (int)id).ToList();
@@ -687,6 +687,8 @@ namespace SeldomArchipelago.Systems
             // playing Hardcore and wants to receive all the rewards again when making a new player/
             // world.
             public List<int> receivedRewards = new List<int>();
+            // Enemy names to kills required to cash in a check
+            public Dictionary<string, int> enemyToKillCount = new Dictionary<string, int>();
             // All Enemy-specific Items
             public HashSet<string> enemyItems = new();
             // All Enemy 
@@ -698,38 +700,46 @@ namespace SeldomArchipelago.Systems
             {
                 TagCompound tag = new TagCompound
                 {
-                    ["SeedName"] = seedName,
-                    ["SlotName"] = slotName,
-                    ["FlagSystem"] = flagSystem,
-                    ["locationBacklog"] = locationBacklog,
-                    ["collectedItems"] = collectedItems,
-                    ["receivedRewards"] = receivedRewards,
-                    ["enemyItems"] = enemyItems.ToList(),
-                    ["hardmodeBacklog"] = hardmodeBacklog,
-                    ["randomizeChests"] = randomizeChests,
-                    ["locGroupRewardNamesKeys"] = locGroupRewardNames.Keys.ToList(),
+                    [nameof(seedName)] = seedName,
+                    [nameof(slotName)] = slotName,
+                    [nameof(flagSystem)] = flagSystem,
+                    [nameof(locationBacklog)] = locationBacklog,
+                    [nameof(collectedItems)] = collectedItems,
+                    [nameof(receivedRewards)] = receivedRewards,
+                    [nameof(enemyToKillCount) + "Keys"] = enemyToKillCount.Keys.ToList(),
+                    [nameof(enemyToKillCount) + "Values"] = enemyToKillCount.Values.ToList(),
+                    [nameof(enemyItems)] = enemyItems.ToList(),
+                    [nameof(hardmodeBacklog)] = hardmodeBacklog,
+                    [nameof(randomizeChests)] = randomizeChests,
+                    [nameof(locGroupRewardNames) + "Keys"] = locGroupRewardNames.Keys.ToList(),
                 };
                 foreach ((string key, List<(string, string)> values) in locGroupRewardNames)
                 {
-                    tag[key + "1"] = from value in values select value.Item1;
-                    tag[key + "2"] = from value in values select value.Item2;
+                    tag[key + "1"] = (from value in values select value.Item1).ToList();
+                    tag[key + "2"] = (from value in values select value.Item2).ToList();
                 }
                 return tag;
             }
             public static SessionMemory Load(TagCompound tag)
             {
                 SessionMemory sessionMemory = new SessionMemory();
-                sessionMemory.seedName = tag.GetString("SeedName");
-                sessionMemory.slotName = tag.GetString("SlotName");
-                sessionMemory.flagSystem = tag.Get<FlagSystem>("FlagSystem");
-                sessionMemory.locationBacklog = tag.Get<List<string>>("locationBacklog");
-                sessionMemory.collectedItems = tag.GetInt("collectedItems");
-                sessionMemory.receivedRewards = tag.Get<List<int>>("receivedRewards");
-                sessionMemory.enemyItems = tag.Get<List<string>>("enemyItems").ToHashSet();
-                sessionMemory.hardmodeBacklog = tag.Get<List<string>>("hardmodeBacklog");
-                sessionMemory.randomizeChests = tag.GetBool("randomizeChests");
-                List<string> keyList = tag.Get<List<string>>("locGroupRewardNamesKeys");
-                foreach (string key in keyList)
+                sessionMemory.seedName = tag.GetString(nameof(seedName));
+                sessionMemory.slotName = tag.GetString(nameof(slotName));
+                sessionMemory.flagSystem = tag.Get<FlagSystem>(nameof(flagSystem));
+                sessionMemory.locationBacklog = tag.Get<List<string>>(nameof(locationBacklog));
+                sessionMemory.collectedItems = tag.GetInt(nameof(collectedItems));
+                sessionMemory.receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
+                List<string> enemyKillKeys = tag.Get<List<string>>(nameof(enemyToKillCount) + "Keys");
+                List<int> enemyKillValues = tag.Get<List<int>>(nameof(enemyToKillCount) + "Values");
+                for (int i = 0; i < enemyKillKeys.Count; i++)
+                {
+                    sessionMemory.enemyToKillCount[enemyKillKeys[i]] = enemyKillValues[i];
+                }
+                sessionMemory.enemyItems = tag.Get<List<string>>(nameof(enemyItems)).ToHashSet();
+                sessionMemory.hardmodeBacklog = tag.Get<List<string>>(nameof(hardmodeBacklog));
+                sessionMemory.randomizeChests = tag.GetBool(nameof(randomizeChests));
+                List<string> locKeyList = tag.Get<List<string>>(nameof(locGroupRewardNames) + "Keys");
+                foreach (string key in locKeyList)
                 {
                     if (!tag.ContainsKey(key + "1")) throw new Exception($"TAG ERROR: Key {key} missing the 1 value.");
                     if (!tag.ContainsKey(key + "2")) throw new Exception($"TAG ERROR: Key {key} missing the 2 value.");
@@ -976,6 +986,8 @@ namespace SeldomArchipelago.Systems
                     allBaseLocs.RemoveAt(0);
                 }
             }
+            object enemyToKillCount = success.SlotData["enemy_to_kill_count"];
+            session.enemyToKillCount = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, int>>(enemyToKillCount.ToString());
             object enemyItems = success.SlotData["enemy_items"];
             session.enemyItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(enemyItems.ToString());
             object hardmodeItems = success.SlotData["hardmode_items"];
@@ -1257,6 +1269,7 @@ namespace SeldomArchipelago.Systems
             if (!session.session.Socket.Connected)
             {
                 Chat("Disconnected from Archipelago. Reload the world to reconnect.");
+                sessionMemory = session;
                 session = null;
                 return;
             }
