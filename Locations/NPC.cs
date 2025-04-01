@@ -11,26 +11,39 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 using SeldomArchipelago.ArchipelagoItem;
 using SeldomArchipelago.Systems;
+using Microsoft.Xna.Framework;
 
 namespace SeldomArchipelago.Locations
 {
     public class NPCLoc : GlobalNPC
     {
+        public override void DrawEffects(NPC npc, ref Color drawColor)
+        {
+            var system = ModContent.GetInstance<ArchipelagoSystem>();
+            var session = system.Session;
+            if (session is not null && session.flagSystem.NPCRegionUnlocked(npc) && session.ArchipelagoEnemy(npc.TypeName) && session.locGroupRewardNames[npc.TypeName].Count > 0)
+            {
+                Dust.NewDust(npc.position, npc.width, npc.height, DustID.MagicMirror);
+            }
+        }
         public override void OnKill(NPC npc)
         {
             if (npc.lastInteraction == 255) return;
             string name = npc.TypeName;
-            var session = ModContent.GetInstance<ArchipelagoSystem>().Session;
-            if (session is not null && session.enemyToKillCount.ContainsKey(name)) {
-                int bannerID = Item.NPCtoBanner(npc.BannerID());
+            var system = ModContent.GetInstance<ArchipelagoSystem>();
+            var session = system.Session;
+            int bannerID = Item.NPCtoBanner(npc.BannerID());
+            if (!session.flagSystem.NPCRegionUnlocked(npc))
+            {
+                if (session.ArchipelagoEnemy(name)) NPC.killCount[bannerID] = 0;
+                return;
+            }
+            if (session is not null && session.enemyToKillCount.TryGetValue(name, out int value)) {
                 int killCount = NPC.killCount[bannerID];
-                Main.NewText($"{name}: {killCount}");
-                int killCeiling = session.enemyToKillCount[name];
+                int killCeiling = value;
                 if (killCount % killCeiling == 0)
                 {
-                    Main.NewText($"{name}: {killCeiling} batch killed!");
-                    Item item = ArchipelagoItem.ArchipelagoItem.CreateItem(name).Item;
-                    Item.NewItem(new EntitySource_Death(npc, null), npc.Center, item);
+                    system.QueueLocationKey(name);
                 }
             }
             /*

@@ -561,10 +561,11 @@ namespace SeldomArchipelago.Systems
             }
             #endregion
             #region NPC Checks
-            
-            public bool NPCRegionUnlocked(DropAttemptInfo info)
+
+            public bool NPCRegionUnlocked(DropAttemptInfo info) => NPCRegionUnlocked(info.npc);
+            public bool NPCRegionUnlocked(NPC npc)
             {
-                FlagID? biome = GetNPCRegion(info.npc);
+                FlagID? biome = GetNPCRegion(npc);
                 return biome is null || FlagIsActive((FlagID)biome);
             }
             #endregion
@@ -689,6 +690,8 @@ namespace SeldomArchipelago.Systems
             public List<int> receivedRewards = new List<int>();
             // Enemy names to kills required to cash in a check
             public Dictionary<string, int> enemyToKillCount = new Dictionary<string, int>();
+            // Whether or not an enemy is a location
+            public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(name, out var count);
             // All Enemy-specific Items
             public HashSet<string> enemyItems = new();
             // All Enemy 
@@ -854,21 +857,12 @@ namespace SeldomArchipelago.Systems
             sessionMemory = tag.ContainsKey("SessionMemory") ? tag.Get<SessionMemory>("SessionMemory") : null;
             if (sessionMemory != null && session != null)
             {
-                if (sessionMemory.slotName != session.slotName || sessionMemory.seedName != session.seedName)
+                if (SessionDisparity)
                 {
-                    Main.NewText("WARNING: Disparity between current AP connection and world data detected!");
-                    Main.NewText("Please update the mod's config with the correct credentials, or try a different world.");
-                    Main.NewText($"CURRENT CONNECTION: {session.slotName} in APworld seed {sessionMemory.seedName}");
-                    Main.NewText($"WORLD DATA: {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
                     return;
                 }
                 UseSessionMemory();
-            } else if (session is null)
-            {
-                Main.NewText("Unable to connect to AP.");
-                Main.NewText($"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}");
             }
-
             if (!world.chestsRandomized && Session is not null && Session.randomizeChests)
             {
                 FlagSystem.UpdateChests();
@@ -1538,6 +1532,35 @@ namespace SeldomArchipelago.Systems
             var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
             packet.Write(locationName);
             packet.Send();
+        }
+
+        public void QueueLocationKey(string locType, string checkName = null)
+        {
+            bool locFoundAndRemoved = false;
+            var locList = session.locGroupRewardNames[locType];
+            if (locList.Count == 0) return;
+            if (checkName is null)
+            {
+                string loc = locList[0].Item1;
+                locList.RemoveAt(0);
+                QueueLocationClient(loc);
+            } else
+            {
+                for (int i = 0; i < locList.Count; i++)
+                {
+                    if (locList[i].Item1 == checkName)
+                    {
+                        locList.RemoveAt(i);
+                        QueueLocationClient(checkName);
+                        locFoundAndRemoved = true;
+                        break;
+                    }
+                }
+                if (!locFoundAndRemoved)
+                {
+                    throw new Exception($"Location {checkName} not found in {locType} list.");
+                }
+            }
         }
 
         public void Achieved(string achievement)

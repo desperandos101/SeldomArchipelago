@@ -119,25 +119,7 @@ namespace SeldomArchipelago.ArchipelagoItem
             } else
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-                SessionMemory session = system.Session;
-                {
-                    bool locFoundAndRemoved = false;
-                    var locList = system.session.locGroupRewardNames[locType];
-                    for (int i = 0; i < locList.Count; i++)
-                    {
-                        if (locList[i].Item1 == chestCheckName)
-                        {
-                            locList.RemoveAt(i);
-                            system.QueueLocationClient(chestCheckName);
-                            locFoundAndRemoved = true;
-                            break;
-                        }
-                    }
-                    if (!locFoundAndRemoved)
-                    {
-                        throw new Exception($"Location {chestCheckName} not found in {locType} list.");
-                    }
-                }
+                system.QueueLocationKey(locType, chestCheckName);
             }
             Item.TurnToAir();
             /*Main.AmbienceServer.ForceEntitySpawn(new AmbienceServer.AmbienceSpawnInfo

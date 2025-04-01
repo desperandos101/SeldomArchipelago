@@ -311,7 +311,7 @@ namespace SeldomArchipelago {
             if (TileType < 82 || 84 < TileType) return -1;
             return herb.TileFrameX / 18;
         }
-        public static int IDNPC(this NPC npc) => IDNPC(npc.type);
+        public static int IDNPC(this NPC npc) => IDNPC(npc.netID);
         public static int IDNPC(this int id) {
             int? newID = NPCIDSets.UseAsDict(id);
             return newID ?? id;
