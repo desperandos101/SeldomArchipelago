@@ -238,6 +238,16 @@ namespace SeldomArchipelago
                 });
             };
 
+            // Rain
+            Terraria.IL_Main.StartRain += il =>
+            {
+                var cursor = new ILCursor(il);
+                cursor.EmitDelegate(() =>
+                {
+                    Main.NewText("RAIN!!");
+                });
+            };
+
             // Jungle Upgrade
             Terraria.IL_WorldGen.UpdateWorld_GrassGrowth += il =>
             {
