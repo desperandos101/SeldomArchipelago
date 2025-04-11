@@ -39,6 +39,7 @@ using System.Runtime.Intrinsics.Arm;
 using Steamworks;
 using System.Resources;
 using System.Collections.Immutable;
+using System.Diagnostics.Metrics;
 
 namespace SeldomArchipelago.Systems
 {
@@ -998,6 +999,15 @@ namespace SeldomArchipelago.Systems
             session.enemyItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(enemyItems.ToString());
             object hardmodeItems = success.SlotData["hardmode_items"];
             session.hardmodeItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(hardmodeItems.ToString());
+
+            int counter = -200;
+            HashSet<string> locationNPCs = session.enemyToKillCount.Keys.ToHashSet();
+            while (Lang.GetNPCNameValue(counter) is string npcName && counter < 10000)
+            {
+                locationNPCs.Remove(npcName);
+                counter++;
+            }
+
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
         }
 
