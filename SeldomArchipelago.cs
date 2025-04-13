@@ -242,10 +242,63 @@ namespace SeldomArchipelago
             Terraria.IL_Main.StartRain += il =>
             {
                 var cursor = new ILCursor(il);
+                var label = cursor.DefineLabel();
                 cursor.EmitDelegate(() =>
                 {
-                    Main.NewText("RAIN!!");
+                    return GetFlags().FlagIsActive(FlagID.Rain);
                 });
+                cursor.EmitBrtrue(label);
+                cursor.EmitRet();
+                cursor.MarkLabel(label);
+            };
+
+            // Sandstorm
+            Terraria.GameContent.Events.IL_Sandstorm.StartSandstorm += il =>
+            {
+                var cursor = new ILCursor(il);
+                var label = cursor.DefineLabel();
+                cursor.EmitDelegate(() =>
+                {
+                    return GetFlags().FlagIsActive(FlagID.Wind);
+                });
+                cursor.EmitBrtrue(label);
+                cursor.EmitRet();
+                cursor.MarkLabel(label);
+            };
+
+            // Journey Mode Weather Manipulation
+            Terraria.GameContent.UI.States.IL_UICreativePowersMenu.WeatherCategoryButtonClick += il =>
+            {
+                var cursor = new ILCursor(il);
+                cursor.GotoNext(i => i.MatchBrtrue(out var m));
+                cursor.EmitDelegate(() =>
+                {
+                    if (!GetFlags().FlagIsActive(FlagID.Rain))
+                    {
+                        Main.NewText("You cannot modify the rain level until you receive the 'Rain' item!");
+                        return 0;
+                    }
+                    else
+                    {
+                        return 1;
+                    }
+                });
+                cursor.EmitAnd();
+                cursor.Index++;
+                cursor.GotoNext(i => i.MatchBrtrue(out var m));
+                cursor.EmitDelegate(() =>
+                {
+                    if (!GetFlags().FlagIsActive(FlagID.Wind))
+                    {
+                        Main.NewText("You cannot modify the wind level until you receive the 'Wind' item!");
+                        return 0;
+                    }
+                    else
+                    {
+                        return 1;
+                    }
+                });
+                cursor.EmitAnd();
             };
 
             // Jungle Upgrade
@@ -701,7 +754,7 @@ namespace SeldomArchipelago
                 "ICE_SCREAM" => "Ice Scream",
                 "SLAYER_OF_WORLDS" => "Slayer of Worlds",
                 "SICK_THROW" => "Sick Throw",
-                "GET_ZENITH" => "Zenith",
+                "GET_ZENITH" => "Infinity + 1 Sword",
                 _ => null,
             };
 

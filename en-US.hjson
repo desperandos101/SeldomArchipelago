@@ -9,6 +9,7 @@ Mods: {
 				Headers: {
 					Common: Common Header
 					Advanced: Advanced Header
+					Miscellaneous: Miscellaneous Header
 				}
 
 				name: {
@@ -28,6 +29,16 @@ Mods: {
 
 				password: {
 					Label: Password
+					Tooltip: ""
+				}
+
+				eventsAsItems: {
+					Label: Receive Events as Items
+					Tooltip: ""
+				}
+
+				hardmodeAsItem: {
+					Label: Receive Hardmode as Item
 					Tooltip: ""
 				}
 			}

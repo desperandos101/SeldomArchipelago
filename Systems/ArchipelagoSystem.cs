@@ -4,6 +4,7 @@ using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Models;
 using Archipelago.MultiClient.Net.Packets;
 using Microsoft.Xna.Framework;
+using Color = Microsoft.Xna.Framework.Color;
 using MyExtensions;
 using Newtonsoft.Json.Linq;
 using SeldomArchipelago.HardmodeItem;
@@ -49,6 +50,8 @@ namespace SeldomArchipelago.Systems
         public enum FlagID
         {
             Hook,
+            Rain,
+            Wind,
             Forest,
             Snow,
             Desert,
@@ -166,6 +169,8 @@ namespace SeldomArchipelago.Systems
                         GiveItem(ItemID.GrapplingHook);
                     }
                     )},
+                    {"Rain",                    new Flag(FlagID.Rain) },
+                    {"Wind",                    new Flag(FlagID.Wind) },
                     {"Snow Biome",              new Flag(FlagID.Snow) },
                     {"Desert Biome",            new Flag(FlagID.Desert) },
                     {"Progressive Jungle",      new Flag(FlagID.Jungle, theNestedFlag: new Flag(FlagID.JungleUpgrade)) },
@@ -311,6 +316,10 @@ namespace SeldomArchipelago.Systems
                     FlagID.Ocean,
                     FlagID.Evil
             ];
+            private static readonly FlagID[] weatherFlags = [
+                FlagID.Rain,
+                FlagID.Wind
+                ];
             private static readonly (FlagID, int[])[] OtherTiles =
 [
         (FlagID.Forest, new int[] {TileID.Plants, TileID.Iron, TileID.Copper, TileID.Gold, TileID.Silver,
@@ -420,13 +429,14 @@ namespace SeldomArchipelago.Systems
                 };
             #endregion
             public bool FlagIsActive(FlagID flag) => activeFlags.Contains(flag);
-            public Flag.ActivateResult UnlockFlag(string flagName, int receiveItemAs)
+            public Flag.ActivateResult UnlockFlag(string flagName, bool safeEvent, bool safeHardmode)
             {
                 Flag flag = locToFlag[flagName];
-                bool safeUnlock = receiveItemAs == 2 || (receiveItemAs == 1 && flagName == "Hardmode");
+                bool safeUnlock = (safeEvent && flagName != "Hardmode") || (safeHardmode && flagName == "Hardmode");
                 return flag.ActivateFlag(activeFlags, safeUnlock);
             }
             public void UnlockBiomesNormally() => activeFlags.UnionWith(biomeFlags);
+            public void UnlockWeatherNormally() => activeFlags.UnionWith(weatherFlags);
             public void UnlockHookNormally() => activeFlags.Add(FlagID.Hook);
             private List<string> HardmodeBacklog
             {
@@ -785,11 +795,9 @@ namespace SeldomArchipelago.Systems
             public List<string> goals = new List<string>();
             public bool victory;
             public int slot;
-
-            public int safeUnlock;
             public HashSet<string> hardmodeItems = new HashSet<string>();
-            public bool ReceiveHardmodeAsItem => safeUnlock == 1;
-            public bool ReceiveAllEventsAsItems => safeUnlock == 2;
+            public bool eventAsItem;
+            public bool hardmodeAsItem;
             public static void GiveItem(int? item, Action<Player> giveItem)
             {
                 if (item != null)
@@ -901,6 +909,8 @@ namespace SeldomArchipelago.Systems
             session.session = newSession;
             UseSessionMemory();
             FlagSystem flagSystem = session.flagSystem;
+            session.eventAsItem = config.eventsAsItems;
+            session.hardmodeAsItem = config.hardmodeAsItem;
 
             var locations = session.session.DataStorage[Scope.Slot, "CollectedLocations"].To<String[]>();
             if (locations != null)
@@ -940,6 +950,11 @@ namespace SeldomArchipelago.Systems
             if (!(bool)success.SlotData["biome_locks"])
             {
                 flagSystem.UnlockBiomesNormally();
+            }
+
+            if (!(bool)success.SlotData["weather_locks"])
+            {
+                flagSystem.UnlockWeatherNormally();
             }
 
             if (!(bool)success.SlotData["grappling_hook_rando"])
@@ -1037,7 +1052,7 @@ namespace SeldomArchipelago.Systems
         {
             if (FlagSystem.locToFlag.ContainsKey(item))
             {
-                FlagSystem.Flag.ActivateResult result = session.flagSystem.UnlockFlag(item, session.safeUnlock);
+                FlagSystem.Flag.ActivateResult result = session.flagSystem.UnlockFlag(item, session.eventAsItem, session.hardmodeAsItem);
                 if (result == FlagSystem.Flag.ActivateResult.ActivateOnHardmode)
                 {
                     session.hardmodeBacklog.Add(item);
@@ -1282,6 +1297,10 @@ namespace SeldomArchipelago.Systems
         {
             if (session == null) return;
 
+            if (!Session.flagSystem.FlagIsActive(FlagID.Wind))
+            {
+                Main.windSpeedCurrent = Main.windSpeedTarget = 0;
+            }
             if (!session.session.Socket.Connected)
             {
                 Chat("Disconnected from Archipelago. Reload the world to reconnect.");

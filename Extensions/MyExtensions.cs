@@ -61,7 +61,8 @@ namespace MyExtensions {
             }
             return dict;
         }
-        public static TValue? UseAsDict<TKey, TValue>(this (TValue, TKey[])[] tupleDict, TKey value, bool refuseZero = false) where TValue : struct {
+        public static TValue? UseAsDict<TKey, TValue>(this (TValue, TKey[])[] tupleDict, TKey value, bool refuseZero = false) where TValue : struct
+        {
             foreach((TValue, TKey[]) idSet in tupleDict) {
                 if(idSet.Item2.Contains(value)) {
                     return idSet.Item1;
@@ -73,14 +74,18 @@ namespace MyExtensions {
             }
             return null;
         }
-        public static int? UseAsDict<TKey>(this (int, TKey[])[] tupleDict, TKey value)
+        public static string UseAsDict<TKey>(this (string, TKey[])[] tupleDict, TKey value, bool refuseZero = false)
         {
-            foreach ((int, TKey[]) idSet in tupleDict)
+            foreach ((string, TKey[]) idSet in tupleDict)
             {
                 if (idSet.Item2.Contains(value))
                 {
                     return idSet.Item1;
                 }
+            }
+            if (refuseZero)
+            {
+                throw new Exception($"Value {value} not found in tupledict.");
             }
             return null;
         }
