@@ -21,7 +21,8 @@ namespace SeldomArchipelago.Locations
         {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
             var session = system.Session;
-            if (session is not null && session.flagSystem.NPCRegionUnlocked(npc) && session.ArchipelagoEnemy(npc.TypeName) && session.locGroupRewardNames[npc.TypeName].Count > 0)
+            string name = LocationSystem.GetNPCLocKey(npc.TypeName);
+            if (session is not null && session.flagSystem.NPCRegionUnlocked(npc) && session.ArchipelagoEnemy(name) && session.locGroupRewardNames[name].Count > 0 && Main.rand.NextBool(6))
             {
                 Dust.NewDust(npc.position, npc.width, npc.height, DustID.MagicMirror);
             }
@@ -29,7 +30,7 @@ namespace SeldomArchipelago.Locations
         public override void OnKill(NPC npc)
         {
             if (npc.lastInteraction == 255) return;
-            string name = npc.TypeName;
+            string name = LocationSystem.GetNPCLocKey(npc.TypeName);
             var system = ModContent.GetInstance<ArchipelagoSystem>();
             var session = system.Session;
             int bannerID = Item.NPCtoBanner(npc.BannerID());

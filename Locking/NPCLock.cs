@@ -48,7 +48,7 @@ namespace SeldomArchipelago.Locking
         }
         public override void ModifyNPCLoot(NPC npc, NPCLoot npcLoot)
         {
-            FlagID? npcBiome = FlagSystem.GetNPCRegion(npc);
+            FlagID? npcBiome = FlagSystem.GetNPCRegion(npc.netID);
             if (npcBiome is not null)
             {
                 List<IItemDropRule> ruleList = npcLoot.Get(false);

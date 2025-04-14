@@ -34,10 +34,10 @@ namespace SeldomArchipelago.Systems
             ("Desert Spirit or Sand Poacher", new string[] {"Desert Spirit", "Sand Poacher"})
         };
         #endregion
-        static string TheNullString = null;
         public static FlagID[] GetChestFlags() => biomeToChestLocationName.Keys.ToArray();
         public static string GetChestName(FlagID flag) => $"{biomeToChestLocationName[flag]} Chest";
-        public static string GetNPCLocKey(string name) => npcNameToArchName.UseAsDict(name).ToString();
+        public static string GetNPCLocKey(string name) => npcNameToArchName.UseAsDict(name) ?? name;
+
         public static string[] GetAllLocNames()
         {
             List<String> list = new List<string>();

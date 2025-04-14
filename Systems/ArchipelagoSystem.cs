@@ -41,6 +41,7 @@ using Steamworks;
 using System.Resources;
 using System.Collections.Immutable;
 using System.Diagnostics.Metrics;
+using Microsoft.Build.Tasks;
 
 namespace SeldomArchipelago.Systems
 {
@@ -390,7 +391,7 @@ namespace SeldomArchipelago.Systems
                 (FlagID.Underworld, [ItemID.Fireblossom, ItemID.FireblossomSeeds] ),
                 (FlagID.Snow, [ItemID.Shiverthorn, ItemID.ShiverthornSeeds] ),
                 ];
-            private static readonly (FlagID, int[])[] FlagNPCSet = [
+            private static (FlagID, int[])[] FlagNPCSet = [
                     (FlagID.Forest,new int[]   {NPCID.GreenSlime, NPCID.BlueSlime, NPCID.PurpleSlime, NPCID.Pinky, NPCID.Zombie, NPCID.DemonEye, NPCID.Raven, NPCID.GoblinScout, NPCID.KingSlime, NPCID.PossessedArmor, NPCID.WanderingEye, NPCID.Wraith, NPCID.Werewolf, NPCID.HoppinJack,
                                                 NPCID.GiantWormHead, NPCID.RedSlime, NPCID.YellowSlime, NPCID.DiggerHead, NPCID.ToxicSludge,
                                                 NPCID.BlackSlime, NPCID.MotherSlime, NPCID.BabySlime, NPCID.Skeleton, NPCID.CaveBat, NPCID.Salamander, NPCID.Crawdad, NPCID.GiantShelly, NPCID.UndeadMiner, NPCID.Tim, NPCID.Nymph, NPCID.CochinealBeetle,
@@ -416,7 +417,20 @@ namespace SeldomArchipelago.Systems
                     (FlagID.Mushroom, new int[] {NPCID.AnomuraFungus, NPCID.FungiBulb, NPCID.MushiLadybug, NPCID.SporeBat, NPCID.SporeSkeleton, NPCID.ZombieMushroom,
                                                 NPCID.FungoFish, NPCID.GiantFungiBulb})
                 ];
-            public static FlagID? GetNPCRegion(NPC npc) => FlagNPCSet.UseAsDict(npc.IDNPC());
+            private static (FlagID, int[])[] FlagNPCBannerSet;
+            public static void InitializeBannerSet()
+            {
+                FlagNPCBannerSet = new (FlagID, int[])[FlagNPCSet.Length];
+                for (int i = 0; i < FlagNPCBannerSet.Length; i++)
+                {
+                    (FlagID, int[]) tuple = FlagNPCSet[i];
+                    int[] bannerIDset = (from id in tuple.Item2 select Item.NPCtoBanner(id)).ToArray();
+                    FlagNPCBannerSet[i] = (tuple.Item1, bannerIDset);
+                }
+                FlagNPCSet = null;
+            }
+            public static FlagID? GetNPCRegion(int npc) => FlagNPCBannerSet.UseAsDict(Item.NPCtoBanner(npc));
+            public static FlagID? GetNPCRegion(NPC npc) => GetNPCRegion(npc.BannerID());
             private static readonly Dictionary<int, FlagID> FreeNPCSet = new()
                 {
                     {NPCID.Dryad, FlagID.Dryad },
@@ -702,7 +716,7 @@ namespace SeldomArchipelago.Systems
             // Enemy names to kills required to cash in a check
             public Dictionary<string, int> enemyToKillCount = new Dictionary<string, int>();
             // Whether or not an enemy is a location
-            public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(name, out var count);
+            public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(LocationSystem.GetNPCLocKey(name), out var count);
             // All Enemy-specific Items
             public HashSet<string> enemyItems = new();
             // All Enemy 
@@ -1377,9 +1391,6 @@ namespace SeldomArchipelago.Systems
                 SessionMemory sess = Session; //explicit cast so it doesnt try to serialize SessionState
                 tag["SessionMemory"] = sess;
             }
-            world = new();
-            session = null;
-            sessionMemory = new();
         }
 
         public void Reset()
@@ -1393,6 +1404,8 @@ namespace SeldomArchipelago.Systems
         public override void OnWorldUnload()
         {
             world = new();
+            session = null;
+            sessionMemory = new();
             Reset();
         }
         public string[] Status()
@@ -1566,13 +1579,14 @@ namespace SeldomArchipelago.Systems
         public void QueueLocationKey(string locType, string checkName = null)
         {
             bool locFoundAndRemoved = false;
-            var locList = session.locGroupRewardNames[locType];
+            var locList = Session.locGroupRewardNames[locType];
             if (locList.Count == 0) return;
             if (checkName is null)
             {
                 string loc = locList[0].Item1;
                 locList.RemoveAt(0);
                 QueueLocationClient(loc);
+                Main.NewText($"Queued and removed {loc} under {locType}");
             } else
             {
                 for (int i = 0; i < locList.Count; i++)
@@ -1582,6 +1596,7 @@ namespace SeldomArchipelago.Systems
                         locList.RemoveAt(i);
                         QueueLocationClient(checkName);
                         locFoundAndRemoved = true;
+                        Main.NewText($"Queued and removed {checkName} under {locType}");
                         break;
                     }
                 }

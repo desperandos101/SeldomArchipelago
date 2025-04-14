@@ -19,33 +19,6 @@ namespace SeldomArchipelago {
         public static HashSet<int> mundaneCrateIDs = new HashSet<int>() {ItemID.WoodenCrate, ItemID.WoodenCrateHard, ItemID.IronCrate, ItemID.IronCrateHard, ItemID.GoldenCrate, ItemID.GoldenCrateHard};
         private static Random rnd = new Random();
         #region Private Datasets
-        private static readonly (int, int[])[] NPCIDSets = {
-            (3, new int[] {132, 186, 187, 188, 189, 200, 223, 161, 254, 255, 52, 53, 536, 319, 320, 321, 332, 436, 431, 432, 433, 434, 435, 331, 430, 590}),
-            (1, new int[] {302, 333, 334, 335, 336}),
-            (494, new int[] {495}),
-            (496, new int[] {497}),
-            (498, new int[] {499, 500, 501, 502, 503, 504, 505, 506}),
-            (42, new int[] {-16, -17, 231, -56, -57, 232, -58, -59, 233, -60, -61, 234, -62, -63, 235, -64, -65}),
-            (176, new int[] {-18, -19, -20, -21}),
-            (21, new int[] {449, -46, -47, 201, -48, -49, 202, -50, -51, 203, -52, -53, 322, 323, 324, 635}),
-            (3187, new int[] {3188, 3189}),
-            (580, new int[] {508}),
-            (581, new int[] {509}),
-            (195, new int[] {196}),
-            (NPCID.RustyArmoredBonesAxe, new int[] {NPCID.RustyArmoredBonesFlail, NPCID.RustyArmoredBonesSword, NPCID.RustyArmoredBonesSwordNoArmor}),
-            (NPCID.BlueArmoredBones, new int[] {NPCID.BlueArmoredBonesMace, NPCID.BlueArmoredBonesNoPants, NPCID.BlueArmoredBonesSword}),
-            (NPCID.HellArmoredBones, new int[] {NPCID.HellArmoredBonesMace, NPCID.HellArmoredBonesSpikeShield, NPCID.HellArmoredBonesSword}),
-            (NPCID.DiabolistRed, new int[] {NPCID.DiabolistWhite}),
-            (NPCID.Necromancer, new int[] {NPCID.NecromancerArmored}),
-            (NPCID.RaggedCaster, new int[] {NPCID.RaggedCasterOpenCoat}),
-            (NPCID.Vampire, new int[] {NPCID.VampireBat}),
-            (NPCID.MartianSaucer, new int[] {NPCID.MartianSaucerCore}),
-            (NPCID.BlackRecluse, new int[] {NPCID.BlackRecluseWall}),
-            (NPCID.JungleCreeper, new int[] {NPCID.JungleCreeperWall}),
-            (NPCID.DesertScorpionWalk, new int[] {NPCID.DesertScorpionWall}),
-            (NPCID.WallCreeper, new int[] {NPCID.WallCreeperWall}),
-            (NPCID.BloodCrawler, new int[] {NPCID.BloodCrawlerWall}),
-        };
         public static int[] eowIDs = new int[] {13, 14, 15};
         public static (int, float)[] eclipseWeights1 = new (int, float)[]
         {
@@ -310,11 +283,6 @@ namespace SeldomArchipelago {
             int TileType = herb.TileType;
             if (TileType < 82 || 84 < TileType) return -1;
             return herb.TileFrameX / 18;
-        }
-        public static int IDNPC(this NPC npc) => IDNPC(npc.netID);
-        public static int IDNPC(this int id) {
-            int? newID = NPCIDSets.UseAsDict(id);
-            return newID ?? id;
         }
     }
 }

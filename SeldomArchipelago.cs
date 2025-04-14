@@ -85,6 +85,8 @@ namespace SeldomArchipelago
                 counter++;
             }
 
+            FlagSystem.InitializeBannerSet();
+
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
 
             // Begin cursed IL editing
