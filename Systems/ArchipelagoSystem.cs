@@ -698,6 +698,7 @@ namespace SeldomArchipelago.Systems
             public static readonly Func<TagCompound, SessionMemory> DESERIALIZER = Load;
             public string seedName = "";
             public string slotName = "";
+            public bool HasActiveMemory => seedName is not null && slotName is not null;
             public FlagSystem flagSystem = new();
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
@@ -871,6 +872,7 @@ namespace SeldomArchipelago.Systems
             if (session is null) throw new Exception("UseSessionMemory: session is null!");
             if (sessionMemory is null) return;
             foreach (var location in sessionMemory.locationBacklog) QueueLocation(location);
+            session.flagSystem = sessionMemory.flagSystem;
             sessionMemory.locationBacklog.Clear();
             sessionMemory = null;
         }
@@ -1429,7 +1431,7 @@ namespace SeldomArchipelago.Systems
                 "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
                 "Or in-game at Settings > Mod Configuration",
                 ];
-                string[] sessionMemoryText = sessionMemory is not null ? [$"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}"] : [];
+                string[] sessionMemoryText = sessionMemory.HasActiveMemory ? [$"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}"] : [];
                 return defaultText.Concat(sessionMemoryText).ToArray();
             }
             
