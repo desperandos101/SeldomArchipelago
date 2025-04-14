@@ -418,13 +418,14 @@ namespace SeldomArchipelago.Systems
                                                 NPCID.FungoFish, NPCID.GiantFungiBulb})
                 ];
             private static (FlagID, int[])[] FlagNPCBannerSet;
+            // BannerIDs aren't named in Lang, so we create the initial FlagNPC set using named NPC constants and use this method to convert it
             public static void InitializeBannerSet()
             {
                 FlagNPCBannerSet = new (FlagID, int[])[FlagNPCSet.Length];
                 for (int i = 0; i < FlagNPCBannerSet.Length; i++)
                 {
                     (FlagID, int[]) tuple = FlagNPCSet[i];
-                    int[] bannerIDset = (from id in tuple.Item2 select Item.NPCtoBanner(id)).ToArray();
+                    int[] bannerIDset = (from id in tuple.Item2 select Item.NPCtoBanner(id)).ToHashSet().ToArray(); // additional set cast to get rid of dupes
                     FlagNPCBannerSet[i] = (tuple.Item1, bannerIDset);
                 }
                 FlagNPCSet = null;

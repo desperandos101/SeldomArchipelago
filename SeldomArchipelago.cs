@@ -79,6 +79,7 @@ namespace SeldomArchipelago
         {
             int counter = 1;
 
+            // TODO: Initialize this on connection instead and compare with SlotData to get rid of unnecessary items
             while (Lang.GetItemNameValue(counter) is string itemName && counter < 10000)
             {
                 englishLangToTypeDict[itemName] = counter;
