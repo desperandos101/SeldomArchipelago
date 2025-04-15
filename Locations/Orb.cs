@@ -48,7 +48,7 @@ namespace SeldomArchipelago.Locations
                 {
                     item.SetDefaults(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
                     var archItem = item.ModItem as ArchipelagoItem.ArchipelagoItem;
-                    archItem.SetCheck(ArchipelagoItem.ArchipelagoItem.dummy);
+                    archItem.SetCheck(LocationSystem.EvilOrb);
                 }
             }
         }
