@@ -30,13 +30,12 @@ namespace SeldomArchipelago.Config
 
         [Header("Miscellaneous")]
 
-        [Label("Receive Events as Items")]
-        [DefaultValue(true)]
-        public bool eventsAsItems;
-
-        [Label("Receive Hardmode as Item")]
-        [DefaultValue(true)]
+        [Label("Receive Hardmode As Item")]
+        [DefaultValue(false)]
         public bool hardmodeAsItem;
 
+        [Label("Receive Events As Items")]
+        [DefaultValue(false)]
+        public bool eventsAsItems;
     }
 }

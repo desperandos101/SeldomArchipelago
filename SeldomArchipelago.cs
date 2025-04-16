@@ -757,7 +757,7 @@ namespace SeldomArchipelago
                 "ICE_SCREAM" => "Ice Scream",
                 "SLAYER_OF_WORLDS" => "Slayer of Worlds",
                 "SICK_THROW" => "Sick Throw",
-                "GET_ZENITH" => "Infinity + 1 Sword",
+                "GET_ZENITH" => "Infinity +1 Sword",
                 _ => null,
             };
 

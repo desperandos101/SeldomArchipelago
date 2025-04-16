@@ -735,7 +735,7 @@ namespace SeldomArchipelago.Systems
             public HashSet<string> hardmodeItems = new HashSet<string>();
             // Whether chests should be randomized.
             public bool randomizeChests = false;
-            public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItems;
+            public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItem;
             public static bool HardmodeAsItem => ModContent.GetInstance<Config.Config>().hardmodeAsItem;
 
             public TagCompound SerializeData()
@@ -807,6 +807,7 @@ namespace SeldomArchipelago.Systems
             public void ActivateHardmode()
             {
                 WorldGen.StartHardmode();
+                BossFlag(NPCID.WallofFlesh);
                 RedeemHardmodeBacklog();
             }
             public void RedeemHardmodeBacklog()
@@ -943,6 +944,7 @@ namespace SeldomArchipelago.Systems
             public int currentItem;
             public List<string> collectedLocations = new List<string>();
             public List<string> goals = new List<string>();
+
             public bool victory;
             public int slot;
 
@@ -1173,7 +1175,7 @@ namespace SeldomArchipelago.Systems
                     _ => false,
                 })
                 {
-                    if (status == TaskStatus.RanToCompletion) foreach (var item in session.locationQueue[i].Result.Values) Chat($"Sent {item.ItemName} to {item.Player.Name}!");
+                    if (status == TaskStatus.RanToCompletion) foreach (var item in session.locationQueue[i].Result.Values) Chat($"Sent {item.ItemName} to {session.session.Players.GetPlayerAlias(item.Player)}!");
                     else Chat("Sent an item to a player...but failed to get info about it!");
 
                     unqueue.Add(i);
@@ -1482,19 +1484,7 @@ namespace SeldomArchipelago.Systems
             packet.Send();
         }
 
-        void BossFlag(ref bool flag, int boss)
-        {
-            BossFlag(boss);
-            flag = true;
-        }
-
-        void BossFlag(Action set, int boss)
-        {
-            BossFlag(boss);
-            set();
-        }
-
-        void BossFlag(int boss)
+        static void BossFlag(int boss)
         {
             if (ModLoader.HasMod("CalamityMod")) ModContent.GetInstance<CalamitySystem>().VanillaBossKilled(boss);
         }
