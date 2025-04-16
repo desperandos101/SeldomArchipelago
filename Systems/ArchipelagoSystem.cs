@@ -705,45 +705,112 @@ namespace SeldomArchipelago.Systems
         public class SessionMemory : TagSerializable
         {
             public static readonly Func<TagCompound, SessionMemory> DESERIALIZER = Load;
-            public string seedName = "";
-            public string slotName = "";
-            public bool HasActiveMemory => seedName is not null && slotName is not null;
+            public int Slot { get; protected set; }
+            public string SeedName { get; protected set; }
+            public string SlotName { get; protected set; }
+            public bool HasActiveMemory => SeedName is not null && SlotName is not null;
             public FlagSystem flagSystem = new();
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
-            public List<string> locationBacklog = new List<string>();
+            public List<string> locationBacklog;
             // Multiple lists that contain the names of the items within enumerable location groups.
             // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
             // Item1 is the name of a location, and Item2 is the full name of the item at said location.
-            public Dictionary<string, List<(string, string)>> locGroupRewardNames = new();
+            public Dictionary<string, List<(string, string)>> locGroupRewardNames;
             // Number of items the player has collected in this world
-            public int collectedItems = 0;
+            public int collectedItems;
             // List of rewards received in this world, so they don't get reapplied. Saved in the
             // Terraria world instead of Archipelago data in case the player is, for example,
             // playing Hardcore and wants to receive all the rewards again when making a new player/
             // world.
-            public List<int> receivedRewards = new List<int>();
+            public List<int> receivedRewards;
             // Enemy names to kills required to cash in a check
-            public Dictionary<string, int> enemyToKillCount = new Dictionary<string, int>();
+            public readonly Dictionary<string, int> enemyToKillCount;
             // Whether or not an enemy is a location
             public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(LocationSystem.GetNPCLocKey(name), out var count);
             // All Enemy-specific Items
-            public HashSet<string> enemyItems = new();
+            public readonly HashSet<string> enemyItems;
             // All Enemy 
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
-            public List<string> hardmodeBacklog = new();
-            public HashSet<string> hardmodeItems = new HashSet<string>();
+            public List<string> hardmodeBacklog;
+            public readonly HashSet<string> hardmodeItems;
             // Whether chests should be randomized.
             public bool randomizeChests = false;
-            public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItem;
+            public List<string> goals;
+            public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItems;
             public static bool HardmodeAsItem => ModContent.GetInstance<Config.Config>().hardmodeAsItem;
 
+            public SessionMemory(LoginSuccessful success)
+            {
+                // Handles Slot-side storage that the apworld creates, and the client doesn't modify.
+                Slot = success.Slot;
+                enemyToKillCount = DeserializeSlotObject<Dictionary<string, int>>(success, "enemy_to_kill_count");
+                enemyItems = DeserializeSlotObject<HashSet<String>>(success, "enemy_items");
+                enemyItems = (from item in enemyItems select item.ToLower()).ToHashSet();
+                hardmodeItems = DeserializeSlotObject<HashSet<String>>(success, "hardmode_items");
+                hardmodeItems = (from item in hardmodeItems select item.ToLower()).ToHashSet();
+                goals = DeserializeSlotObject<List<string>>(success, "goal");
+                randomizeChests = (bool)success.SlotData["chest_loot"];
+
+                if (!(bool)success.SlotData["biome_locks"])
+                {
+                    flagSystem.UnlockBiomesNormally();
+                }
+
+                if (!(bool)success.SlotData["weather_locks"])
+                {
+                    flagSystem.UnlockWeatherNormally();
+                }
+
+                if (!(bool)success.SlotData["grappling_hook_rando"])
+                {
+                    flagSystem.UnlockHookNormally();
+                }    
+            }
+            public SessionMemory(TagCompound tag)
+            {
+                SeedName = tag.GetString(nameof(SeedName));
+                SlotName = tag.GetString(nameof(SlotName));
+                flagSystem = tag.Get<FlagSystem>(nameof(flagSystem));
+                locationBacklog = tag.Get<List<string>>(nameof(locationBacklog));
+                collectedItems = tag.GetInt(nameof(collectedItems));
+                receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
+                List<string> enemyKillKeys = tag.Get<List<string>>(nameof(enemyToKillCount) + "Keys");
+                List<int> enemyKillValues = tag.Get<List<int>>(nameof(enemyToKillCount) + "Values");
+                for (int i = 0; i < enemyKillKeys.Count; i++)
+                {
+                    enemyToKillCount[enemyKillKeys[i]] = enemyKillValues[i];
+                }
+                enemyItems = tag.Get<List<string>>(nameof(enemyItems)).ToHashSet();
+                hardmodeBacklog = tag.Get<List<string>>(nameof(hardmodeBacklog));
+                randomizeChests = tag.GetBool(nameof(randomizeChests));
+                List<string> locKeyList = tag.Get<List<string>>(nameof(locGroupRewardNames) + "Keys");
+                foreach (string key in locKeyList)
+                {
+                    if (!tag.ContainsKey(key + "1")) throw new Exception($"TAG ERROR: Key {key} missing the 1 value.");
+                    if (!tag.ContainsKey(key + "2")) throw new Exception($"TAG ERROR: Key {key} missing the 2 value.");
+                    List<string> values1 = tag.Get<List<string>>(key + "1");
+                    List<string> values2 = tag.Get<List<string>>(key + "2");
+                    if (values1.Count != values2.Count) throw new Exception($"TAG ERROR: Key {key} has value mismatch; List 1 has {values1.Count} items, List 2 has {values2.Count} items.");
+                    List<(string, string)> completeValues = new();
+                    for (int i = 0; i < values1.Count; i++)
+                    {
+                        completeValues.Append((values1[i], values2[i]));
+                    }
+                    locGroupRewardNames[key] = completeValues;
+                }
+            }
+            private static T DeserializeSlotObject<T>(LoginSuccessful success, string varName)
+            {
+                string varData = success.SlotData[varName].ToString();
+                return Newtonsoft.Json.JsonConvert.DeserializeObject<T>(varData);
+            }
             public TagCompound SerializeData()
             {
                 TagCompound tag = new TagCompound
                 {
-                    [nameof(seedName)] = seedName,
-                    [nameof(slotName)] = slotName,
+                    [nameof(SeedName)] = SeedName,
+                    [nameof(SlotName)] = SlotName,
                     [nameof(flagSystem)] = flagSystem,
                     [nameof(locationBacklog)] = locationBacklog,
                     [nameof(collectedItems)] = collectedItems,
@@ -762,47 +829,11 @@ namespace SeldomArchipelago.Systems
                 }
                 return tag;
             }
-            public static SessionMemory Load(TagCompound tag) => Load(tag, null);
-            public static SessionMemory Load(TagCompound tag, SessionState state = null)
-            {
-                SessionMemory sessionMemory = state ?? new SessionMemory();
-                sessionMemory.seedName = tag.GetString(nameof(seedName));
-                sessionMemory.slotName = tag.GetString(nameof(slotName));
-                sessionMemory.flagSystem = tag.Get<FlagSystem>(nameof(flagSystem));
-                sessionMemory.locationBacklog = tag.Get<List<string>>(nameof(locationBacklog));
-                sessionMemory.collectedItems = tag.GetInt(nameof(collectedItems));
-                sessionMemory.receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
-                List<string> enemyKillKeys = tag.Get<List<string>>(nameof(enemyToKillCount) + "Keys");
-                List<int> enemyKillValues = tag.Get<List<int>>(nameof(enemyToKillCount) + "Values");
-                for (int i = 0; i < enemyKillKeys.Count; i++)
-                {
-                    sessionMemory.enemyToKillCount[enemyKillKeys[i]] = enemyKillValues[i];
-                }
-                sessionMemory.enemyItems = tag.Get<List<string>>(nameof(enemyItems)).ToHashSet();
-                sessionMemory.hardmodeBacklog = tag.Get<List<string>>(nameof(hardmodeBacklog));
-                sessionMemory.randomizeChests = tag.GetBool(nameof(randomizeChests));
-                List<string> locKeyList = tag.Get<List<string>>(nameof(locGroupRewardNames) + "Keys");
-                foreach (string key in locKeyList)
-                {
-                    if (!tag.ContainsKey(key + "1")) throw new Exception($"TAG ERROR: Key {key} missing the 1 value.");
-                    if (!tag.ContainsKey(key + "2")) throw new Exception($"TAG ERROR: Key {key} missing the 2 value.");
-                    List<string> values1 = tag.Get<List<string>>(key + "1");
-                    List<string> values2 = tag.Get<List<string>>(key + "2");
-                    if (values1.Count != values2.Count) throw new Exception($"TAG ERROR: Key {key} has value mismatch; List 1 has {values1.Count} items, List 2 has {values2.Count} items.");
-                    List<(string, string)> completeValues = new();
-                    for (int i = 0; i < values1.Count; i++)
-                    {
-                        completeValues.Append((values1[i], values2[i]));
-                    }
-                    sessionMemory.locGroupRewardNames[key] = completeValues;
-                }
-                return sessionMemory;
-            }
+            public static SessionMemory Load(TagCompound tag) => new SessionMemory(tag);
             public static SessionState LoadState(TagCompound tag)
             {
-                SessionState state = new();
-                Load(tag, state); // No need to capture return value in this instance
-                return state;
+                SessionMemory memory = new SessionMemory(tag);
+                return memory as SessionState;
             }
             public void ActivateHardmode()
             {
@@ -932,7 +963,7 @@ namespace SeldomArchipelago.Systems
         // Data that's reset between Archipelago sessions
         public class SessionState : SessionMemory
         {
-            public static new readonly Func<TagCompound, SessionState> DESERIALIZER = SessionMemory.LoadState;
+            public static new readonly Func<TagCompound, SessionState> DESERIALIZER = LoadState;
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -942,25 +973,83 @@ namespace SeldomArchipelago.Systems
             // instead of collecting them. This is needed bc AP just gives us a list of items that
             // we have, and it's up to us to keep track of which ones we've already applied.
             public int currentItem;
-            public List<string> collectedLocations = new List<string>();
-            public List<string> goals = new List<string>();
+            public List<string> collectedLocations;
 
             public bool victory;
-            public int slot;
 
-            
+            public SessionState(LoginSuccessful success) : base(success)
+            {
+                // Handles Slot-side storage that the client creates and modifies.
+                collectedLocations = session.DataStorage[Scope.Slot, nameof(collectedLocations)].To<List<string>>() ?? new();
+                hardmodeBacklog = session.DataStorage[Scope.Slot, nameof(hardmodeBacklog)].To<List<string>>() ?? new();
+                receivedRewards = session.DataStorage[Scope.Slot, nameof(receivedRewards)].To<List<int>>() ?? new();
+                collectedItems = session.DataStorage[Scope.Slot, nameof(collectedItems)] ?? 0;
+                string[] locKeys = session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<string[]>();
+                List<(string, string)>[] locValues = session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string)>[]>();
+                if (locKeys is not null)
+                {
+                    locGroupRewardNames = new();
+                    for (int i = 0; i < locKeys.Length; i++)
+                    {
+                        locGroupRewardNames[locKeys[i]] = locValues[i];
+                    }
+                }
+                else
+                {
+                    CreateMultiLocSlotDict(success);
+                }
+                    SeedName = session.RoomState.Seed;
+                SlotName = session.Players.GetPlayerName(Slot);
+
+                // Some SessionState-specific constants we initialize
+                if ((bool)success.SlotData["deathlink"])
+                {
+                    deathlink = session.CreateDeathLinkService();
+                    deathlink.EnableDeathLink();
+                    deathlink.OnDeathLinkReceived += ReceiveDeathlink;
+                }
+            }
+            public void CreateMultiLocSlotDict(LoginSuccessful success)
+            {
+                object multiLocDictObject = success.SlotData["multi_loc_slot_dicts"];
+                var multiLocDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(multiLocDictObject.ToString());
+                var allBaseLocs = multiLocDict.Keys.ToList();
+                while (allBaseLocs.Count > 0)
+                {
+                    string baseLoc = allBaseLocs[0];
+                    locGroupRewardNames[baseLoc] = new List<(string, string)>();
+                    string[] locs = multiLocDict[baseLoc].ToArray();
+                    long[] itemIDs = (from loc in locs select session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, loc)).ToArray();
+                    if (itemIDs.Contains(-1))
+                    {
+                        throw new Exception($"Some retrieved locations under {baseLoc} turned up -1 ids.");
+                    }
+                    var task = session.Locations.ScoutLocationsAsync(itemIDs);
+                    if (!task.Wait(1000)) continue;
+                    var itemInfoDictValues = task.Result.Values;
+                    foreach (ScoutedItemInfo itemInfo in itemInfoDictValues)
+                    {
+                        string loc = itemInfo.LocationName;
+                        if (collectedLocations.Contains(loc))
+                            continue;
+                        string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
+                        locGroupRewardNames[baseLoc].Add((loc, itemName));
+                    }
+                    allBaseLocs.RemoveAt(0);
+                }
+            }
         }
 
         public WorldState world = new();
         public SessionState session;
-        public SessionMemory sessionMemory = new();
+        public SessionMemory sessionMemory;
         public SessionMemory Session
         {
             get => session ?? sessionMemory;
         }
         public bool SessionDisparity
         {
-            get => (session is not null && sessionMemory is not null && sessionMemory.slotName != "" && (sessionMemory.slotName != session.slotName || sessionMemory.seedName != session.seedName));
+            get => (session is not null && sessionMemory is not null && sessionMemory.SlotName != "" && (sessionMemory.SlotName != session.SlotName || sessionMemory.SeedName != session.SeedName));
         }
 
         public string[] CollectedLocations
@@ -970,16 +1059,13 @@ namespace SeldomArchipelago.Systems
                 return [.. Session.locationBacklog];
             }
         }
-        // This method does everything that needs to be done with sessionMemory when
-        // play switches from offline to online, then sets it to null.
-        public void UseSessionMemory()
+        // This method does everything that needs to be done with sessionMemory when play switches from offline to online.
+        // The source of the parameter "memory" should be disposed after use.
+        public void UseSessionMemory(SessionMemory memory)
         {
             if (session is null) throw new Exception("UseSessionMemory: session is null!");
-            if (sessionMemory is null) return;
-            foreach (var location in sessionMemory.locationBacklog) QueueLocation(location);
-            session.flagSystem = sessionMemory.flagSystem;
-            sessionMemory.locationBacklog.Clear();
-            sessionMemory = null;
+            foreach (var location in memory.locationBacklog) QueueLocation(location);
+            session.flagSystem = memory.flagSystem;
         }
         public override void LoadWorldData(TagCompound tag)
         {
@@ -991,7 +1077,8 @@ namespace SeldomArchipelago.Systems
                 {
                     return;
                 }
-                UseSessionMemory();
+                UseSessionMemory(sessionMemory);
+                sessionMemory = null;
             }
             if (!world.chestsRandomized && Session is not null && Session.randomizeChests)
             {
@@ -1026,27 +1113,11 @@ namespace SeldomArchipelago.Systems
                 return;
             }
 
-            session = new();
-            session.session = newSession;
-            UseSessionMemory();
-            FlagSystem flagSystem = session.flagSystem;
-
-            var locations = session.session.DataStorage[Scope.Slot, "CollectedLocations"].To<String[]>();
-            if (locations != null)
-            {
-                session.collectedLocations = new List<string>(locations);
-            }
-
-            session.hardmodeBacklog = session.session.DataStorage[Scope.Slot, "HardmodeBacklog"].To<List<string>>();
-            if (session.hardmodeBacklog is null) session.hardmodeBacklog = new List<string>();
-
-            session.receivedRewards = session.session.DataStorage[Scope.Slot, "ReceivedRewards"].To<List<int>>();
-            if (session.receivedRewards is null) session.receivedRewards = new List<int>();
-
-            session.collectedItems = session.session.DataStorage[Scope.Slot, "CollectedItems"];
-
             var success = (LoginSuccessful)result;
-            session.goals = new List<string>(((JArray)success.SlotData["goal"]).ToObject<string[]>());
+            session = new(success)
+            {
+                session = newSession
+            };
 
             session.session.MessageLog.OnMessageReceived += (message) =>
             {
@@ -1058,84 +1129,6 @@ namespace SeldomArchipelago.Systems
                 Chat(text);
             };
 
-            if ((bool)success.SlotData["deathlink"])
-            {
-                session.deathlink = session.session.CreateDeathLinkService();
-                session.deathlink.EnableDeathLink();
-
-                session.deathlink.OnDeathLinkReceived += ReceiveDeathlink;
-            }
-
-            if (!(bool)success.SlotData["biome_locks"])
-            {
-                flagSystem.UnlockBiomesNormally();
-            }
-
-            if (!(bool)success.SlotData["weather_locks"])
-            {
-                flagSystem.UnlockWeatherNormally();
-            }
-
-            if (!(bool)success.SlotData["grappling_hook_rando"])
-            {
-                flagSystem.UnlockHookNormally();
-            }
-
-            session.slot = success.Slot;
-            session.seedName = newSession.RoomState.Seed;
-            session.slotName = newSession.Players.GetPlayerName(session.slot);
-
-            session.randomizeChests = (bool)success.SlotData["chest_loot"];
-
-            String[] locKeys = session.session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<String[]>();
-            List<(string, string)>[] locValues = session.session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string)>[]>();
-            session.locGroupRewardNames = new Dictionary<string, List<(string, string)>>();
-
-            if (locKeys is not null)
-            {
-                for (int i = 0; i < locKeys.Length; i++)
-                {
-                    session.locGroupRewardNames[locKeys[i]] = locValues[i];
-                }
-            }
-            else
-            {
-                object multiLocDictObject = success.SlotData["multi_loc_slot_dicts"];
-                var multiLocDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(multiLocDictObject.ToString());
-                var allBaseLocs = multiLocDict.Keys.ToList();
-                while (allBaseLocs.Count > 0)
-                {
-                    string baseLoc = allBaseLocs[0];
-                    session.locGroupRewardNames[baseLoc] = new List<(string, string)>();
-                    string[] locs = multiLocDict[baseLoc].ToArray();
-                    long[] itemIDs = (from loc in locs select session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, loc)).ToArray();
-                    if (itemIDs.Contains(-1))
-                    {
-                        throw new Exception($"Some retrieved locations under {baseLoc} turned up -1 ids.");
-                    }
-                    var task = session.session.Locations.ScoutLocationsAsync(itemIDs);
-                    if (!task.Wait(1000)) continue;
-                    var itemInfoDictValues = task.Result.Values;
-                    foreach (ScoutedItemInfo itemInfo in itemInfoDictValues)
-                    {
-                        string loc = itemInfo.LocationName;
-                        if (session.collectedLocations.Contains(loc))
-                            continue;
-                        string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
-                        session.locGroupRewardNames[baseLoc].Add((loc, itemName));
-                    }
-                    allBaseLocs.RemoveAt(0);
-                }
-            }
-            object enemyToKillCount = success.SlotData["enemy_to_kill_count"];
-            session.enemyToKillCount = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, int>>(enemyToKillCount.ToString());
-            object enemyItems = success.SlotData["enemy_items"];
-            session.enemyItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(enemyItems.ToString());
-            session.enemyItems = (from item in session.enemyItems select item.ToLower()).ToHashSet();
-            object hardmodeItems = success.SlotData["hardmode_items"];
-            session.hardmodeItems = Newtonsoft.Json.JsonConvert.DeserializeObject<HashSet<String>>(hardmodeItems.ToString());
-            session.hardmodeItems = (from item in session.hardmodeItems select item.ToLower()).ToHashSet();
-
             int counter = -200;
             HashSet<string> locationNPCs = session.enemyToKillCount.Keys.ToHashSet();
             while (Lang.GetNPCNameValue(counter) is string npcName && counter < 10000)
@@ -1146,7 +1139,6 @@ namespace SeldomArchipelago.Systems
 
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
         }
-
 
         public override void PostUpdateWorld()
         {
@@ -1244,9 +1236,9 @@ namespace SeldomArchipelago.Systems
 
         public override void OnWorldUnload()
         {
-            world = new();
+            world = null;
             session = null;
-            sessionMemory = new();
+            sessionMemory = null;
             Reset();
         }
         public string[] Status()
@@ -1258,8 +1250,8 @@ namespace SeldomArchipelago.Systems
                 [
                     "WARNING: Disparity between current AP connection and world data detected!",
                     "Please update the mod's config with the correct credentials, or try a different world.",
-                    $"CURRENT CONNECTION: {session.slotName} in APworld seed {session.seedName}",
-                    $"WORLD DATA: {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}",
+                    $"CURRENT CONNECTION: {session.SlotName} in APworld seed {session.SeedName}",
+                    $"WORLD DATA: {sessionMemory.SlotName} in APworld seed {sessionMemory.SeedName}",
                 ];
             }
             else if (session is not null) return ["Archipelago is Active!"];
@@ -1270,7 +1262,7 @@ namespace SeldomArchipelago.Systems
                 "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
                 "Or in-game at Settings > Mod Configuration",
                 ];
-                string[] sessionMemoryText = sessionMemory.HasActiveMemory ? [$"Currently playing in slot {sessionMemory.slotName} in APworld seed {sessionMemory.seedName}"] : [];
+                string[] sessionMemoryText = sessionMemory.HasActiveMemory ? [$"Currently playing in Slot {sessionMemory.SlotName} in APworld seed {sessionMemory.SeedName}"] : [];
                 return defaultText.Concat(sessionMemoryText).ToArray();
             }
             
@@ -1359,7 +1351,7 @@ namespace SeldomArchipelago.Systems
                 info.Add($"Collected locations: [{string.Join("; ", session.collectedLocations)}]");
                 info.Add($"Goals: [{string.Join("; ", session.goals)}]");
                 info.Add($"Victory has {(session.victory ? "been achieved! Hooray!" : "not been achieved. Alas.")}");
-                info.Add($"You are slot {session.slot}");
+                info.Add($"You are Slot {session.Slot}");
             }
 
             return info.ToArray();
@@ -1462,12 +1454,12 @@ namespace SeldomArchipelago.Systems
         {
             if (session?.deathlink == null) return;
 
-            var death = new DeathLink(session.session.Players.GetPlayerAlias(session.slot), message);
+            var death = new DeathLink(session.session.Players.GetPlayerAlias(session.Slot), message);
             session.deathlink.SendDeathLink(death);
             ReceiveDeathlink(death);
         }
 
-        public void ReceiveDeathlink(DeathLink death)
+        public static void ReceiveDeathlink(DeathLink death)
         {
             var message = $"[DeathLink] {(death.Source == null ? "" : $"{death.Source} died")}{(death.Source != null && death.Cause != null ? ": " : "")}{(death.Cause == null ? "" : $"{death.Cause}")}";
 
