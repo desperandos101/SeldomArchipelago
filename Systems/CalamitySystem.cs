@@ -17,42 +17,42 @@ namespace SeldomArchipelago.Systems
     {
         public bool DownedAquaticScourge() => CalamityMod.DownedBossSystem.downedAquaticScourge;
 
-        public void GiveCosmolight() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Tools.ClimateChange.Cosmolight>();
+        public void GiveCosmolight() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Tools.ClimateChange.Cosmolight>();
 
-        public void GiveCorruptFlask() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.CorruptFlask>();
-        public void GiveCrimsonFlask() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.CrimsonFlask>();
-        public void GiveCrawCarapace() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.CrawCarapace>();
-        public void GiveGiantShell() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.GiantShell>();
-        public void GiveLifeJelly() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.LifeJelly>();
-        public void GiveVitalJelly() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.VitalJelly>();
-        public void GiveCleansingJelly() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.CleansingJelly>();
-        public void GiveGiantTortoiseShell() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.GiantTortoiseShell>();
-        public void GiveCoinOfDeceit() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.CoinofDeceit>();
-        public void GiveInkBomb() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.InkBomb>();
-        public void GiveVoltaicJelly() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.VoltaicJelly>();
-        public void GiveWulfrumBattery() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.WulfrumBattery>();
-        public void GiveLuxorsGift() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.LuxorsGift>();
-        public void GiveRaidersTalisman() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.RaidersTalisman>();
-        public void GiveRottenDogtooth() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.RottenDogtooth>();
-        public void GiveScuttlersJewel() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.ScuttlersJewel>();
-        public void GiveUnstableGraniteCore() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.UnstableGraniteCore>();
-        public void GiveAmidiasSpark() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.AmidiasSpark>();
-        public void GiveUrsaSergeant() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Fishing.AstralCatches.UrsaSergeant>();
-        public void GiveTrinketOfChi() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.TrinketofChi>();
-        public void GiveTheTransformer() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.TheTransformer>();
-        public void GiveRoverDrive() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.RoverDrive>();
-        public void GiveMarniteRepulsionShield() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.MarniteRepulsionShield>();
-        public void GiveFrostBarrier() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.FrostBarrier>();
-        public void GiveAncientFossil() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.AncientFossil>();
-        public void GiveSpelunkersAmulet() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.SpelunkersAmulet>();
-        public void GiveFungalSymbiote() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.FungalSymbiote>();
-        public void GiveGladiatorsLocket() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.GladiatorsLocket>();
-        public void GiveWulfrumAcrobaticsPack() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.WulfrumAcrobaticsPack>();
-        public void GiveDepthsCharm() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.DepthCharm>();
-        public void GiveAnechoicPlating() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.AnechoicPlating>();
-        public void GiveIronBoots() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.IronBoots>();
-        public void GiveSpritGlyph() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.SpiritGlyph>();
-        public void GiveAbyssalAmulet() => ModContent.GetInstance<ArchipelagoSystem>().GiveItem<CalamityMod.Items.Accessories.AbyssalAmulet>();
+        public void GiveCorruptFlask() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.CorruptFlask>();
+        public void GiveCrimsonFlask() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.CrimsonFlask>();
+        public void GiveCrawCarapace() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.CrawCarapace>();
+        public void GiveGiantShell() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.GiantShell>();
+        public void GiveLifeJelly() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.LifeJelly>();
+        public void GiveVitalJelly() =>     ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.VitalJelly>();
+        public void GiveCleansingJelly() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.CleansingJelly>();
+        public void GiveGiantTortoiseShell() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.GiantTortoiseShell>();
+        public void GiveCoinOfDeceit() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.CoinofDeceit>();
+        public void GiveInkBomb() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.InkBomb>();
+        public void GiveVoltaicJelly() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.VoltaicJelly>();
+        public void GiveWulfrumBattery() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.WulfrumBattery>();
+        public void GiveLuxorsGift() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.LuxorsGift>();
+        public void GiveRaidersTalisman() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.RaidersTalisman>();
+        public void GiveRottenDogtooth() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.RottenDogtooth>();
+        public void GiveScuttlersJewel() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.ScuttlersJewel>();
+        public void GiveUnstableGraniteCore() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.UnstableGraniteCore>();
+        public void GiveAmidiasSpark() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.AmidiasSpark>();
+        public void GiveUrsaSergeant() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Fishing.AstralCatches.UrsaSergeant>();
+        public void GiveTrinketOfChi() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.TrinketofChi>();
+        public void GiveTheTransformer() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.TheTransformer>();
+        public void GiveRoverDrive() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.RoverDrive>();
+        public void GiveMarniteRepulsionShield() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.MarniteRepulsionShield>();
+        public void GiveFrostBarrier() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.FrostBarrier>();
+        public void GiveAncientFossil() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.AncientFossil>();
+        public void GiveSpelunkersAmulet() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.SpelunkersAmulet>();
+        public void GiveFungalSymbiote() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.FungalSymbiote>();
+        public void GiveGladiatorsLocket() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.GladiatorsLocket>();
+        public void GiveWulfrumAcrobaticsPack() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.WulfrumAcrobaticsPack>();
+        public void GiveDepthsCharm() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.DepthCharm>();
+        public void GiveAnechoicPlating() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.AnechoicPlating>();
+        public void GiveIronBoots() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.IronBoots>();
+        public void GiveSpritGlyph() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.SpiritGlyph>();
+        public void GiveAbyssalAmulet() => ArchipelagoSystem.SessionState.GiveItem<CalamityMod.Items.Accessories.AbyssalAmulet>();
 
         public void CalamityPostUpdateWorld()
         {
@@ -115,10 +115,10 @@ namespace SeldomArchipelago.Systems
             var npc = new NPC { type = boss };
             var calamityNpc = new CalamityGlobalNPC();
             typeof(NPC).GetField("_globals", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(npc, new GlobalNPC[] { calamityNpc });
-            var seldomArchipelago = ModContent.GetInstance<SeldomArchipelago>();
-            seldomArchipelago.temp = true;
+            var SeldomArchipelago = ModContent.GetInstance<SeldomArchipelago>();
+            SeldomArchipelago.temp = true;
             calamityNpc.OnKill(npc);
-            seldomArchipelago.temp = false;
+            SeldomArchipelago.temp = false;
         }
 
         public void CalamityOnKill<T>(MethodInfo method) where T : ModNPC, new() => CalamityOnKill<T>(method, new float[] { 0, 0, 0, 0 });
@@ -139,10 +139,10 @@ namespace SeldomArchipelago.Systems
             globalNpcs.Add(calamityNpc);
             typeof(NPC).GetField("_globals", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(entity, globalNpcs.ToArray());
             typeof(ModType<NPC>).GetProperty("Entity").SetValue(npc, entity);
-            var seldomArchipelago = ModContent.GetInstance<SeldomArchipelago>();
-            seldomArchipelago.temp = true;
+            var SeldomArchipelago = ModContent.GetInstance<SeldomArchipelago>();
+            SeldomArchipelago.temp = true;
             method.Invoke(npc, new object[] { });
-            seldomArchipelago.temp = false;
+            SeldomArchipelago.temp = false;
         }
 
         public void CalamityOnKillGiantClam(bool hardmode)
@@ -158,10 +158,10 @@ namespace SeldomArchipelago.Systems
 
         public void CalamityOnKillLeviathanAndAnahita()
         {
-            var seldomArchipelago = ModContent.GetInstance<SeldomArchipelago>();
-            seldomArchipelago.temp = true;
+            var SeldomArchipelago = ModContent.GetInstance<SeldomArchipelago>();
+            SeldomArchipelago.temp = true;
             SeldomArchipelago.leviathanRealOnKill.Invoke(new CalamityMod.NPCs.Leviathan.Leviathan(), new object[] { null });
-            seldomArchipelago.temp = false;
+            SeldomArchipelago.temp = false;
         }
 
         public void CalamityOnKillCryogen()

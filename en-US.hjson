@@ -1,0 +1,59 @@
+Mods: {
+	SeldomArchipelago: {
+		NPCs.CollectionNPC.DisplayName: Collection N P C
+
+		Configs: {
+			Config: {
+				DisplayName: Config
+
+				Headers: {
+					Common: Common Header
+					Advanced: Advanced Header
+					Miscellaneous: Miscellaneous Header
+				}
+
+				name: {
+					Label: Name
+					Tooltip: ""
+				}
+
+				port: {
+					Label: Port
+					Tooltip: ""
+				}
+
+				address: {
+					Label: Server Address
+					Tooltip: ""
+				}
+
+				password: {
+					Label: Password
+					Tooltip: ""
+				}
+
+				eventsAsItems: {
+					Label: Receive Events as Items
+					Tooltip: ""
+				}
+
+				hardmodeAsItem: {
+					Label: Receive Hardmode as Item
+					Tooltip: ""
+				}
+			}
+		}
+
+		Items: {
+			HardmodeStarter: {
+				DisplayName: Hardmode Starter
+				Tooltip: ""
+			}
+
+			ArchipelagoItem: {
+				DisplayName: Archipelago Item
+				Tooltip: ""
+			}
+		}
+	}
+}

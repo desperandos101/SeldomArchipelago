@@ -6,7 +6,7 @@
     <members>
         <member name="M:Archipelago.MultiClient.Net.ArchipelagoPacketBase.ToJObject">
             <summary>
-            Retrieve the basic jobject that was send by the server.
+            Retreive the basic jobject that was send by the server.
             Its not recommended to use this however the JObject allows accessing properties are not available in the library
             </summary>
             <returns></returns>
@@ -1045,14 +1045,8 @@
         <member name="M:Archipelago.MultiClient.Net.Helpers.DataStorageHelper.GetSlotData(System.Nullable{System.Int32})">
             <inheritdoc />
         </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.DataStorageHelper.GetSlotData``1(System.Nullable{System.Int32})">
-            <inheritdoc/>
-        </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.DataStorageHelper.GetSlotDataAsync(System.Nullable{System.Int32})">
             <inheritdoc />
-        </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.DataStorageHelper.GetSlotDataAsync``1(System.Nullable{System.Int32})">
-            <inheritdoc/>
         </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.DataStorageHelper.GetItemNameGroups(System.String)">
             <inheritdoc />
@@ -1112,28 +1106,12 @@
             <param name="slot">the slot id of the player to request slot data for, defaults to the current player's slot if left empty</param>
             <returns>An Dictionary with string keys, and custom defined values, the keys and values differ per game</returns>
         </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.IDataStorageWrapper.GetSlotData``1(System.Nullable{System.Int32})">
-            <summary>
-            Retrieves the custom slot data for the specified slot
-            </summary>
-            <typeparam name="T">The type to convert the slot data to</typeparam>
-            <param name="slot">The slot ID of the player ot request slot data for, defaults to the current player's slot if left empty</param>
-            <returns>The slot data, converted to a modeled object of the specified type</returns>
-        </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.IDataStorageWrapper.GetSlotDataAsync(System.Nullable{System.Int32})">
             <summary>
             Retrieves the custom slot data for the specified slot
             </summary>
             <param name="slot">the slot id of the player to request slot data for, defaults to the current player's slot if left empty</param>
             <returns>An Dictionary with string keys, and custom defined values, the keys and values differ per game</returns>
-        </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.IDataStorageWrapper.GetSlotDataAsync``1(System.Nullable{System.Int32})">
-            <summary>
-            Retrieves the custom slot data for the specified slot
-            </summary>
-            <typeparam name="T">The type to convert the slot data to</typeparam>
-            <param name="slot">the slot id of the player to request slot data for, defaults to the current player's slot if left empty</param>
-            <returns>The slot data, converted to a modeled object of the specified type</returns>
         </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.IDataStorageWrapper.GetItemNameGroups(System.String)">
             <summary>
@@ -1462,11 +1440,6 @@
             A enumerable of PlayerInfo's for all players in the multiworld
             </summary>
         </member>
-        <member name="P:Archipelago.MultiClient.Net.Helpers.IPlayerHelper.ActivePlayer">
-            <summary>
-            The player info for the currently connected player
-            </summary>
-        </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.IPlayerHelper.GetPlayerAlias(System.Int32)">
             <summary>
             Returns the Alias corresponding to the provided player slot
@@ -1513,9 +1486,6 @@
             <inheritdoc/>
         </member>
         <member name="P:Archipelago.MultiClient.Net.Helpers.PlayerHelper.AllPlayers">
-            <inheritdoc/>
-        </member>
-        <member name="P:Archipelago.MultiClient.Net.Helpers.PlayerHelper.ActivePlayer">
             <inheritdoc/>
         </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerHelper.GetPlayerInfo(System.Int32,System.Int32)">
@@ -1568,30 +1538,12 @@
             A array of groups this player is part of
             </summary>
         </member>
-        <member name="P:Archipelago.MultiClient.Net.Helpers.PlayerInfo.GroupMembers">
-            <summary>
-            If the slot is a group, an array of its member slots
-            </summary>
-        </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.IsSharingGroupWith(System.Int32,System.Int32)">
             <summary>
             Checks if the provided team and slot, are sharing any slot groups with this player
             </summary>
             <param name="team">The team to check</param>
             <param name="slot">The slot to check</param>
-            <returns>Whether this player has any itemlinks in common with the specified player</returns>
-        </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.GetGroupMembers(Archipelago.MultiClient.Net.Helpers.IPlayerHelper)">
-            <summary>
-            If this player is a group, gets its members. Otherwise returns null.
-            </summary>
-            <returns>returns the players info's of members from a group slot, or null if this slot is not a group</returns>
-        </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.IsRelatedTo(Archipelago.MultiClient.Net.Helpers.PlayerInfo)">
-            <summary>
-            True if this player is the same player, or if either player is a group (e.g. itemlinks) that contains the other player
-            </summary>
-            <param name="other"></param>
             <returns></returns>
         </member>
         <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.op_Implicit(Archipelago.MultiClient.Net.Helpers.PlayerInfo)~System.Int32">
@@ -1609,7 +1561,7 @@
             Creates and Empty PlayerInfo object, should probably not even be exposed
             </summary>
         </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.#ctor(System.Int32,System.Int32,System.String,System.String,System.String,Archipelago.MultiClient.Net.Models.NetworkSlot[],System.Int32[])">
+        <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.#ctor(System.Int32,System.Int32,System.String,System.String,System.String,Archipelago.MultiClient.Net.Models.NetworkSlot[])">
             <summary>
             Creates and PlayerInfo object, used by json deserialization
             </summary>
@@ -1618,15 +1570,7 @@
             <param name="name">The name of that player</param>
             <param name="alias">The alias of that player</param>
             <param name="game">The game the player is playing</param>
-            <param name="groups">An array of groups this player is part of</param>
-            <param name="groupMembers">An array of player slots that are is part of this player if its a group otherwise null</param>
-        </member>
-        <!-- Badly formed XML comment ignored for member "M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.Equals(Archipelago.MultiClient.Net.Helpers.PlayerInfo)" -->
-        <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:Archipelago.MultiClient.Net.Helpers.PlayerInfo.GetHashCode">
-            <inheritdoc/>
+            <param name="groups">A array of groups this player is part of</param>
         </member>
         <member name="T:Archipelago.MultiClient.Net.Helpers.IReceivedItemsHelper">
             <summary>
@@ -2395,12 +2339,7 @@
             The player to receive the item
             </summary>
         </member>
-        <member name="P:Archipelago.MultiClient.Net.Models.ScoutedItemInfo.IsReceiverRelatedToActivePlayer">
-            <summary>
-            True if the receiver is concerning any slot groups (e.g. itemlinks) with the current connected player
-            </summary>
-        </member>
-        <member name="M:Archipelago.MultiClient.Net.Models.ScoutedItemInfo.#ctor(Archipelago.MultiClient.Net.Models.NetworkItem,System.String,System.String,Archipelago.MultiClient.Net.DataPackage.IItemInfoResolver,Archipelago.MultiClient.Net.Helpers.IPlayerHelper,Archipelago.MultiClient.Net.Helpers.PlayerInfo)">
+        <member name="M:Archipelago.MultiClient.Net.Models.ScoutedItemInfo.#ctor(Archipelago.MultiClient.Net.Models.NetworkItem,System.String,System.String,Archipelago.MultiClient.Net.DataPackage.IItemInfoResolver,Archipelago.MultiClient.Net.Helpers.PlayerInfo)">
             <summary>
             The constructor what else did you expect it to be
             </summary>
