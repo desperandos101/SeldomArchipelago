@@ -21,7 +21,7 @@ namespace SeldomArchipelago.Command
 
             foreach (var flag in ArchipelagoSystem.SessionMemory.Flags)
             {
-                if (archipelagoSystem.Session.CheckFlag(flag)) caller.Reply(flag);
+                if (archipelagoSystem.Session().CheckFlag(flag)) caller.Reply(flag);
             }
         }
     }

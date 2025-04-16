@@ -1,9 +1,6 @@
 Configs: {
 	Config: {
 		Headers: {
-			Common: Common Header
-			Advanced: Advanced Header
-			Miscellaneous: Miscellaneous Header
 		}
 
 		name: {
@@ -19,17 +16,11 @@ Configs: {
 		}
 
 		hardmodeAsItem: {
-			Label: Receive Hardmode As Item
-			Tooltip: ""
 		}
 	}
 }
 
-NPCs.CollectionNPC.DisplayName: Collection N P C
-
 Items: {
 	HardmodeStarter: {
-		DisplayName: Hardmode Starter
-		Tooltip: ""
 	}
 }

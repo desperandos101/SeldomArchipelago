@@ -20,7 +20,7 @@ namespace SeldomArchipelago.Locations
         public override void DrawEffects(NPC npc, ref Color drawColor)
         {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
-            var session = system.Session;
+            var session = system.Session();
             string name = LocationSystem.GetNPCLocKey(npc.TypeName);
             if (session is not null && session.flagSystem.NPCRegionUnlocked(npc) && session.ArchipelagoEnemy(name) && session.locGroupRewardNames[name].Count > 0 && Main.rand.NextBool(6))
             {
@@ -32,7 +32,7 @@ namespace SeldomArchipelago.Locations
             if (npc.lastInteraction == 255) return;
             string name = LocationSystem.GetNPCLocKey(npc.TypeName);
             var system = ModContent.GetInstance<ArchipelagoSystem>();
-            var session = system.Session;
+            var session = system.Session();
             int bannerID = Item.NPCtoBanner(npc.BannerID());
             if (!session.flagSystem.NPCRegionUnlocked(npc))
             {
