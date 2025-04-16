@@ -24,8 +24,7 @@ namespace SeldomArchipelago.HardmodeItem
 
         public override bool? UseItem(Player player)
         {
-            WorldGen.StartHardmode();
-            ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem.RedeemHardmodeBacklog();
+            ModContent.GetInstance<ArchipelagoSystem>().Session.ActivateHardmode();
             return true;
         }
         public override void ModifyTooltips(List<TooltipLine> tooltips)

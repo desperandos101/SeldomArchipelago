@@ -123,11 +123,16 @@ namespace SeldomArchipelago.Systems
             }
             #endregion
             #region Activation Methods
-            public Flag.ActivateResult UnlockFlag(string flagName, bool safeEvent, bool safeHardmode)
+            public bool TryUnlockFlag(string flagLoc, bool safeEvent, bool safeHardmode)
             {
-                Flag flag = FlagSystemDatabase.locToFlag[flagName];
-                bool safeUnlock = (safeEvent && flagName != "Hardmode") || (safeHardmode && flagName == "Hardmode");
-                return flag.ActivateFlag(activeFlags, safeUnlock);
+                if (TryGetNextFlag(flagLoc) is Flag flag)
+                {
+                    bool safeUnlock = (safeEvent && flagLoc != "Hardmode") || (safeHardmode && flagLoc == "Hardmode");
+                    flag.ActivateFlag(safeUnlock);
+                    activeFlags.Add(flag.id);
+                    return true;
+                }
+                return false;
             }
             public void UnlockBiomesNormally() => activeFlags.UnionWith(FlagSystemDatabase.biomeFlags);
             public void UnlockWeatherNormally() => activeFlags.UnionWith(FlagSystemDatabase.weatherFlags);
@@ -168,16 +173,17 @@ namespace SeldomArchipelago.Systems
             #endregion
             public bool FlagIsActive(FlagID flag) => activeFlags.Contains(flag);
             public bool FlagIsActive(string flagName) => FlagIsActive(FlagSystemDatabase.locToFlag[flagName].id);
-            public bool? FlagIsHardmode(string flag)
+            public static bool FlagIsHardmode(FlagID flag) => FlagSystemDatabase.hardmodeFlags.Contains(flag);
+            // This method tries to get the next unactivated flag and return it.
+            public Flag TryGetNextFlag(string flagLoc)
             {
-                FlagID? flagID = TryGetFlag(flag);
-                if (flagID is null) return null;
-                return FlagSystemDatabase.hardmodeFlags.Contains((FlagID)flagID); 
-            }
-            public static FlagID? TryGetFlag(string flagLoc)
-            {
-                if (FlagSystemDatabase.locToFlag.TryGetValue(flagLoc, out Flag flag)) return flag.id;
-                else return null;
+                if (!FlagSystemDatabase.locToFlag.TryGetValue(flagLoc, out Flag flag)) return null;
+                while (true)
+                {
+                    if (!activeFlags.Contains(flag.id)) return flag;
+                    if (flag.nestedFlag is null) return null;
+                    flag = flag.nestedFlag;
+                }
             }
             public static string[] AllKeys
             {
@@ -190,15 +196,6 @@ namespace SeldomArchipelago.Systems
                 {
                     return ModContent.GetInstance<ArchipelagoSystem>().session.hardmodeBacklog;
                 }
-            }
-            public void RedeemHardmodeBacklog()
-            {
-                List<string> hardmodeBacklog = HardmodeBacklog;
-                foreach (string flagName in hardmodeBacklog)
-                {
-                    Flag.ActivateResult result = FlagSystemDatabase.locToFlag[flagName].ActivateFlag(activeFlags, true);
-                }
-                hardmodeBacklog.Clear();
             }
             #region General Checks
             public bool PlayerBiomeUnlocked(Player player)
@@ -395,21 +392,11 @@ namespace SeldomArchipelago.Systems
                 public Action<bool> SideEffects;
                 public Flag nestedFlag;
                 public FlagID id;
-                private string FlagName => Enum.GetName(typeof(Flag), id);
+                private string FlagName => Enum.GetName(typeof(FlagID), id);
                 // Handles the flag becoming active, which we differentiate from unlocking (or receiving) the flag
-                public ActivateResult ActivateFlag(HashSet<FlagID> flagSet, bool unlockSafely)
+                public ActivateResult ActivateFlag(bool unlockSafely)
                 {
-                    if (!flagSet.Contains(FlagID.Hardmode) && FlagSystemDatabase.hardmodeFlags.Contains(id)) return ActivateResult.ActivateOnHardmode;
-                    if (flagSet.Contains(id) && nestedFlag is null)
-                    {
-                        throw new Exception($"Tried to activate flag {FlagName}, but it was already activated and had no progressive flag.");
-                    }
-                    else if (flagSet.Contains(id))
-                    {
-                        return nestedFlag.ActivateFlag(flagSet, unlockSafely);
-                    }
                     if (SideEffects is not null) SideEffects(unlockSafely);
-                    flagSet.Add(id);
                     return ActivateResult.Activated;
                 }
 
@@ -497,7 +484,7 @@ namespace SeldomArchipelago.Systems
                         }
                         else
                         {
-                            WorldGen.StartHardmode();
+                            ModContent.GetInstance<ArchipelagoSystem>().Session.ActivateHardmode();
                         }
                     }) },
                     {"Wizard",                  new Flag(FlagID.Wizard) },
@@ -744,8 +731,12 @@ namespace SeldomArchipelago.Systems
             // All Enemy 
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
             public List<string> hardmodeBacklog = new();
+            public HashSet<string> hardmodeItems = new HashSet<string>();
             // Whether chests should be randomized.
             public bool randomizeChests = false;
+            public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItems;
+            public static bool HardmodeAsItem => ModContent.GetInstance<Config.Config>().hardmodeAsItem;
+
             public TagCompound SerializeData()
             {
                 TagCompound tag = new TagCompound
@@ -812,28 +803,58 @@ namespace SeldomArchipelago.Systems
                 Load(tag, state); // No need to capture return value in this instance
                 return state;
             }
-        }
+            public void ActivateHardmode()
+            {
+                WorldGen.StartHardmode();
+                RedeemHardmodeBacklog();
+            }
+            public void RedeemHardmodeBacklog()
+            {
+                foreach (string flagName in hardmodeBacklog) Activate(flagName);
+                hardmodeBacklog.Clear();
+            }
+            public void Collect(string item)
+            {
+                if (Main.hardMode && ItemIsHardmode(item))
+                {
+                    hardmodeBacklog.Add(item);
+                    Main.NewText($"ADDED {item} TO BACKLOG");
+                    return;
+                }
+                Activate(item);
+            }
+            public bool ItemIsHardmode(string item)
+            {
+                if (hardmodeItems.Contains(item)) return true;
+                FlagSystem.Flag flag = flagSystem.TryGetNextFlag(item);
+                if (flag is not null) return FlagSystem.FlagIsHardmode(flag.id);
+                return false;
+            }
+            public void Activate(string item)
+            {
+                if (flagSystem.TryUnlockFlag(item, EventAsItem, HardmodeAsItem)) return;
+                switch (item)
+                {
+                    case "Reward: Torch God's Favor": SessionState.GiveItem(ItemID.TorchGodsFavor); break;
+                    case "Post-OOA Tier 1": DD2Event.DownedInvasionT1 = true; break;
+                    case "Post-OOA Tier 2": DD2Event.DownedInvasionT2 = true; break;
+                    case "Post-OOA Tier 3": DD2Event.DownedInvasionT3 = true; break;
 
-        // Data that's reset between Archipelago sessions
-        public class SessionState : SessionMemory
-        {
-            public static new readonly Func<TagCompound, SessionState> DESERIALIZER = SessionMemory.LoadState;
-            // List of locations that are currently being sent
-            public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
-            public ArchipelagoSession session;
-            public DeathLinkService deathlink;
-            // Like `collectedItems`, but unique to this Archipelago session, and doesn't save, so
-            // it starts at 0 each session. While less than `collectedItems`, it discards items
-            // instead of collecting them. This is needed bc AP just gives us a list of items that
-            // we have, and it's up to us to keep track of which ones we've already applied.
-            public int currentItem;
-            public List<string> collectedLocations = new List<string>();
-            public List<string> goals = new List<string>();
-            public bool victory;
-            public int slot;
-            public HashSet<string> hardmodeItems = new HashSet<string>();
-            public bool eventAsItem;
-            public bool hardmodeAsItem;
+                    case "Reward: Coins": GiveCoins(); break;
+                    default:
+                        string strippedItem = item.Replace("Reward: ", "");
+                        if (SeldomArchipelago.englishLangToTypeDict.ContainsKey(strippedItem))
+                        {
+                            int itemID = SeldomArchipelago.englishLangToTypeDict[strippedItem];
+                            SessionState.GiveItem(itemID);
+                        }
+                        else
+                        {
+                            Main.NewText($"Received unknown item: {item}");
+                        }
+                        break;
+                }
+            }
             public static void GiveItem(int? item, Action<Player> giveItem)
             {
                 if (item != null)
@@ -862,9 +883,68 @@ namespace SeldomArchipelago.Systems
                     }
                 }
             }
-
             public static void GiveItem(int item) => GiveItem(item, player => player.QuickSpawnItem(player.GetSource_GiftOrReward(), item, 1));
             public static void GiveItem<T>() where T : ModItem => GiveItem(ModContent.ItemType<T>());
+            public void GiveCoins()
+            {
+                var flagCount = 0;
+                foreach (var flag in Flags) if (CheckFlag(flag)) flagCount++;
+                var count = baseCoins[flagCount % 8] * (int)Math.Pow(10, flagCount / 8);
+
+                var platinum = count / 10000;
+                var gold = count % 10000 / 100;
+                var silver = count % 100;
+                SessionState.GiveItem(null, player =>
+                {
+                    if (platinum > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.PlatinumCoin, platinum);
+                    if (gold > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.GoldCoin, gold);
+                    if (silver > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.SilverCoin, silver);
+                });
+            }
+            public bool CheckFlag(string flag)
+            {
+                if (FlagSystem.AllKeys.Contains(flag))
+                {
+                    return flagSystem.FlagIsActive(flag);
+                }
+                return flag switch
+                {
+                    "Post-OOA Tier 1" => DD2Event.DownedInvasionT1,
+                    "Post-OOA Tier 2" => DD2Event.DownedInvasionT2,
+                    "Post-OOA Tier 3" => DD2Event.DownedInvasionT3,
+                    _ => ModContent.GetInstance<CalamitySystem>()?.CheckCalamityFlag(flag) ?? false,
+                };
+            }
+            public static string[] Flags
+            {
+                get
+                {
+                    List<string> flagList = FlagSystem.AllKeys.ToList();
+                    flagList.AddRange(["Post-OOA Tier 1", "Post-OOA Tier 2", "Post-OOA Tier 3"]);
+                    return flagList.ToArray();
+                }
+            }
+        }
+
+        // Data that's reset between Archipelago sessions
+        public class SessionState : SessionMemory
+        {
+            public static new readonly Func<TagCompound, SessionState> DESERIALIZER = SessionMemory.LoadState;
+            // List of locations that are currently being sent
+            public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
+            public ArchipelagoSession session;
+            public DeathLinkService deathlink;
+            // Like `collectedItems`, but unique to this Archipelago session, and doesn't save, so
+            // it starts at 0 each session. While less than `collectedItems`, it discards items
+            // instead of collecting them. This is needed bc AP just gives us a list of items that
+            // we have, and it's up to us to keep track of which ones we've already applied.
+            public int currentItem;
+            public List<string> collectedLocations = new List<string>();
+            public List<string> goals = new List<string>();
+            public bool victory;
+            public int slot;
+
+            
         }
 
         public WorldState world = new();
@@ -946,8 +1026,6 @@ namespace SeldomArchipelago.Systems
             session.session = newSession;
             UseSessionMemory();
             FlagSystem flagSystem = session.flagSystem;
-            session.eventAsItem = config.eventsAsItems;
-            session.hardmodeAsItem = config.hardmodeAsItem;
 
             var locations = session.session.DataStorage[Scope.Slot, "CollectedLocations"].To<String[]>();
             if (locations != null)
@@ -1063,70 +1141,6 @@ namespace SeldomArchipelago.Systems
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
         }
 
-        public string[] Flags {
-            get
-            {
-                List<string> flagList = FlagSystem.AllKeys.ToList();
-                flagList.AddRange(["Post-OOA Tier 1", "Post-OOA Tier 2", "Post-OOA Tier 3"]);
-                return flagList.ToArray();
-            }
-        }
-        public bool CheckFlag(string flag)
-        {
-            if (FlagSystem.AllKeys.Contains(flag))
-            {
-                return session.flagSystem.FlagIsActive(flag);
-            }
-            return flag switch
-            {
-                "Post-OOA Tier 1" => DD2Event.DownedInvasionT1,
-                "Post-OOA Tier 2" => DD2Event.DownedInvasionT2,
-                "Post-OOA Tier 3" => DD2Event.DownedInvasionT3,
-                _ => ModContent.GetInstance<CalamitySystem>()?.CheckCalamityFlag(flag) ?? false,
-            };
-        } 
-        public void Collect(string item)
-        {
-            if (FlagSystem.AllKeys.Contains(item))
-            {
-                FlagSystem.Flag.ActivateResult result = session.flagSystem.UnlockFlag(item, session.eventAsItem, session.hardmodeAsItem);
-                if (result == FlagSystem.Flag.ActivateResult.ActivateOnHardmode)
-                {
-                    session.hardmodeBacklog.Add(item);
-                }
-                return;
-            }
-            if (session.hardmodeItems.Contains(item))
-            {
-                session.hardmodeBacklog.Add(item);
-                return;
-            }
-            Activate(item);
-        }
-        public void Activate(string item)
-        {
-            switch (item)
-            {
-                case "Reward: Torch God's Favor": SessionState.GiveItem(ItemID.TorchGodsFavor); break;
-                case "Post-OOA Tier 1": DD2Event.DownedInvasionT1 = true; break;
-                case "Post-OOA Tier 2": DD2Event.DownedInvasionT2 = true; break;
-                case "Post-OOA Tier 3": DD2Event.DownedInvasionT3 = true; break;
-
-                case "Reward: Coins": GiveCoins(); break;
-                default:
-                    string strippedItem = item.Replace("Reward: ", "");
-                    if (SeldomArchipelago.englishLangToTypeDict.ContainsKey(strippedItem))
-                    {
-                        int itemID = SeldomArchipelago.englishLangToTypeDict[strippedItem];
-                        SessionState.GiveItem(itemID);
-                    }
-                    else
-                    {
-                        Main.NewText($"Received unknown item: {item}");
-                    }
-                    break;
-            }
-        }
 
         public override void PostUpdateWorld()
         {
@@ -1175,7 +1189,7 @@ namespace SeldomArchipelago.Systems
                     continue;
                 }
 
-                Collect(itemName);
+                session.Collect(itemName);
 
                 Session.collectedItems++;
             }
@@ -1481,24 +1495,7 @@ namespace SeldomArchipelago.Systems
             if (ModLoader.HasMod("CalamityMod")) ModContent.GetInstance<CalamitySystem>().VanillaBossKilled(boss);
         }
 
-        int[] baseCoins = { 15, 20, 25, 30, 40, 50, 70, 100 };
-
-        void GiveCoins()
-        {
-            var flagCount = 0;
-            foreach (var flag in Flags) if (CheckFlag(flag)) flagCount++;
-            var count = baseCoins[flagCount % 8] * (int)Math.Pow(10, flagCount / 8);
-
-            var platinum = count / 10000;
-            var gold = count % 10000 / 100;
-            var silver = count % 100;
-            SessionState.GiveItem(null, player =>
-            {
-                if (platinum > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.PlatinumCoin, platinum);
-                if (gold > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.GoldCoin, gold);
-                if (silver > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.SilverCoin, silver);
-            });
-        }
+        static int[] baseCoins = { 15, 20, 25, 30, 40, 50, 70, 100 };
 
         public List<int> ReceivedRewards() => Session.receivedRewards;
 
