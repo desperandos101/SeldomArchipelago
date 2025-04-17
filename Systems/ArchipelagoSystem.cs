@@ -1395,7 +1395,8 @@ namespace SeldomArchipelago.Systems
 
         public void QueueLocation(string locationName)
         {
-            if (session == null)
+            var activeSession = GetSession();
+            if (activeSession is not SessionState)
             {
                 sessionMemory.locationBacklog.Add(locationName);
                 return;
