@@ -13,7 +13,7 @@ namespace SeldomArchipelago.Locking
 {
     public class TileLock : GlobalTile
     {
-        private FlagSystem Flags => ModContent.GetInstance<ArchipelagoSystem>().Session().flagSystem;
+        private FlagSystem Flags => GetSession().flagSystem;
         public override bool CanKillTile(int i, int j, int type, ref bool blockDamaged) => Flags.TileRegionUnlocked(i, j);
         public override bool CanDrop(int i, int j, int type) => Flags.TileRegionUnlocked(i, j);
     }
@@ -24,7 +24,7 @@ namespace SeldomArchipelago.Locking
             if (source is EntitySource_ShakeTree treeSource)
             {
                 Point point = treeSource.TileCoords;
-                FlagSystem flags = ModContent.GetInstance<ArchipelagoSystem>().Session().flagSystem;
+                FlagSystem flags = GetSession().flagSystem;
                 if (!flags.TileRegionUnlocked(point.X, point.Y)) item.TurnToAir();
             }
         }

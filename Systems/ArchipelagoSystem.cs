@@ -484,7 +484,7 @@ namespace SeldomArchipelago.Systems
                         }
                         else
                         {
-                            ModContent.GetInstance<ArchipelagoSystem>().Session().ActivateHardmode();
+                            GetSession().ActivateHardmode();
                         }
                     }) },
                     {"wizard",                  new Flag(FlagID.Wizard) },
@@ -901,7 +901,7 @@ namespace SeldomArchipelago.Systems
             {
                 if (item != null)
                 {
-                    SessionMemory state = ModContent.GetInstance<ArchipelagoSystem>().Session();
+                    SessionMemory state = GetSession();
                     state.receivedRewards.Add(item.Value);
                 }
 
@@ -1056,7 +1056,10 @@ namespace SeldomArchipelago.Systems
         public SessionMemory dummySess = SessionMemory.CreateDummySession();
         // We add dummySess because a lot of the hooks that access Session() are called during world generation,
         // when session & sessionMemory would normally both be null
-        public SessionMemory Session() => Main.gameMenu ? dummySess : session ?? sessionMemory;
+        public static SessionMemory GetSession() {
+            var system = ModContent.GetInstance<ArchipelagoSystem>();
+            return Main.gameMenu? system.dummySess : system.session ?? system.sessionMemory;
+        }
         public bool SessionDisparity
         {
             get => (session is not null && sessionMemory is not null && sessionMemory.SlotName != "" && (sessionMemory.SlotName != session.SlotName || sessionMemory.SeedName != session.SeedName));
@@ -1066,7 +1069,7 @@ namespace SeldomArchipelago.Systems
         {
             get
             {
-                return [.. Session().locationBacklog];
+                return [.. GetSession().locationBacklog];
             }
         }
         // This method does everything that needs to be done with sessionMemory when play switches from offline to online.
@@ -1090,7 +1093,8 @@ namespace SeldomArchipelago.Systems
                 UseSessionMemory(sessionMemory);
                 sessionMemory = null;
             }
-            if (!world.chestsRandomized && Session() is not null && Session().randomizeChests)
+            var currentSession = GetSession();
+            if (!world.chestsRandomized && currentSession is not null && currentSession.randomizeChests)
             {
                 FlagSystem.UpdateChests();
                 world.chestsRandomized = true;
@@ -1106,22 +1110,7 @@ namespace SeldomArchipelago.Systems
 
             var config = ModContent.GetInstance<Config.Config>();
 
-            LoginResult result;
-            ArchipelagoSession newSession;
-            try
-            {
-                newSession = ArchipelagoSessionFactory.CreateSession(config.address, config.port);
-
-                result = newSession.TryConnectAndLogin(SeldomArchipelago.gameName, config.name, ItemsHandlingFlags.AllItems, null, null, null, config.password == "" ? null : config.password);
-                if (result is LoginFailure)
-                {
-                    return;
-                }
-            }
-            catch
-            {
-                return;
-            }
+            if (!ConnectToArchipelago(out var result, out var newSession)) return;
 
             var success = (LoginSuccessful)result;
             session = new(success, newSession);
@@ -1146,12 +1135,33 @@ namespace SeldomArchipelago.Systems
 
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
         }
+        private static bool ConnectToArchipelago(out LoginResult result, out ArchipelagoSession newSession)
+        {
+            result = null;
+            newSession = null;
+            var config = ModContent.GetInstance<Config.Config>();
+            try
+            {
+                newSession = ArchipelagoSessionFactory.CreateSession(config.address, config.port);
+
+                result = newSession.TryConnectAndLogin(SeldomArchipelago.gameName, config.name, ItemsHandlingFlags.AllItems, null, null, null, config.password == "" ? null : config.password);
+                if (result is LoginFailure)
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+            return true;
+        }
 
         public override void PostUpdateWorld()
         {
             if (session == null) return;
 
-            if (!Session().flagSystem.FlagIsActive(FlagID.Wind))
+            if (!GetSession().flagSystem.FlagIsActive(FlagID.Wind))
             {
                 Main.windSpeedCurrent = Main.windSpeedTarget = 0;
             }
@@ -1228,7 +1238,7 @@ namespace SeldomArchipelago.Systems
             tag["WorldState"] = world;
             if (!SessionDisparity)
             {
-                SessionMemory sess = Session(); //explicit cast so it doesnt try to serialize SessionState
+                SessionMemory sess = GetSession(); //explicit cast so it doesnt try to serialize SessionState
                 tag["SessionMemory"] = sess;
             }
         }
@@ -1300,17 +1310,17 @@ namespace SeldomArchipelago.Systems
             else
             {
                 info.Add("You are in a world");
-                if (Session().locationBacklog.Count > 0)
+                if (GetSession().locationBacklog.Count > 0)
                 {
                     info.Add("You have locations in the backlog, which should only be the case if Archipelago is inactive");
-                    info.Add($"Location backlog: [{string.Join("; ", Session().locationBacklog)}]");
+                    info.Add($"Location backlog: [{string.Join("; ", GetSession().locationBacklog)}]");
                 }
                 else
                 {
                     info.Add("No locations in the backlog, which is usually normal");
                 }
 
-                info.Add($"You've collected {Session().collectedItems} items");
+                info.Add($"You've collected {GetSession().collectedItems} items");
             }
 
             if (session == null)
@@ -1419,7 +1429,7 @@ namespace SeldomArchipelago.Systems
         public void QueueLocationKey(string locType, string checkName = null)
         {
             bool locFoundAndRemoved = false;
-            var locList = Session().locGroupRewardNames[locType];
+            var locList = GetSession().locGroupRewardNames[locType];
             if (locList.Count == 0) return;
             if (checkName is null)
             {
@@ -1490,7 +1500,7 @@ namespace SeldomArchipelago.Systems
 
         static int[] baseCoins = { 15, 20, 25, 30, 40, 50, 70, 100 };
 
-        public List<int> ReceivedRewards() => Session().receivedRewards;
+        public List<int> ReceivedRewards() => GetSession().receivedRewards;
 
         public override void ModifyHardmodeTasks(List<GenPass> list)
         {

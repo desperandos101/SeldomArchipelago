@@ -30,7 +30,7 @@ namespace SeldomArchipelago.Locking
 
 			FlagID? flag = FlagSystem.GetChestRegion(left, top);
 			if (flag is null) return;
-            var session = ModContent.GetInstance<ArchipelagoSystem>().Session();
+            var session = GetSession();
 
             bool chestUnlocked = session.flagSystem.FlagIsActive((FlagID)flag);
             if (!chestUnlocked)

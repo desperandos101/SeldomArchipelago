@@ -20,7 +20,7 @@ namespace SeldomArchipelago.Command
             var item = args[0];
             for (var i = 1; i < args.Length; i++) item += " " + args[i];
 
-            ModContent.GetInstance<ArchipelagoSystem>().Session().Collect(item);
+            ArchipelagoSystem.GetSession().Collect(item);
         }
     }
 }

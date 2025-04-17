@@ -14,7 +14,7 @@ namespace SeldomArchipelago.Locking
     internal class ItemLock : GlobalItem
     {
         public override bool CanUseItem(Item item, Player player) {
-            var flags = ModContent.GetInstance<ArchipelagoSystem>().Session().flagSystem;
+            var flags = GetSession().flagSystem;
             if (!flags.ItemIsUsable(item.type)) {
                 Main.NewText("You have not unlocked this event yet!");
                 return false;

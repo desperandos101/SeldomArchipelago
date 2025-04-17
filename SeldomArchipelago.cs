@@ -74,7 +74,7 @@ namespace SeldomArchipelago
         public static MethodInfo supremeCalamitasOnKill = null;
         public static MethodInfo calamityGlobalNpcSetNewBossJustDowned = null;
 
-        FlagSystem GetFlags() => ModContent.GetInstance<ArchipelagoSystem>().Session().flagSystem;
+        FlagSystem GetFlags() => GetSession().flagSystem;
         public override void Load()
         {
             int counter = 1;

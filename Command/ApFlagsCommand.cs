@@ -17,11 +17,9 @@ namespace SeldomArchipelago.Command
                 return;
             }
 
-            var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-
             foreach (var flag in ArchipelagoSystem.SessionMemory.Flags)
             {
-                if (archipelagoSystem.Session().CheckFlag(flag)) caller.Reply(flag);
+                if (ArchipelagoSystem.GetSession().CheckFlag(flag)) caller.Reply(flag);
             }
         }
     }

@@ -28,7 +28,7 @@ namespace SeldomArchipelago.ArchipelagoItem
         private string? locType;
         private string? chestCheckName = null;
         public static List<(string, string, int)>[] chestMatrix = new List<(string, string, int)>[9];
-        private bool CheckTypeExhausted => ModContent.GetInstance<ArchipelagoSystem>().Session().locGroupRewardNames[locType].Count == 0;
+        private bool CheckTypeExhausted => GetSession().locGroupRewardNames[locType].Count == 0;
         public override void SetDefaults()
         {
             Item.width = 20;
@@ -51,8 +51,7 @@ namespace SeldomArchipelago.ArchipelagoItem
                 return;
             }
             
-            ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-            SessionMemory state = system.Session();
+            SessionMemory state = GetSession();
 
             if (state is null)
             {
