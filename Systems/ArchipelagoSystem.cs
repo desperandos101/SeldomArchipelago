@@ -1058,7 +1058,7 @@ namespace SeldomArchipelago.Systems
         // when session & sessionMemory would normally both be null
         public static SessionMemory GetSession() {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
-            return Main.gameMenu? system.dummySess : system.session ?? system.sessionMemory;
+            return Main.gameMenu ? system.dummySess : system.session ?? system.sessionMemory;
         }
         public bool SessionDisparity
         {
@@ -1135,7 +1135,7 @@ namespace SeldomArchipelago.Systems
 
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
         }
-        private static bool ConnectToArchipelago(out LoginResult result, out ArchipelagoSession newSession)
+        public static bool ConnectToArchipelago(out LoginResult result, out ArchipelagoSession newSession)
         {
             result = null;
             newSession = null;
@@ -1156,7 +1156,10 @@ namespace SeldomArchipelago.Systems
             }
             return true;
         }
-
+        public override void ModifyWorldGenTasks(List<GenPass> tasks, ref double totalWeight)
+        {
+            tasks.Insert(0, new GenerateSystem("Connect Archipelago", (float)totalWeight / 10));
+        }
         public override void PostUpdateWorld()
         {
             if (session == null) return;
