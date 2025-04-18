@@ -1054,11 +1054,17 @@ namespace SeldomArchipelago.Systems
         public SessionState session;
         public SessionMemory sessionMemory;
         public SessionMemory dummySess = SessionMemory.CreateDummySession();
+        public WorldState dummyWorld = new();
         // We add dummySess because a lot of the hooks that access Session() are called during world generation,
         // when session & sessionMemory would normally both be null
         public static SessionMemory GetSession() {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
-            return Main.gameMenu? system.dummySess : system.session ?? system.sessionMemory;
+            return Main.gameMenu ? system.dummySess : system.session ?? system.sessionMemory;
+        }
+        public static WorldState GetWorld()
+        {
+            var system = ModContent.GetInstance<ArchipelagoSystem>();
+            return Main.gameMenu ? system.dummyWorld : system.world;
         }
         public bool SessionDisparity
         {
@@ -1093,8 +1099,7 @@ namespace SeldomArchipelago.Systems
                 UseSessionMemory(sessionMemory);
                 sessionMemory = null;
             }
-            var currentSession = GetSession();
-            if (!world.chestsRandomized && currentSession is not null && currentSession.randomizeChests)
+            if (!world.chestsRandomized && session is not null && session.randomizeChests)
             {
                 FlagSystem.UpdateChests();
                 world.chestsRandomized = true;
@@ -1398,7 +1403,7 @@ namespace SeldomArchipelago.Systems
             var activeSession = GetSession();
             if (activeSession is not SessionState)
             {
-                sessionMemory.locationBacklog.Add(locationName);
+                activeSession.locationBacklog.Add(locationName);
                 return;
             }
 
