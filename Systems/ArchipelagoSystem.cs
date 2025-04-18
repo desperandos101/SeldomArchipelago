@@ -412,21 +412,21 @@ namespace SeldomArchipelago.Systems
             {
                 public static readonly Dictionary<string, Flag> locToFlag = new Dictionary<string, Flag>()
                 {
-                    {"grappling hook",          new Flag(FlagID.Hook, theSideEffects: delegate(bool safe)
+                    {"Grappling Hook",          new Flag(FlagID.Hook, theSideEffects: delegate(bool safe)
                     {
                         GiveItem(ItemID.GrapplingHook);
                     }
                     )},
-                    {"rain",                    new Flag(FlagID.Rain) },
-                    {"wind",                    new Flag(FlagID.Wind) },
-                    {"snow biome",              new Flag(FlagID.Snow) },
-                    {"desert biome",            new Flag(FlagID.Desert) },
-                    {"progressive jungle",      new Flag(FlagID.Jungle, theNestedFlag: new Flag(FlagID.JungleUpgrade)) },
-                    {"jungle upgrade",          new Flag(FlagID.JungleUpgrade) },
-                    {"ocean",                   new Flag(FlagID.Ocean) },
-                    {"sky and floating islands",new Flag(FlagID.Sky) },
-                    {"evil biome",              new Flag(FlagID.Evil) },
-                    {"progressive dungeon",     new Flag(FlagID.Dungeon, theSideEffects: delegate(bool safe)
+                    {"Rain",                    new Flag(FlagID.Rain) },
+                    {"Wind",                    new Flag(FlagID.Wind) },
+                    {"Snow Biome",              new Flag(FlagID.Snow) },
+                    {"Desert Biome",            new Flag(FlagID.Desert) },
+                    {"Progressive Jungle",      new Flag(FlagID.Jungle, theNestedFlag: new Flag(FlagID.JungleUpgrade)) },
+                    {"Jungle Upgrade",          new Flag(FlagID.JungleUpgrade) },
+                    {"Ocean",                   new Flag(FlagID.Ocean) },
+                    {"Sky and Floating Islands",new Flag(FlagID.Sky) },
+                    {"Evil Biome",              new Flag(FlagID.Evil) },
+                    {"Progressive Dungeon",     new Flag(FlagID.Dungeon, theSideEffects: delegate(bool safe)
                     {
                         NPC.downedBoss3 = true;
                     }, theNestedFlag: new Flag(FlagID.DungeonUpgrade, theSideEffects: delegate(bool safe)
@@ -434,18 +434,18 @@ namespace SeldomArchipelago.Systems
                         NPC.downedPlantBoss = true;
                     }))
                     },
-                    {"mushroom biome",          new Flag(FlagID.Mushroom) },
-                    {"marble biome",            new Flag(FlagID.Marble) },
-                    {"granite biome",           new Flag(FlagID.Granite) },
-                    {"spider nest",             new Flag(FlagID.Web) },
-                    {"underworld",              new Flag(FlagID.Underworld, theSideEffects: delegate(bool safe)
+                    {"Mushroom Biome",          new Flag(FlagID.Mushroom) },
+                    {"Marble Biome",            new Flag(FlagID.Marble) },
+                    {"Granite Biome",           new Flag(FlagID.Granite) },
+                    {"Spider Nest",             new Flag(FlagID.Web) },
+                    {"Underworld",              new Flag(FlagID.Underworld, theSideEffects: delegate(bool safe)
                     {
                         var chestList = from chest in Main.chest
                                         where chest != null && Main.tile[chest.x, chest.y].IDChest() == 4
                                         select chest;
                         foreach (Chest chest in chestList) Chest.Unlock(chest.x, chest.y);
                     }) },
-                    {"blood moon",              new Flag(FlagID.BloodMoon, theSideEffects: delegate(bool safe)
+                    {"Blood Moon",              new Flag(FlagID.BloodMoon, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
                         {
@@ -456,13 +456,13 @@ namespace SeldomArchipelago.Systems
                             ModContent.GetInstance<SeldomArchipelago>().guaranteeBloodMoon = true;
                         }
                     }) },
-                    {"dryad",                   new Flag(FlagID.Dryad) },
-                    {"tavernkeep",              new Flag(FlagID.Tavernkeep) },
-                    {"meteor",                  new Flag(FlagID.Meteor, theSideEffects: delegate(bool safe)
+                    {"Dryad",                   new Flag(FlagID.Dryad) },
+                    {"Tavernkeep",              new Flag(FlagID.Tavernkeep) },
+                    {"Meteor",                  new Flag(FlagID.Meteor, theSideEffects: delegate(bool safe)
                     {
                         WorldGen.dropMeteor();
                     }) },
-                    {"goblin army",             new Flag(FlagID.GoblinArmy, theSideEffects: delegate(bool safe)
+                    {"Goblin Army",             new Flag(FlagID.GoblinArmy, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
                         {
@@ -473,10 +473,10 @@ namespace SeldomArchipelago.Systems
                             InvasionLock.invasionList.Add(1);
                         }
                     }) },
-                    {"goblin tinkerer",         new Flag(FlagID.GoblinTinkerer) },
-                    {"witch doctor",            new Flag(FlagID.WitchDoctor) },
-                    {"clothier",                new Flag(FlagID.Clothier) },
-                    {"hardmode",                new Flag(FlagID.Hardmode, theSideEffects: delegate(bool safe)
+                    {"Goblin Tinkerer",         new Flag(FlagID.GoblinTinkerer) },
+                    {"Witch Doctor",            new Flag(FlagID.WitchDoctor) },
+                    {"Clothier",                new Flag(FlagID.Clothier) },
+                    {"Hardmode",                new Flag(FlagID.Hardmode, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
                         {
@@ -487,8 +487,8 @@ namespace SeldomArchipelago.Systems
                             GetSession().ActivateHardmode();
                         }
                     }) },
-                    {"wizard",                  new Flag(FlagID.Wizard) },
-                    {"pirate invasion",         new Flag(FlagID.PirateInvasion, theSideEffects: delegate(bool safe)
+                    {"Wizard",                  new Flag(FlagID.Wizard) },
+                    {"Pirate Invasion",         new Flag(FlagID.PirateInvasion, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
                         {
@@ -499,8 +499,8 @@ namespace SeldomArchipelago.Systems
                             InvasionLock.invasionList.Add(3);
                         }
                     }) },
-                    {"pirate",                  new Flag(FlagID.Pirate) },
-                    {"progressive eclipse",     new Flag(FlagID.Eclipse, theSideEffects: delegate(bool safe)
+                    {"Pirate",                  new Flag(FlagID.Pirate) },
+                    {"Progressive Eclipse",     new Flag(FlagID.Eclipse, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
                         {
@@ -513,29 +513,28 @@ namespace SeldomArchipelago.Systems
                     {
                         if (!safe) ModContent.GetInstance<SeldomArchipelago>().guaranteeEclipse = true;
                     })) },
-                    {"steampunker",             new Flag(FlagID.Steampunker) },
-                    {"cyborg",                  new Flag(FlagID.Cyborg) },
-                    {"temple",                  new Flag(FlagID.Temple, theSideEffects: delegate(bool safe)
+                    {"Steampunker",             new Flag(FlagID.Steampunker) },
+                    {"Cyborg",                  new Flag(FlagID.Cyborg) },
+                    {"Temple",                  new Flag(FlagID.Temple, theSideEffects: delegate(bool safe)
                     {
                         GiveItem(ItemID.TempleKey);
                     }) },
-                    {"pumpkin moon medallion",  new Flag(FlagID.PumpkinMoon, theSideEffects: delegate(bool safe)
+                    {"Pumpkin Moon Medallion",  new Flag(FlagID.PumpkinMoon, theSideEffects: delegate(bool safe)
                     {
                         GiveItem(ItemID.PumpkinMoonMedallion);
                     }) },
-                    {"naughty present",         new Flag(FlagID.FrostMoon, theSideEffects: delegate(bool safe)
+                    {"Naughty Present",         new Flag(FlagID.FrostMoon, theSideEffects: delegate(bool safe)
                     {
                         GiveItem(ItemID.NaughtyPresent);
                     }) },
-                    {"martian madness",         new Flag(FlagID.Martians, theSideEffects: delegate(bool safe)
+                    {"Martian Madness",         new Flag(FlagID.Martians, theSideEffects: delegate(bool safe)
                     {
                         if (!safe) InvasionLock.invasionList.Add(4);
                     }) },
-                    {"cultists",                new Flag(FlagID.Cultists, theSideEffects: delegate(bool safe)
+                    {"Cultists",                new Flag(FlagID.Cultists, theSideEffects: delegate(bool safe)
                     {
                         NPC.downedGolemBoss = true;
                     }) },
-                    {"santa claus",             new Flag(FlagID.SantaClaus) },              
                 };
                 public static readonly FlagID[] hardmodeFlags = [
                     FlagID.Wizard,
@@ -856,8 +855,7 @@ namespace SeldomArchipelago.Systems
             }
             public void Collect(string item)
             {
-                item = item.ToLower();
-                if (!Main.hardMode && ItemIsHardmode(item))
+                if (Main.hardMode && ItemIsHardmode(item))
                 {
                     hardmodeBacklog.Add(item);
                     Main.NewText($"ADDED {item} TO BACKLOG");
