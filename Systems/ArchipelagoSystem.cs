@@ -858,7 +858,7 @@ namespace SeldomArchipelago.Systems
                 if (Main.hardMode && ItemIsHardmode(item))
                 {
                     hardmodeBacklog.Add(item);
-                    Main.NewText($"ADDED {item} TO BACKLOG");
+                    Main.NewText($"ADDED {item} TO HARDMODE BACKLOG");
                     return;
                 }
                 Activate(item);

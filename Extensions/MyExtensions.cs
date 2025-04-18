@@ -74,21 +74,20 @@ namespace MyExtensions {
             }
             return null;
         }
-        public static string UseAsDict<TKey>(this (string, TKey[])[] tupleDict, TKey value, bool refuseZero = false)
+        public static string UseAsDict<TKey>(this (string, TKey[])[] tupleDict, TKey value, out TKey[] array)
         {
+            array = null;
             foreach ((string, TKey[]) idSet in tupleDict)
             {
                 if (idSet.Item2.Contains(value))
                 {
+                    array = idSet.Item2;
                     return idSet.Item1;
                 }
             }
-            if (refuseZero)
-            {
-                throw new Exception($"Value {value} not found in tupledict.");
-            }
             return null;
         }
+        public static string UseAsDict<TKey>(this (string, TKey[])[] tupleDict, TKey value) => UseAsDict<TKey>(tupleDict, value, out var _);
         public static void SaveDict<TKey, TValue>(this TagCompound tag, Dictionary<TKey, TValue> dict, string dictName)
         {
             tag[$"{dictName}Keys"] = dict.Keys.ToList();

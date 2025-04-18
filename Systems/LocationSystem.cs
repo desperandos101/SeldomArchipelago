@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Terraria;
 using Terraria.ID;
 using MyExtensions;
 using static SeldomArchipelago.Systems.ArchipelagoSystem;
@@ -33,11 +34,17 @@ namespace SeldomArchipelago.Systems
             ("Crawdads, Shellies, and Salamanders", new string[] {"Crawdad", "Giant Shelly", "Salamander"}),
             ("Desert Spirit or Sand Poacher", new string[] {"Desert Spirit", "Sand Poacher"})
         };
+        public static readonly int[][] bannerIDNeighbors = new int[][]
+        {
+            [Item.BannerToItem(NPCID.GreenJellyfish), Item.BannerToItem(NPCID.BlueJellyfish), Item.BannerToItem(NPCID.PinkJellyfish)],
+            [Item.BannerToItem(NPCID.Crawdad), Item.BannerToItem(NPCID.GiantShelly), Item.BannerToItem(NPCID.Salamander)],
+            [Item.BannerToItem(NPCID.DesertDjinn), Item.BannerToItem(NPCID.DesertScorpionWalk)]
+        };
         #endregion
         public static FlagID[] GetChestFlags() => biomeToChestLocationName.Keys.ToArray();
         public static string GetChestName(FlagID flag) => $"{biomeToChestLocationName[flag]} Chest";
         public static string GetNPCLocKey(string name) => npcNameToArchName.UseAsDict(name) ?? name;
-
+        public static int[] GetNPCBannerNeighbors(int id) => (from set in bannerIDNeighbors where set.Contains(id) select set).Single();
         public static string[] GetAllLocNames()
         {
             List<String> list = new List<string>();

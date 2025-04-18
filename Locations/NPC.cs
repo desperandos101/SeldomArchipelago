@@ -38,7 +38,16 @@ namespace SeldomArchipelago.Locations
                 return;
             }
             if (session is not null && session.enemyToKillCount.TryGetValue(name, out int value)) {
-                int killCount = NPC.killCount[bannerID];
+                int killCount;
+                int[] neighbors = LocationSystem.GetNPCBannerNeighbors(bannerID);
+                if (neighbors is not null)
+                {
+                    killCount = 0;
+                    foreach (int id in neighbors) killCount += NPC.killCount[id];
+                } else
+                {
+                    killCount = NPC.killCount[bannerID];
+                }
                 int killCeiling = value;
                 if (killCount % killCeiling == 0)
                 {
