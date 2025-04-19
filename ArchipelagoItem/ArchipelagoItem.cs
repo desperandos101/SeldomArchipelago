@@ -73,7 +73,7 @@ namespace SeldomArchipelago.ArchipelagoItem
             (string, string) tuple = state.locGroupRewardNames[locType][0];
 
             chestCheckName = tuple.Item1;
-            Item.SetNameOverride(tuple.Item2);
+            Item.SetNameOverride(tuple.Item1);
         }
         public void SetCheck(string loc)
         {
@@ -118,7 +118,8 @@ namespace SeldomArchipelago.ArchipelagoItem
             } else
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-                system.QueueLocationKey(locType, chestCheckName);
+                Item.TurnToAir();
+                system.QueueLocationKey(locType);
             }
             Item.TurnToAir();
             /*Main.AmbienceServer.ForceEntitySpawn(new AmbienceServer.AmbienceSpawnInfo

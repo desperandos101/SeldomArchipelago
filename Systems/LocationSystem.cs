@@ -44,7 +44,7 @@ namespace SeldomArchipelago.Systems
         public static FlagID[] GetChestFlags() => biomeToChestLocationName.Keys.ToArray();
         public static string GetChestName(FlagID flag) => $"{biomeToChestLocationName[flag]} Chest";
         public static string GetNPCLocKey(string name) => npcNameToArchName.UseAsDict(name) ?? name;
-        public static int[] GetNPCBannerNeighbors(int id) => (from set in bannerIDNeighbors where set.Contains(id) select set).Single();
+        public static int[] GetNPCBannerNeighbors(int id) => (from set in bannerIDNeighbors where set.Contains(id) select set).SingleOrDefault();
         public static string[] GetAllLocNames()
         {
             List<String> list = new List<string>();

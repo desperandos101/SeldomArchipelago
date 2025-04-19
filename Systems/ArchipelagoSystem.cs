@@ -746,9 +746,7 @@ namespace SeldomArchipelago.Systems
                 Slot = success.Slot;
                 enemyToKillCount = DeserializeSlotObject<Dictionary<string, int>>(success, "enemy_to_kill_count");
                 enemyItems = DeserializeSlotObject<HashSet<String>>(success, "enemy_items");
-                enemyItems = (from item in enemyItems select item.ToLower()).ToHashSet();
                 hardmodeItems = DeserializeSlotObject<HashSet<String>>(success, "hardmode_items");
-                hardmodeItems = (from item in hardmodeItems select item.ToLower()).ToHashSet();
                 goals = DeserializeSlotObject<List<string>>(success, "goal");
                 randomizeChests = (bool)success.SlotData["chest_loot"];
 
@@ -1046,6 +1044,15 @@ namespace SeldomArchipelago.Systems
                     allBaseLocs.RemoveAt(0);
                 }
             }
+            public void SaveSessionToSlot()
+            {
+                session.DataStorage[Scope.Slot, nameof(collectedItems)] = collectedLocations.ToArray();
+                session.DataStorage[Scope.Slot, "LocRewardNamesKeys"] = locGroupRewardNames.Keys.ToArray();
+                session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = locGroupRewardNames.Values.ToArray();
+                session.DataStorage[Scope.Slot, nameof(hardmodeBacklog)] = hardmodeBacklog.ToArray();
+                session.DataStorage[Scope.Slot, nameof(receivedRewards)] = receivedRewards.ToArray();
+                session.DataStorage[Scope.Slot, nameof(collectedItems)] = collectedItems;
+            }
         }
 
         public WorldState world = new();
@@ -1229,15 +1236,7 @@ namespace SeldomArchipelago.Systems
 
         public override void SaveWorldData(TagCompound tag)
         {
-            if (session != null)
-            {
-                session.session.DataStorage[Scope.Slot, "CollectedLocations"] = session.collectedLocations.ToArray();
-                session.session.DataStorage[Scope.Slot, "LocRewardNamesKeys"] = session.locGroupRewardNames.Keys.ToArray();
-                session.session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = session.locGroupRewardNames.Values.ToArray();
-                session.session.DataStorage[Scope.Slot, "HardmodeBacklog"] = session.hardmodeBacklog.ToArray();
-                session.session.DataStorage[Scope.Slot, "ReceivedRewards"] = session.receivedRewards.ToArray();
-                session.session.DataStorage[Scope.Slot, "CollectedItems"] = session.collectedItems;
-            }
+            if (session != null) session.SaveSessionToSlot();
             tag["WorldState"] = world;
             if (!SessionDisparity)
             {
