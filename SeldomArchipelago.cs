@@ -466,7 +466,6 @@ namespace SeldomArchipelago
                 }
 
                 OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss1)), NPCID.Dryad);
-                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss3)), NPCID.Clothier);
                 OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedFrost)), NPCID.SantaClaus);
                 OverrideCondition(typeof(Main).GetField(nameof(Main.tenthAnniversaryWorld)), NPCID.Steampunker);
                 OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedQueenBee)), NPCID.WitchDoctor);

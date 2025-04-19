@@ -75,7 +75,6 @@ namespace SeldomArchipelago.Systems
             GoblinArmy,
             GoblinTinkerer,
             WitchDoctor,
-            Clothier,
             Hardmode,
             Wizard,
             PirateInvasion,
@@ -165,7 +164,6 @@ namespace SeldomArchipelago.Systems
                     {NPCID.Dryad, FlagID.Dryad },
                     {NPCID.WitchDoctor, FlagID.WitchDoctor },
                     {NPCID.Steampunker, FlagID.Steampunker },
-                    {NPCID.Clothier, FlagID.Clothier },
                     {NPCID.Pirate, FlagID.Pirate },
                     {NPCID.Cyborg, FlagID.Cyborg },
                     {NPCID.SantaClaus, FlagID.SantaClaus },
@@ -475,7 +473,6 @@ namespace SeldomArchipelago.Systems
                     }) },
                     {"Goblin Tinkerer",         new Flag(FlagID.GoblinTinkerer) },
                     {"Witch Doctor",            new Flag(FlagID.WitchDoctor) },
-                    {"Clothier",                new Flag(FlagID.Clothier) },
                     {"Hardmode",                new Flag(FlagID.Hardmode, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
