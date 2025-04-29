@@ -802,6 +802,7 @@ namespace SeldomArchipelago.Systems
                 SeedName = "";
                 SlotName = "";
             }
+            public bool IsDummySession() => Slot == Empty;
             private static T DeserializeSlotObject<T>(LoginSuccessful success, string varName)
             {
                 string varData = success.SlotData[varName].ToString();
@@ -832,11 +833,6 @@ namespace SeldomArchipelago.Systems
                 return tag;
             }
             public static SessionMemory Load(TagCompound tag) => new SessionMemory(tag);
-            public static SessionState LoadState(TagCompound tag)
-            {
-                SessionMemory memory = new SessionMemory(tag);
-                return memory as SessionState;
-            }
             public void ActivateHardmode()
             {
                 WorldGen.StartHardmode();
@@ -850,7 +846,7 @@ namespace SeldomArchipelago.Systems
             }
             public void Collect(string item)
             {
-                if (Main.hardMode && ItemIsHardmode(item))
+                if (!Main.hardMode && ItemIsHardmode(item))
                 {
                     hardmodeBacklog.Add(item);
                     Main.NewText($"ADDED {item} TO HARDMODE BACKLOG");
@@ -977,16 +973,27 @@ namespace SeldomArchipelago.Systems
             public List<string> collectedLocations;
 
             public bool victory;
-
+            public static SessionState LoadState(TagCompound tag)
+            {
+                return new SessionState(tag);
+            }
             public SessionState(LoginSuccessful success, ArchipelagoSession newSession) : base(success)
             {
                 session = newSession;
-                
+
                 // Handles Slot-side storage that the client creates and modifies.
                 collectedLocations = session.DataStorage[Scope.Slot, nameof(collectedLocations)].To<List<string>>() ?? new();
                 hardmodeBacklog = session.DataStorage[Scope.Slot, nameof(hardmodeBacklog)].To<List<string>>() ?? new();
                 receivedRewards = session.DataStorage[Scope.Slot, nameof(receivedRewards)].To<List<int>>() ?? new();
-                collectedItems = session.DataStorage[Scope.Slot, nameof(collectedItems)] ?? 0;
+                var collectedItemsVar = session.DataStorage[Scope.Slot, nameof(collectedItems)];
+                try
+                {
+                    collectedItems = collectedItemsVar.To<int>();
+                }
+                catch
+                {
+                    collectedItems = 0;
+                }
                 string[] locKeys = session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<string[]>();
                 List<(string, string)>[] locValues = session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string)>[]>();
                 if (locKeys is not null)
@@ -1001,7 +1008,7 @@ namespace SeldomArchipelago.Systems
                 {
                     CreateMultiLocSlotDict(success);
                 }
-                    SeedName = session.RoomState.Seed;
+                SeedName = session.RoomState.Seed;
                 SlotName = session.Players.GetPlayerName(Slot);
 
                 // Some SessionState-specific constants we initialize
@@ -1011,6 +1018,10 @@ namespace SeldomArchipelago.Systems
                     deathlink.EnableDeathLink();
                     deathlink.OnDeathLinkReceived += ReceiveDeathlink;
                 }
+            }
+            public SessionState(TagCompound tag) : base(tag)
+            {
+
             }
             public void CreateMultiLocSlotDict(LoginSuccessful success)
             {
@@ -1059,9 +1070,9 @@ namespace SeldomArchipelago.Systems
         public WorldState dummyWorld = new();
         // We add dummySess because a lot of the hooks that access Session() are called during world generation,
         // when session & sessionMemory would normally both be null
-        public static SessionMemory GetSession() {
+        public static SessionMemory GetSession(bool overrideDummy = false) {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
-            return Main.gameMenu ? system.dummySess : system.session ?? system.sessionMemory;
+            return Main.gameMenu && !overrideDummy ? system.dummySess : system.session ?? system.sessionMemory;
         }
         public static WorldState GetWorld()
         {
@@ -1233,12 +1244,15 @@ namespace SeldomArchipelago.Systems
 
         public override void SaveWorldData(TagCompound tag)
         {
-            if (session != null) session.SaveSessionToSlot();
             tag["WorldState"] = world;
             if (!SessionDisparity)
             {
-                SessionMemory sess = GetSession(); //explicit cast so it doesnt try to serialize SessionState
+                if (session != null) session.SaveSessionToSlot();
+                SessionMemory sess = GetSession(true); //explicit cast so it doesnt try to serialize SessionState
                 tag["SessionMemory"] = sess;
+            } else
+            {
+                tag["SessionMemory"] = sessionMemory;
             }
         }
 
@@ -1252,7 +1266,7 @@ namespace SeldomArchipelago.Systems
 
         public override void OnWorldUnload()
         {
-            world = null;
+            world = new();
             session = null;
             sessionMemory = null;
             Reset();
@@ -1459,7 +1473,7 @@ namespace SeldomArchipelago.Systems
 
         public void Achieved(string achievement)
         {
-            world.achieved.Add(achievement);
+            GetWorld().achieved.Add(achievement);
         }
 
         public List<string> GetAchieved()
