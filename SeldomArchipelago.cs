@@ -74,7 +74,7 @@ namespace SeldomArchipelago
         public static MethodInfo supremeCalamitasOnKill = null;
         public static MethodInfo calamityGlobalNpcSetNewBossJustDowned = null;
 
-        FlagSystem GetFlags() => ModContent.GetInstance<ArchipelagoSystem>().Session.flagSystem;
+        FlagSystem GetFlags() => GetSession().flagSystem;
         public override void Load()
         {
             int counter = 1;
@@ -82,7 +82,7 @@ namespace SeldomArchipelago
             // TODO: Initialize this on connection instead and compare with SlotData to get rid of unnecessary items
             while (Lang.GetItemNameValue(counter) is string itemName && counter < 10000)
             {
-                englishLangToTypeDict[itemName.ToLower()] = counter;
+                englishLangToTypeDict[itemName] = counter;
                 counter++;
             }
 
@@ -466,7 +466,6 @@ namespace SeldomArchipelago
                 }
 
                 OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss1)), NPCID.Dryad);
-                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss3)), NPCID.Clothier);
                 OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedFrost)), NPCID.SantaClaus);
                 OverrideCondition(typeof(Main).GetField(nameof(Main.tenthAnniversaryWorld)), NPCID.Steampunker);
                 OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedQueenBee)), NPCID.WitchDoctor);
@@ -757,7 +756,7 @@ namespace SeldomArchipelago
                 "ICE_SCREAM" => "Ice Scream",
                 "SLAYER_OF_WORLDS" => "Slayer of Worlds",
                 "SICK_THROW" => "Sick Throw",
-                "GET_ZENITH" => "Infinity + 1 Sword",
+                "GET_ZENITH" => "Infinity +1 Sword",
                 _ => null,
             };
 

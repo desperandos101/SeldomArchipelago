@@ -14,5 +14,13 @@ Configs: {
 
 		password: {
 		}
+
+		hardmodeAsItem: {
+		}
+	}
+}
+
+Items: {
+	HardmodeStarter: {
 	}
 }
