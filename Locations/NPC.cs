@@ -31,6 +31,7 @@ namespace SeldomArchipelago.Locations
             if (npc.lastInteraction == 255) return;
             string name = LocationSystem.GetNPCLocKey(npc.TypeName);
             var session = ArchipelagoSystem.GetSession();
+            if (session is null) return;
             int bannerID = Item.NPCtoBanner(npc.BannerID());
             if (!session.flagSystem.NPCRegionUnlocked(npc))
             {

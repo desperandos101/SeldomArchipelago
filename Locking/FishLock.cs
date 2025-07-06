@@ -15,7 +15,9 @@ namespace SeldomArchipelago.Locking
     {
         public override void CatchFish(FishingAttempt attempt, ref int itemDrop, ref int npcSpawn, ref AdvancedPopupRequest sonar, ref Vector2 sonarPosition)
         {
-            if (!ArchipelagoSystem.GetSession().flagSystem.PlayerBiomeUnlocked(Main.LocalPlayer))
+            var flags = ArchipelagoSystem.GetFlags();
+            if (flags is null) return;
+            if (!flags.PlayerBiomeUnlocked(Main.LocalPlayer))
             {
                 itemDrop = 0;
             }

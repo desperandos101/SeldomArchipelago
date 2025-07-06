@@ -26,7 +26,7 @@ namespace SeldomArchipelago.ArchipelagoItem
         private const string inactive = "Inactive AP Item";
         public const string dummy = "null";
         private string? locType;
-        private string? chestCheckName = null;
+        private string? locName = null;
         public static List<(string, string, int)>[] chestMatrix = new List<(string, string, int)>[9];
         private bool CheckTypeExhausted => GetSession().locGroupRewardNames[locType].Count == 0;
         public override void SetDefaults()
@@ -43,11 +43,11 @@ namespace SeldomArchipelago.ArchipelagoItem
         {
             if (locType == null) throw new Exception("Attempted to SetCheck an Architem with no locType assigned.");
 
-            if (chestCheckName is not null) return;
+            if (locName is not null) return;
 
             if (locType == dummy)
             {
-                chestCheckName = "Dummy Archipelago Item";
+                locName = "Dummy Archipelago Item";
                 return;
             }
             
@@ -65,20 +65,26 @@ namespace SeldomArchipelago.ArchipelagoItem
 
             if (state.locGroupRewardNames[locType].Count == 0)
             {
-                chestCheckName = inactive;
+                locName = inactive;
                 Item.SetNameOverride(inactive);
                 Item.TurnToAir();
                 return;
             }
             (string, string) tuple = state.locGroupRewardNames[locType][0];
 
-            chestCheckName = tuple.Item1;
+            locName = tuple.Item1;
             Item.SetNameOverride(tuple.Item1);
         }
         public void SetCheck(string loc)
         {
             SetCheckType(loc);
             SetCheck();
+        }
+        public void SetShopCheck(string locKey, string locationName, string itemName)
+        {
+            locType = locKey;
+            locName = locationName;
+            Item.SetNameOverride(itemName);
         }
         public static ArchipelagoItem CreateItem(string loc)
         {
@@ -90,7 +96,7 @@ namespace SeldomArchipelago.ArchipelagoItem
         public static ArchipelagoItem CreateDummyItem() => CreateItem(dummy);
         public override Microsoft.Xna.Framework.Color? GetAlpha(Microsoft.Xna.Framework.Color lightColor)
         {
-            if (chestCheckName == inactive)
+            if (locName == inactive)
             {
                 lightColor.R = 0;
                 lightColor.G = 0;
@@ -112,14 +118,14 @@ namespace SeldomArchipelago.ArchipelagoItem
             if (locType == dummy)
             {
                 Main.NewText("Huzzah and forsooth, the dummy item has activated!");
-            } else if (chestCheckName == inactive)
+            } else if (locName == inactive)
             {
                 Main.NewText("Dumb Stupid Item Idiot");
             } else
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-                Item.TurnToAir();
-                system.QueueLocationKey(locType);
+                if (locName is not null) system.QueueLocationKey(locType, locName);
+                else system.QueueLocationKey(locType);
             }
             Item.TurnToAir();
             /*Main.AmbienceServer.ForceEntitySpawn(new AmbienceServer.AmbienceSpawnInfo
@@ -131,12 +137,12 @@ namespace SeldomArchipelago.ArchipelagoItem
         public override void SaveData(TagCompound tag)
         {
             tag[nameof(locType)] = (string)locType;
-            if (chestCheckName is not null) tag[nameof(chestCheckName)] = chestCheckName;
+            if (locName is not null) tag[nameof(locName)] = locName;
         }
         public override void LoadData(TagCompound tag)
         {
             locType = tag.ContainsKey(nameof(locType)) ? tag.GetString(nameof(locType)) : null;
-            chestCheckName = tag.ContainsKey(nameof(chestCheckName)) ? tag.GetString(nameof(chestCheckName)) : null;
+            locName = tag.ContainsKey(nameof(locName)) ? tag.GetString(nameof(locName)) : null;
         }
     }
 }

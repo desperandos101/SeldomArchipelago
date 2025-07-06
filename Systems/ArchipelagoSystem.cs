@@ -77,6 +77,7 @@ namespace SeldomArchipelago.Systems
             WitchDoctor,
             Hardmode,
             Wizard,
+            Truffle,
             PirateInvasion,
             Pirate,
             Eclipse,
@@ -89,7 +90,24 @@ namespace SeldomArchipelago.Systems
             FrostMoon,
             Martians,
             Cultists,
-            SantaClaus
+            SantaClaus,
+
+            Guide,
+            Merchant,
+            Nurse,
+            Demolitionist,
+            DyeTrader,
+            Angler,
+            Zoologist,
+            Painter,
+            Golfer,
+            ArmsDealer,
+            Stylist,
+            Clothier,
+            Mechanic,
+            PartyGirl,
+            TaxCollector,
+            Princess,
         }
 
         // System that stores, manages, and processes flags
@@ -159,12 +177,31 @@ namespace SeldomArchipelago.Systems
             }
             public static FlagID? GetNPCRegion(int npc) => FlagSystemDatabase.FlagNPCBannerSet.UseAsDict(Item.NPCtoBanner(npc));
             public static FlagID? GetNPCRegion(NPC npc) => GetNPCRegion(npc.BannerID());
-            private static readonly Dictionary<int, FlagID> FreeNPCSet = new()
+            public static readonly Dictionary<int, FlagID> RandoNPCSet = new()
                 {
+                    {NPCID.Merchant, FlagID.Merchant},
+                {NPCID.Nurse, FlagID.Nurse },
+                {NPCID.Demolitionist, FlagID.Demolitionist},
+                {NPCID.DyeTrader, FlagID.DyeTrader},
+                {NPCID.Angler, FlagID.Angler},
+                {NPCID.BestiaryGirl, FlagID.Zoologist },
                     {NPCID.Dryad, FlagID.Dryad },
+                {NPCID.Painter, FlagID.Painter},
+                {NPCID.Golfer, FlagID.Golfer},
+                {NPCID.ArmsDealer, FlagID.ArmsDealer},
+                {NPCID.DD2Bartender, FlagID.Tavernkeep },
+                {NPCID.Stylist, FlagID.Stylist},
+                    {NPCID.GoblinTinkerer, FlagID.GoblinTinkerer },
                     {NPCID.WitchDoctor, FlagID.WitchDoctor },
+                {NPCID.Clothier, FlagID.Clothier },
+                {NPCID.Mechanic, FlagID.Mechanic},
+                {NPCID.PartyGirl, FlagID.PartyGirl},
+                    {NPCID.Wizard, FlagID.Wizard },
+                {NPCID.TaxCollector, FlagID.TaxCollector },
+                {NPCID.Princess, FlagID.Princess},
                     {NPCID.Steampunker, FlagID.Steampunker },
                     {NPCID.Pirate, FlagID.Pirate },
+                    {NPCID.Truffle, FlagID.Truffle },
                     {NPCID.Cyborg, FlagID.Cyborg },
                     {NPCID.SantaClaus, FlagID.SantaClaus },
                 };
@@ -262,6 +299,7 @@ namespace SeldomArchipelago.Systems
                 FlagID? biome = GetChestRegion(i, j);
                 return biome is null || FlagIsActive((FlagID)biome);
             }
+            // TODO: Update this so that items that aren't randomized aren't removed from chests.
             public static void UpdateChests()
             {
                 var chestList = from chest in Main.chest
@@ -275,7 +313,7 @@ namespace SeldomArchipelago.Systems
                     FlagID? blockBiome;
                     if (blockUnderChestType == TileID.Mud)
                     {
-                        blockBiome = FlagID.Jungle; //Hardcoding Mud because making it a jungle-locked block is not advisable.
+                        blockBiome = FlagID.Jungle; //Hardcoding Mud because making a very common tile a biome specific block is problematic.
                     }
                     else
                     {
@@ -311,6 +349,15 @@ namespace SeldomArchipelago.Systems
                 }
                 return herbList.ToArray();
             }
+            public static int[] GetAllHerbs()
+            {
+                List<int> herbList = new List<int>();
+                foreach ((FlagID, int[]) tuple in FlagSystemDatabase.BiomeHerbItemIDSet)
+                {
+                    herbList.AddRange(tuple.Item2);
+                }
+                return herbList.ToArray();
+            }
             #endregion
             #region NPC Checks
 
@@ -327,25 +374,21 @@ namespace SeldomArchipelago.Systems
                 switch (id)
                 {
                     case NPCID.SleepingAngler: return !FlagIsActive(FlagID.Ocean);
-                    case NPCID.BoundGoblin: return !FlagIsActive(FlagID.GoblinTinkerer);
+                    case NPCID.GolferRescue: return !FlagIsActive(FlagID.Desert);
                     case NPCID.WebbedStylist: return !FlagIsActive(FlagID.Web);
-                    case NPCID.BoundWizard: return !FlagIsActive(FlagID.Wizard);
-                    case NPCID.BartenderUnconscious: return !FlagIsActive(FlagID.Tavernkeep);
+                    case NPCID.DemonTaxCollector: return !FlagIsActive(FlagID.Underworld);
                     case NPCID.MartianProbe: return !FlagIsActive(FlagID.Martians);
                     case NPCID.EmpressButterfly: return !FlagIsActive(FlagID.PrismaticLacewing);
                     default: return false;
                 }
             }
+
             public bool BoundNPCFindable(int id, NPCSpawnInfo info = default)
             {
                 if (!NPC.AnyNPCs(id) && info.Water)
                 {
                     switch (id)
                     {
-                        case NPCID.SleepingAngler: return (info.Player.ZoneBeach && !NPC.savedAngler && FlagIsActive(FlagID.Ocean));
-                        case NPCID.BoundGoblin: return (info.Player.ZoneRockLayerHeight && !NPC.savedGoblin && FlagIsActive(FlagID.GoblinTinkerer));
-                        case NPCID.BoundWizard: return (info.Player.ZoneRockLayerHeight && !NPC.savedWizard && FlagIsActive(FlagID.Wizard));
-                        case NPCID.BartenderUnconscious: return (!NPC.savedBartender && FlagIsActive(FlagID.Tavernkeep));
                         case NPCID.MartianProbe: return (info.Player.ZoneSkyHeight && Math.Abs(info.Player.position.X - Main.spawnTileX) > Main.maxTilesX / 3 && FlagIsActive(FlagID.Martians));
                         case NPCID.EmpressButterfly: return (info.Player.ZoneHallow && info.Player.ZoneOverworldHeight && FlagIsActive(FlagID.PrismaticLacewing));
                         default: return false;
@@ -356,13 +399,12 @@ namespace SeldomArchipelago.Systems
             }
             public void SetBoundNPCsInSpawnDict(IDictionary<int, float> dict, NPCSpawnInfo info)
             {
-                foreach (int id in FlagSystemDatabase.BoundNPCSet)
+                foreach (int id in FlagSystemDatabase.ImportantNPCSet)
                 {
                     dict[id] = BoundNPCFindable(id, info) ? 1f : 0f;
                 }
             }
 
-            public bool FreeNPCSpawnable(int npcID) => FlagIsActive(FreeNPCSet[npcID]) && !NPC.AnyNPCs(npcID);
             #endregion
             #region Item Checks
             public bool ItemIsUsable(int id)
@@ -485,6 +527,7 @@ namespace SeldomArchipelago.Systems
                         }
                     }) },
                     {"Wizard",                  new Flag(FlagID.Wizard) },
+                    {"Truffle",                 new Flag(FlagID.Truffle) },
                     {"Pirate Invasion",         new Flag(FlagID.PirateInvasion, theSideEffects: delegate(bool safe)
                     {
                         if (safe)
@@ -532,6 +575,21 @@ namespace SeldomArchipelago.Systems
                     {
                         NPC.downedGolemBoss = true;
                     }) },
+                    {"Guide",                   new Flag(FlagID.Guide) },
+                    {"Merchant",                new Flag(FlagID.Merchant) },
+                    {"Nurse",                   new Flag(FlagID.Nurse) },
+                    {"Demolitionist",           new Flag(FlagID.Demolitionist) },
+                    {"Dye Trader",              new Flag(FlagID.DyeTrader) },
+                    {"Angler",                  new Flag(FlagID.Angler) },
+                    {"Zoologist",               new Flag(FlagID.Zoologist) },
+                    {"Painter",                 new Flag(FlagID.Painter) },
+                    {"Golfer",                  new Flag(FlagID.Golfer) },
+                    {"Arms Dealer",             new Flag(FlagID.ArmsDealer) },
+                    {"Stylist",                 new Flag(FlagID.Stylist) },
+                    {"Clothier",                new Flag(FlagID.Clothier) },
+                    {"Mechanic",                new Flag(FlagID.Mechanic) },
+                    {"Party Girl",              new Flag(FlagID.PartyGirl) },
+                    {"Tax Collector",           new Flag(FlagID.TaxCollector) },
                 };
                 public static readonly FlagID[] hardmodeFlags = [
                     FlagID.Wizard,
@@ -547,7 +605,11 @@ namespace SeldomArchipelago.Systems
                     FlagID.PumpkinMoon,
                     FlagID.FrostMoon,
                     FlagID.Martians,
-                    FlagID.Cultists
+                    FlagID.Cultists,
+                    FlagID.TaxCollector,
+                    FlagID.Truffle,
+                    FlagID.SantaClaus,
+                    FlagID.Princess
                 ];
                 public static readonly FlagID[] biomeFlags = [
                     FlagID.Desert,
@@ -620,15 +682,10 @@ namespace SeldomArchipelago.Systems
                     (FlagID.Dungeon, new int[] {2}),
                     (FlagID.Underworld, new int[] {4}),
                 };
-                public static readonly int[] BoundNPCSet =
+                public static readonly int[] ImportantNPCSet =
     {
-                NPCID.SleepingAngler,
-                NPCID.BoundGoblin,
-                NPCID.WebbedStylist,
-                NPCID.BoundWizard,
-                NPCID.BartenderUnconscious,
-                NPCID.MartianProbe,
-                NPCID.EmpressButterfly,
+                    NPCID.MartianProbe,
+                    NPCID.EmpressButterfly,
                 };
                 public static readonly (FlagID, int[])[] BiomeHerbItemIDSet =
 [
@@ -727,12 +784,17 @@ namespace SeldomArchipelago.Systems
             public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(LocationSystem.GetNPCLocKey(name), out var count);
             // All Enemy-specific Items
             public readonly HashSet<string> enemyItems = new();
+            public readonly HashSet<string> shopItems = new();
             // All Enemy 
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
             public List<string> hardmodeBacklog = new();
             public readonly HashSet<string> hardmodeItems = new();
             // Whether chests should be randomized.
             public bool randomizeChests = false;
+            // Whether extra NPCs are randomized.
+            public bool randomizeExtraNPCs = false;
+            // Whether the guide is randomized. Used to decide whether to kill Guide on world entry.
+            public bool randomizeGuide = false;
             public List<string> goals = new();
             public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItems;
             public static bool HardmodeAsItem => ModContent.GetInstance<Config.Config>().hardmodeAsItem;
@@ -743,9 +805,12 @@ namespace SeldomArchipelago.Systems
                 Slot = success.Slot;
                 enemyToKillCount = DeserializeSlotObject<Dictionary<string, int>>(success, "enemy_to_kill_count");
                 enemyItems = DeserializeSlotObject<HashSet<String>>(success, "enemy_items");
+                shopItems = DeserializeSlotObject<HashSet<String>>(success, "shop_items");
                 hardmodeItems = DeserializeSlotObject<HashSet<String>>(success, "hardmode_items");
                 goals = DeserializeSlotObject<List<string>>(success, "goal");
                 randomizeChests = (bool)success.SlotData["chest_loot"];
+                randomizeExtraNPCs = (bool)success.SlotData["randomize_npcs"];
+                randomizeGuide = (bool)success.SlotData["randomize_guide"];
 
                 if (!(bool)success.SlotData["biome_locks"])
                 {
@@ -777,8 +842,11 @@ namespace SeldomArchipelago.Systems
                     enemyToKillCount[enemyKillKeys[i]] = enemyKillValues[i];
                 }
                 enemyItems = tag.Get<List<string>>(nameof(enemyItems)).ToHashSet();
+                shopItems = tag.Get<List<string>>(nameof(shopItems)).ToHashSet();
                 hardmodeBacklog = tag.Get<List<string>>(nameof(hardmodeBacklog));
                 randomizeChests = tag.GetBool(nameof(randomizeChests));
+                randomizeExtraNPCs = tag.GetBool(nameof(randomizeExtraNPCs));
+                randomizeGuide = tag.GetBool(nameof(randomizeGuide));
                 List<string> locKeyList = tag.Get<List<string>>(nameof(locGroupRewardNames) + "Keys");
                 foreach (string key in locKeyList)
                 {
@@ -821,8 +889,11 @@ namespace SeldomArchipelago.Systems
                     [nameof(enemyToKillCount) + "Keys"] = enemyToKillCount.Keys.ToList(),
                     [nameof(enemyToKillCount) + "Values"] = enemyToKillCount.Values.ToList(),
                     [nameof(enemyItems)] = enemyItems.ToList(),
+                    [nameof(shopItems)] = shopItems.ToList(),
                     [nameof(hardmodeBacklog)] = hardmodeBacklog,
                     [nameof(randomizeChests)] = randomizeChests,
+                    [nameof(randomizeExtraNPCs)] = randomizeExtraNPCs,
+                    [nameof(randomizeGuide)] = randomizeGuide,
                     [nameof(locGroupRewardNames) + "Keys"] = locGroupRewardNames.Keys.ToList(),
                 };
                 foreach ((string key, List<(string, string)> values) in locGroupRewardNames)
@@ -1074,6 +1145,12 @@ namespace SeldomArchipelago.Systems
             var system = ModContent.GetInstance<ArchipelagoSystem>();
             return Main.gameMenu && !overrideDummy ? system.dummySess : system.session ?? system.sessionMemory;
         }
+        public static FlagSystem GetFlags()
+        {
+            var session = GetSession();
+            if (session is null) return null;
+            return session.flagSystem;
+        }
         public static WorldState GetWorld()
         {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
@@ -1103,7 +1180,8 @@ namespace SeldomArchipelago.Systems
         {
             world = tag.ContainsKey("WorldState") ? tag.Get<WorldState>("WorldState") : new();
             sessionMemory = tag.ContainsKey("SessionMemory") ? tag.Get<SessionMemory>("SessionMemory") : null;
-            if (sessionMemory != null && session != null)
+            if (session is null) return;
+            if (sessionMemory != null)
             {
                 if (SessionDisparity)
                 {
@@ -1112,7 +1190,7 @@ namespace SeldomArchipelago.Systems
                 UseSessionMemory(sessionMemory);
                 sessionMemory = null;
             }
-            if (!world.chestsRandomized && session is not null && session.randomizeChests)
+            if (!world.chestsRandomized && session.randomizeChests)
             {
                 FlagSystem.UpdateChests();
                 world.chestsRandomized = true;
@@ -1149,6 +1227,12 @@ namespace SeldomArchipelago.Systems
             {
                 locationNPCs.Remove(npcName);
                 counter++;
+            }
+
+            if (session.randomizeGuide && !session.flagSystem.FlagIsActive(FlagID.Guide) && NPC.AnyNPCs(22))
+            {
+                Main.npc[NPC.FindFirstNPC(22)].StrikeInstantKill();
+                Main.NewText("MURDER");
             }
 
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
@@ -1292,6 +1376,7 @@ namespace SeldomArchipelago.Systems
                 "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
                 "Or in-game at Settings > Mod Configuration",
                 ];
+                if (sessionMemory is null) return defaultText;
                 string[] sessionMemoryText = sessionMemory.HasActiveMemory ? [$"Currently playing in Slot {sessionMemory.SlotName} in APworld seed {sessionMemory.SeedName}"] : [];
                 return defaultText.Concat(sessionMemoryText).ToArray();
             }
@@ -1409,7 +1494,8 @@ namespace SeldomArchipelago.Systems
         public void QueueLocation(string locationName)
         {
             var activeSession = GetSession();
-            if (activeSession is not SessionState)
+            if (activeSession is null) return;
+            if (session is null)
             {
                 activeSession.locationBacklog.Add(locationName);
                 return;

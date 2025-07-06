@@ -20,7 +20,9 @@ namespace SeldomArchipelago.Locking
         {
             if (source is EntitySource_Loot lootSource && lootSource.Entity is NPC)
             {
-                if (GetSession().enemyItems.Contains(item.Name))
+                var session = GetSession();
+                if (session is null) return;
+                if (session.enemyItems.Contains(item.Name))
                 {
                     Main.NewText("ITEM BLOCKED: " + item.Name);
                     item.TurnToAir();
@@ -35,7 +37,8 @@ namespace SeldomArchipelago.Locking
             private FlagID? region = region;
             public bool CanDrop(DropAttemptInfo info)
             {
-                FlagSystem flags = GetSession().flagSystem;
+                FlagSystem flags = GetFlags();
+                if (flags is null) return true;
                 if (evaluateBiomeOnCondition) return flags.NPCRegionUnlocked(info);
                 return flags.FlagIsActive((FlagID)region);
             } 
@@ -72,7 +75,8 @@ namespace SeldomArchipelago.Locking
             globalLoot.Add(megaRule);
         }
         public override void EditSpawnPool(IDictionary<int, float> pool, NPCSpawnInfo spawnInfo) {
-            FlagSystem flags = GetSession().flagSystem;
+            FlagSystem flags = GetFlags();
+            if (flags is null) return;
             flags.SetBoundNPCsInSpawnDict(pool, spawnInfo);
             if (spawnInfo.SpawnTileY <= Main.worldSurface && Main.dayTime && Main.eclipse)
             {
@@ -84,7 +88,8 @@ namespace SeldomArchipelago.Locking
         }
         public override void OnSpawn(NPC npc, IEntitySource source)
         {
-            FlagSystem flags = GetSession().flagSystem;
+            FlagSystem flags = GetFlags();
+            if (flags is null) return;
             if (flags.NPCShouldDespawn(npc.type)) npc.EncourageDespawn(0);
         }
         public override void ModifyShop(NPCShop shop)

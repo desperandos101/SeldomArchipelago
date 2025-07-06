@@ -20,7 +20,11 @@ namespace SeldomArchipelago.HardmodeItem
             Item.CloneDefaults(ItemID.DemonHeart);
         }
 
-        public override bool CanUseItem(Player player) => GetSession().flagSystem.FlagIsActive(FlagID.Hardmode) && !Main.hardMode;
+        public override bool CanUseItem(Player player) {
+            FlagSystem flags = GetFlags();
+            if (flags is null) return true;
+            return flags.FlagIsActive(FlagID.Hardmode) && !Main.hardMode;
+        }
 
         public override bool? UseItem(Player player)
         {

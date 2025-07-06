@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using System.Media;
 using SeldomArchipelago.Systems;
+using Steamworks;
 
 namespace SeldomArchipelago.Locations
 {
@@ -24,7 +25,9 @@ namespace SeldomArchipelago.Locations
     {
         public override void OnSpawn(Item item, IEntitySource source)
         {
-            if (!ArchipelagoSystem.GetSession().randomizeChests) return;
+            var session = ArchipelagoSystem.GetSession();
+            if (session is null) return;
+            if (!session.randomizeChests) return;
             if (source is EntitySource_TileBreak && item.type == ItemID.MusketBall && item.stack == 100)
             { //specifically to get rid of musket balls that always drop from shadow orbs
                 item.TurnToAir();

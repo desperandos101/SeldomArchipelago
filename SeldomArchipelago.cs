@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Terraria;
+using Terraria.Utilities;
 using Terraria.Achievements;
 using Terraria.DataStructures;
 using Terraria.GameContent.Events;
@@ -73,8 +74,6 @@ namespace SeldomArchipelago
         public static MethodInfo thanatosHeadOnKill = null;
         public static MethodInfo supremeCalamitasOnKill = null;
         public static MethodInfo calamityGlobalNpcSetNewBossJustDowned = null;
-
-        FlagSystem GetFlags() => GetSession().flagSystem;
         public override void Load()
         {
             int counter = 1;
@@ -444,44 +443,137 @@ namespace SeldomArchipelago
 
                 List<int> overridenNPCids = new List<int>();
 
-                void OverrideCondition(FieldInfo fieldInfo, int npcID)
+                
+                // Guide
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.unlockedSlimeGreenSpawn))));
+                cursor.GotoNext(i => i.MatchLdloc(6));
+                cursor.Index++;
+                cursor.EmitDelegate((int guideExists) =>
                 {
-                    var label = il.DefineLabel();
-
-                    cursor.GotoNext(i => i.MatchLdsfld(fieldInfo));
-                    cursor.Index++;
-                    cursor.EmitPop();
-                    cursor.EmitBr(label);
-
-                    cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.townNPCCanSpawn))));
-                    cursor.MarkLabel(label);
-                    cursor.Index += 3;
-                    cursor.EmitPop();
-                    cursor.EmitDelegate(() =>
+                    if (guideExists == 1) return true;
+                    var sess = GetSession();
+                    if (sess is null) return false;
+                    return !sess.randomizeGuide;
+                });
+                // Town NPCs
+                var skipVanillaLabel = il.DefineLabel();
+                var skipRandoLabel = il.DefineLabel();
+                cursor.GotoNext(i => i.MatchLdloc(44));
+                cursor.Index++;
+                cursor.EmitPop();
+                cursor.EmitDelegate(() =>
+                {
+                    var sess = GetSession();
+                    if (sess is null) return false;
+                    return sess.randomizeExtraNPCs;
+                });
+                cursor.EmitLdcI4(1);
+                cursor.EmitBlt(skipRandoLabel);
+                cursor.EmitLdsfld(typeof(Main).GetField(nameof(Main.townNPCCanSpawn)));
+                cursor.EmitDelegate<Func<bool[], bool[]>>((bool[] townNPCCanSpawn) =>
+                {
+                    var sess = GetSession();
+                    if (sess is null) return townNPCCanSpawn;
+                    var flags = sess.flagSystem;
+                    foreach (int key in FlagSystem.RandoNPCSet.Keys)
                     {
-                        return GetFlags().FreeNPCSpawnable(npcID);
-                    });
-
-                    overridenNPCids.Add(npcID);
-                }
-
-                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedBoss1)), NPCID.Dryad);
-                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedFrost)), NPCID.SantaClaus);
-                OverrideCondition(typeof(Main).GetField(nameof(Main.tenthAnniversaryWorld)), NPCID.Steampunker);
-                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedQueenBee)), NPCID.WitchDoctor);
-                OverrideCondition(typeof(NPC).GetField(nameof(NPC.downedPirates)), NPCID.Pirate);
-                cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.hardMode))));
-                cursor.Index++; //We skip the Main.hardMode flag in the truffle's condition. I'm so sorry for this
-                OverrideCondition(typeof(Main).GetField(nameof(Main.hardMode)), NPCID.Cyborg);
-
+                        townNPCCanSpawn[key] = flags.FlagIsActive(FlagSystem.RandoNPCSet[key]);
+                    }
+                    return townNPCCanSpawn;
+                });
+                cursor.EmitStsfld(typeof(Main).GetField(nameof(Main.townNPCCanSpawn)));
+                cursor.EmitBr(skipVanillaLabel);
+                cursor.Index++;
+                cursor.MarkLabel(skipRandoLabel);
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.boughtCat))));
+                cursor.MarkLabel(skipVanillaLabel);
                 cursor.GotoNext(i => i.MatchLdsfld(typeof(WorldGen).GetField(nameof(WorldGen.prioritizedTownNPCType))));
                 cursor.Index++;
                 cursor.EmitDelegate<Func<int, int>>((priorityNPC) =>
                 {
-                    return overridenNPCids.Find(i => !NPC.AnyNPCs(i));
+                    var sess = GetSession();
+                    if (sess is null) return priorityNPC;
+                    var flags = sess.flagSystem;
+                    foreach (int key in FlagSystem.RandoNPCSet.Keys)
+                    {
+                        if (flags.FlagIsActive(FlagSystem.RandoNPCSet[key]) && !NPC.AnyNPCs(key)) return key;
+                    }
+                    return priorityNPC;
                 });
+                
 
+            };
 
+            // Add Checks To Bound NPCs
+            
+            Terraria.IL_NPC.AI_000_TransformBoundNPC += il =>
+            {
+                var cursor = new ILCursor(il);
+                var skipRando = il.DefineLabel();
+
+                cursor.EmitDelegate(() =>
+                {
+                    var sess = GetSession();
+                    if (sess is null) return false;
+                    return sess.randomizeExtraNPCs;
+                });
+                cursor.EmitLdcI4(1);
+                cursor.EmitBlt(skipRando);
+
+                var freeToBound = new Dictionary<int, int>
+                {
+                    { NPCID.Angler, NPCID.SleepingAngler },
+                    { NPCID.Golfer, NPCID.GolferRescue },
+                    { NPCID.DD2Bartender, NPCID.BartenderUnconscious },
+                    { NPCID.Stylist, NPCID.WebbedStylist },
+                    { NPCID.GoblinTinkerer, NPCID.BoundGoblin },
+                    { NPCID.Mechanic, NPCID.BoundMechanic },
+                    { NPCID.Wizard, NPCID.BoundWizard },
+                };
+
+                cursor.EmitLdarg(2);
+                cursor.EmitDelegate((int npcType) =>
+                {
+                    NPC npc = Main.npc[NPC.FindFirstNPC(freeToBound[npcType])]; // We can safely assume there is no possible situation where this throws a key error. I think
+                    if (Main.netMode == NetmodeID.MultiplayerClient)
+                    {
+                        NetMessage.SendStrikeNPC(npc, new NPC.HitInfo() { InstantKill = true });
+                        return;
+                    }
+                    npc.StrikeInstantKill();
+                    switch (npcType)
+                    {
+                        case NPCID.Angler:
+                            {
+                                Main.NewText("splep");
+                                return;
+                            }
+                        default: return;
+                    }
+                });
+                cursor.EmitRet();
+                //cursor.Index++;
+                cursor.MarkLabel(skipRando);
+            };
+            
+            // Add Check to Purifying Tax Collector
+            // The method we edit for this is suspiciously large yet not identified as one that gets affected by garbage collection. If this randomly stops working in gameplay, find a different way to do this.
+
+            Terraria.IL_Projectile.Damage += il =>
+            {
+                var cursor = new ILCursor(il);
+                var label = il.DefineLabel();
+
+                cursor.GotoNext(i => i.MatchCallvirt(typeof(NPC).GetMethod(nameof(NPC.Transform))));
+                cursor.Index += 2;
+                cursor.MarkLabel(label);
+                cursor.Index -= 3;
+                cursor.EmitDelegate((NPC npc) =>
+                {
+                    npc.StrikeInstantKill();
+                    Main.NewText("gweep");
+                });
+                cursor.EmitBr(label);
             };
 
             // Unmaintainable reflection

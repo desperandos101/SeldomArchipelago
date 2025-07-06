@@ -1,4 +1,5 @@
-﻿using SeldomArchipelago.Systems;
+﻿using Iced.Intel;
+using SeldomArchipelago.Systems;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,7 +15,8 @@ namespace SeldomArchipelago.Locking
     internal class ItemLock : GlobalItem
     {
         public override bool CanUseItem(Item item, Player player) {
-            var flags = GetSession().flagSystem;
+            var flags = GetFlags();
+            if (flags is null) return true;
             if (!flags.ItemIsUsable(item.type)) {
                 Main.NewText("You have not unlocked this event yet!");
                 return false;

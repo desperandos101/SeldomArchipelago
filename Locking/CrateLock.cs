@@ -8,6 +8,7 @@ using Terraria.GameContent.ItemDropRules;
 using Terraria.ModLoader;
 using SeldomArchipelago.Systems;
 using Terraria.ID;
+using static SeldomArchipelago.Systems.ArchipelagoSystem;
 
 namespace SeldomArchipelago.Locking
 {
@@ -24,7 +25,12 @@ namespace SeldomArchipelago.Locking
     }
     public class HerbBagDropsItemDropFlagRule : IItemDropRule // I COPY PASTED THIS FROM SOURCE CODE DON'T LOOK
     {
-        public new int[] dropIds => ArchipelagoSystem.GetSession().flagSystem.GetLegalHerbs();
+        public new int[] dropIds() {
+            var flags = GetFlags();
+            if (flags == null) return FlagSystem.GetAllHerbs();
+
+            return flags.GetLegalHerbs();
+    }
 
         public List<IItemDropRuleChainAttempt> ChainedRules
         {
@@ -52,8 +58,8 @@ namespace SeldomArchipelago.Locking
                 int stack = Main.rand.Next(2, 5);
                 if (Main.rand.Next(3) == 0)
                     stack += Main.rand.Next(1, 5);
-
-                CommonCode.DropItem(info, dropIds[info.rng.Next(dropIds.Length)], stack);
+                int[] ids = dropIds();
+                CommonCode.DropItem(info, ids[info.rng.Next(ids.Length)], stack);
             }
 
             result = default(ItemDropAttemptResult);
@@ -65,10 +71,11 @@ namespace SeldomArchipelago.Locking
         {
             float num = (float)1f / (float)1f;
             float num2 = num * ratesInfo.parentDroprateChance;
-            float dropRate = 1f / (float)(dropIds.Length + 3.83f) * num2;
-            for (int i = 0; i < dropIds.Length; i++)
+            int[] ids = dropIds();
+            float dropRate = 1f / (float)(ids.Length + 3.83f) * num2;
+            for (int i = 0; i < ids.Length; i++)
             {
-                drops.Add(new DropRateInfo(dropIds[i], 1, 1, dropRate, ratesInfo.conditions));
+                drops.Add(new DropRateInfo(ids[i], 1, 1, dropRate, ratesInfo.conditions));
             }
 
             Chains.ReportDroprates(ChainedRules, num, drops, ratesInfo);
