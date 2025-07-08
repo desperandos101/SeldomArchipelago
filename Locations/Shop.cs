@@ -40,12 +40,12 @@ namespace SeldomArchipelago.Locations
                     cursorNull++;
                 }
             }
-            foreach ((string, string) tuple in rewardNames)
+            foreach (SimpleItemInfo info in rewardNames)
             {
                 items[cursorNull] = new Item();
                 items[cursorNull].SetDefaults(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
                 var archItem = items[cursorNull].ModItem as ArchipelagoItem.ArchipelagoItem;
-                archItem.SetShopCheck(shopLocKey, tuple.Item1, tuple.Item2);
+                archItem.SetShopCheck(shopLocKey, info);
                 cursorNull++;
             }
         }

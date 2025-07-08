@@ -26,7 +26,7 @@ namespace SeldomArchipelago.ArchipelagoItem
         private const string inactive = "Inactive AP Item";
         public const string dummy = "null";
         private string? locType;
-        private string? locName = null;
+        private SimpleItemInfo info = null;
         public static List<(string, string, int)>[] chestMatrix = new List<(string, string, int)>[9];
         private bool CheckTypeExhausted => GetSession().locGroupRewardNames[locType].Count == 0;
         public override void SetDefaults()
@@ -43,11 +43,10 @@ namespace SeldomArchipelago.ArchipelagoItem
         {
             if (locType == null) throw new Exception("Attempted to SetCheck an Architem with no locType assigned.");
 
-            if (locName is not null) return;
+            if (info is not null) return;
 
             if (locType == dummy)
             {
-                locName = "Dummy Archipelago Item";
                 return;
             }
             
@@ -65,26 +64,35 @@ namespace SeldomArchipelago.ArchipelagoItem
 
             if (state.locGroupRewardNames[locType].Count == 0)
             {
-                locName = inactive;
                 Item.SetNameOverride(inactive);
                 Item.TurnToAir();
                 return;
             }
-            (string, string) tuple = state.locGroupRewardNames[locType][0];
+            info = state.locGroupRewardNames[locType][0];
 
-            locName = tuple.Item1;
-            Item.SetNameOverride(tuple.Item1);
+            Item.SetNameOverride($"{info.player}'s {info.itemName}");
         }
         public void SetCheck(string loc)
         {
             SetCheckType(loc);
             SetCheck();
         }
-        public void SetShopCheck(string locKey, string locationName, string itemName)
+        public void SetShopCheck(string locKey, SimpleItemInfo info)
         {
             locType = locKey;
-            locName = locationName;
-            Item.SetNameOverride(itemName);
+            this.info = info;
+            Item.SetNameOverride($"{info.player}'s {info.itemName}");
+            if (info.player == GetSession().SlotName && info.itemName == "Reward: Coins")
+            {
+                Item.value = 1;
+                return;
+            }
+            switch (info.flag)
+            {
+                case Archipelago.MultiClient.Net.Enums.ItemFlags.NeverExclude: Item.value = 5000; break;
+                case Archipelago.MultiClient.Net.Enums.ItemFlags.Advancement: Item.value = 50000; break;
+                default: Item.value = 100; break;
+            }
         }
         public static ArchipelagoItem CreateItem(string loc)
         {
@@ -94,17 +102,6 @@ namespace SeldomArchipelago.ArchipelagoItem
             return archItem;
         }
         public static ArchipelagoItem CreateDummyItem() => CreateItem(dummy);
-        public override Microsoft.Xna.Framework.Color? GetAlpha(Microsoft.Xna.Framework.Color lightColor)
-        {
-            if (locName == inactive)
-            {
-                lightColor.R = 0;
-                lightColor.G = 0;
-                lightColor.B = 0;
-                return lightColor;
-            }
-            return null;
-        }
         public override void PostUpdate()
         {
             if (CheckTypeExhausted)
@@ -118,13 +115,10 @@ namespace SeldomArchipelago.ArchipelagoItem
             if (locType == dummy)
             {
                 Main.NewText("Huzzah and forsooth, the dummy item has activated!");
-            } else if (locName == inactive)
-            {
-                Main.NewText("Dumb Stupid Item Idiot");
-            } else
+            } 
             {
                 ArchipelagoSystem system = ModContent.GetInstance<ArchipelagoSystem>();
-                if (locName is not null) system.QueueLocationKey(locType, locName);
+                if (info.locName is not null) system.QueueLocationKey(locType, info);
                 else system.QueueLocationKey(locType);
             }
             Item.TurnToAir();
@@ -137,12 +131,12 @@ namespace SeldomArchipelago.ArchipelagoItem
         public override void SaveData(TagCompound tag)
         {
             tag[nameof(locType)] = (string)locType;
-            if (locName is not null) tag[nameof(locName)] = locName;
+            if (info is not null) tag[nameof(info)] = info;
         }
         public override void LoadData(TagCompound tag)
         {
             locType = tag.ContainsKey(nameof(locType)) ? tag.GetString(nameof(locType)) : null;
-            locName = tag.ContainsKey(nameof(locName)) ? tag.GetString(nameof(locName)) : null;
+            info = tag.ContainsKey(nameof(info)) ? tag.Get<SimpleItemInfo>(nameof(info)) : null;
         }
     }
 }

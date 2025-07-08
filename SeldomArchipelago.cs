@@ -167,7 +167,7 @@ namespace SeldomArchipelago
                         case GameEventClearedID.DefeatedEaterOfWorldsOrBrainOfChtulu: NPC.downedBoss2 = true; break;
                         case GameEventClearedID.DefeatedGoblinArmy: NPC.downedGoblins = true; break;
                         case GameEventClearedID.DefeatedQueenBee: NPC.downedQueenBee = true; break;
-                        case GameEventClearedID.DefeatedSkeletron: break;
+                        case GameEventClearedID.DefeatedSkeletron: GetWorld().skeletronDied = true;  break;
                         case GameEventClearedID.DefeatedDeerclops: NPC.downedDeerclops = true; break;
                         case GameEventClearedID.DefeatedWallOfFleshAndStartedHardmode: break;
                         case GameEventClearedID.DefeatedPirates: NPC.downedPirates = true; break;
@@ -175,7 +175,7 @@ namespace SeldomArchipelago
                         case GameEventClearedID.DefeatedTheTwins: NPC.downedMechBoss2 = true; break;
                         case GameEventClearedID.DefeatedDestroyer: NPC.downedMechBoss1 = true; break;
                         case GameEventClearedID.DefeatedSkeletronPrime: NPC.downedMechBoss3 = true; break;
-                        case GameEventClearedID.DefeatedPlantera:
+                        case GameEventClearedID.DefeatedPlantera: GetWorld().planteraDied = true; break;
                         case GameEventClearedID.DefeatedGolem: break;
                         case GameEventClearedID.DefeatedMartians: NPC.downedMartians = true; break;
                         case GameEventClearedID.DefeatedFishron: NPC.downedFishron = true; break;
@@ -442,8 +442,33 @@ namespace SeldomArchipelago
                 var cursor = new ILCursor(il);
 
                 List<int> overridenNPCids = new List<int>();
+                void OverrideVanillaNPCCondition(FieldInfo fieldInfo, int npcID, Func<bool> surrogate)
+                {
+                    var label = il.DefineLabel();
 
-                
+                    cursor.GotoNext(i => i.MatchLdsfld(fieldInfo));
+                    cursor.Index++;
+                    cursor.EmitPop();
+                    cursor.EmitBr(label);
+
+                    cursor.GotoNext(i => i.MatchLdsfld(typeof(Main).GetField(nameof(Main.townNPCCanSpawn))));
+                    cursor.MarkLabel(label);
+                    cursor.Index += 3;
+                    cursor.EmitPop();
+                    cursor.EmitDelegate(() =>
+                    {
+                        return !NPC.AnyNPCs(npcID) && surrogate();
+                    });
+
+                    overridenNPCids.Add(npcID);
+                }
+
+                // Old Man
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.downedBoss3))));
+                cursor.Index++;
+                cursor.EmitPop();
+                cursor.EmitDelegate(() => GetWorld().skeletronDied); // No need for null checking with GetWorld
+
                 // Guide
                 cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.unlockedSlimeGreenSpawn))));
                 cursor.GotoNext(i => i.MatchLdloc(6));
@@ -453,8 +478,10 @@ namespace SeldomArchipelago
                     if (guideExists == 1) return true;
                     var sess = GetSession();
                     if (sess is null) return false;
-                    return !sess.randomizeGuide;
+                    if (!sess.randomizeGuide) return false;
+                    return (!sess.flagSystem.FlagIsActive(FlagID.Guide));
                 });
+
                 // Town NPCs
                 var skipVanillaLabel = il.DefineLabel();
                 var skipRandoLabel = il.DefineLabel();
@@ -475,9 +502,9 @@ namespace SeldomArchipelago
                     var sess = GetSession();
                     if (sess is null) return townNPCCanSpawn;
                     var flags = sess.flagSystem;
-                    foreach (int key in FlagSystem.RandoNPCSet.Keys)
+                    foreach (int key in FlagSystem.RandoNPCDict.Keys)
                     {
-                        townNPCCanSpawn[key] = flags.FlagIsActive(FlagSystem.RandoNPCSet[key]);
+                        townNPCCanSpawn[key] = flags.FlagIsActive(FlagSystem.RandoNPCDict[key]);
                     }
                     return townNPCCanSpawn;
                 });
@@ -485,6 +512,13 @@ namespace SeldomArchipelago
                 cursor.EmitBr(skipVanillaLabel);
                 cursor.Index++;
                 cursor.MarkLabel(skipRandoLabel);
+
+                // Modifying Vanilla Methods
+                // This is because Clothier and Cyborg are dependent on vanilla flags that we use for AP purposes.
+
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.downedBoss3))));
+                OverrideVanillaNPCCondition(typeof(NPC).GetField(nameof(NPC.downedBoss3)), NPCID.Clothier, () => GetWorld().skeletronDied);
+                OverrideVanillaNPCCondition(typeof(NPC).GetField(nameof(NPC.downedPlantBoss)), NPCID.Cyborg, () => GetWorld().planteraDied);
                 cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.boughtCat))));
                 cursor.MarkLabel(skipVanillaLabel);
                 cursor.GotoNext(i => i.MatchLdsfld(typeof(WorldGen).GetField(nameof(WorldGen.prioritizedTownNPCType))));
@@ -493,15 +527,55 @@ namespace SeldomArchipelago
                 {
                     var sess = GetSession();
                     if (sess is null) return priorityNPC;
-                    var flags = sess.flagSystem;
-                    foreach (int key in FlagSystem.RandoNPCSet.Keys)
+                    if (!sess.randomizeExtraNPCs)
                     {
-                        if (flags.FlagIsActive(FlagSystem.RandoNPCSet[key]) && !NPC.AnyNPCs(key)) return key;
+                        if (GetWorld().skeletronDied && !NPC.AnyNPCs(NPCID.Clothier)) return NPCID.Clothier;
+                        if (GetWorld().planteraDied && !NPC.AnyNPCs(NPCID.Cyborg)) return NPCID.Cyborg;
+                    }
+                    else
+                    {
+                        var flags = sess.flagSystem;
+                        foreach (int key in FlagSystem.RandoNPCDict.Keys)
+                        {
+                            if (flags.FlagIsActive(FlagSystem.RandoNPCDict[key]) && !NPC.AnyNPCs(key)) return key;
+                        }
+
                     }
                     return priorityNPC;
                 });
                 
 
+            };
+
+            // Prevent Town NPCs From Preventing Bound NPCs, Stop Old Man From Disappearing
+
+            Terraria.IL_NPC.AI_007_TownEntities += il =>
+            {
+                var cursor = new ILCursor(il);
+
+                void SkipInstruction(string varName)
+                {
+                    var label = il.DefineLabel();
+                    cursor.GotoNext(i => i.MatchStsfld(typeof(NPC).GetField(varName)));
+                    cursor.EmitPop();
+                    cursor.EmitBr(label);
+                    cursor.GotoNext(i => i.MatchBr(out var _));
+                    cursor.MarkLabel(label);
+                }
+
+                SkipInstruction(nameof(NPC.savedGolfer));
+                SkipInstruction(nameof(NPC.savedTaxCollector));
+                SkipInstruction(nameof(NPC.savedGoblin));
+                SkipInstruction(nameof(NPC.savedWizard));
+                SkipInstruction(nameof(NPC.savedMech));
+                SkipInstruction(nameof(NPC.savedStylist));
+                SkipInstruction(nameof(NPC.savedAngler));
+                SkipInstruction(nameof(NPC.savedBartender));
+
+                cursor.GotoNext(i => i.MatchLdsfld(typeof(NPC).GetField(nameof(NPC.downedBoss3))));
+                cursor.Index++;
+                cursor.EmitPop();
+                cursor.EmitDelegate(() => GetWorld().skeletronDied);
             };
 
             // Add Checks To Bound NPCs
@@ -538,18 +612,23 @@ namespace SeldomArchipelago
                     if (Main.netMode == NetmodeID.MultiplayerClient)
                     {
                         NetMessage.SendStrikeNPC(npc, new NPC.HitInfo() { InstantKill = true });
-                        return;
+                    } else
+                    {
+                        npc.StrikeInstantKill();
                     }
-                    npc.StrikeInstantKill();
                     switch (npcType)
                     {
-                        case NPCID.Angler:
-                            {
-                                Main.NewText("splep");
-                                return;
-                            }
-                        default: return;
+                        case NPCID.Angler: NPC.savedAngler = true; break;
+                        case NPCID.Golfer: NPC.savedGolfer = true; break;
+                        case NPCID.DD2Bartender: NPC.savedBartender = true; break;
+                        case NPCID.Stylist: NPC.savedStylist = true; break;
+                        case NPCID.GoblinTinkerer: NPC.savedGoblin = true; break;
+                        case NPCID.Mechanic: NPC.savedMech = true; break;
+                        case NPCID.Wizard: NPC.savedWizard = true; break;
+                        default: break;
                     }
+                    GetSystem().QueueLocationClient((string)Lang.GetNPCName(npcType));
+                    return;
                 });
                 cursor.EmitRet();
                 //cursor.Index++;
@@ -570,8 +649,16 @@ namespace SeldomArchipelago
                 cursor.Index -= 3;
                 cursor.EmitDelegate((NPC npc) =>
                 {
-                    npc.StrikeInstantKill();
-                    Main.NewText("gweep");
+                    if (Main.netMode == NetmodeID.MultiplayerClient)
+                    {
+                        NetMessage.SendStrikeNPC(npc, new NPC.HitInfo() { InstantKill = true });
+                    }
+                    else
+                    {
+                        npc.StrikeInstantKill();
+                    }
+                    NPC.savedTaxCollector = true;
+                    GetSystem().QueueLocationClient("Tax Collector");
                 });
                 cursor.EmitBr(label);
             };

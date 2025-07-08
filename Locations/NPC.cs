@@ -32,6 +32,11 @@ namespace SeldomArchipelago.Locations
             string name = LocationSystem.GetNPCLocKey(npc.TypeName);
             var session = ArchipelagoSystem.GetSession();
             if (session is null) return;
+            var system = ArchipelagoSystem.GetSystem();
+            if (Main.GetBestiaryProgressReport().CompletionPercent >= 0.1f)
+            {
+                system.QueueLocation("Zoologist");
+            }
             int bannerID = Item.NPCtoBanner(npc.BannerID());
             if (!session.flagSystem.NPCRegionUnlocked(npc))
             {

@@ -42,6 +42,12 @@ using System.Resources;
 using System.Collections.Immutable;
 using System.Diagnostics.Metrics;
 using Microsoft.Build.Tasks;
+using CalamityMod.Particles;
+using static SeldomArchipelago.Systems.ArchipelagoSystem.FlagSystem;
+using System.Runtime.InteropServices;
+using System.Text.Json.Serialization;
+using Archipelago.MultiClient.Net.MessageLog.Messages;
+using static Terraria.GameContent.Bestiary.IL_BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions;
 
 namespace SeldomArchipelago.Systems
 {
@@ -110,6 +116,57 @@ namespace SeldomArchipelago.Systems
             Princess,
         }
 
+        // Struct that takes all necessary info from scouted items
+        public class SimpleItemInfo : TagSerializable
+        {
+            public static readonly Func<TagCompound, SimpleItemInfo> DESERIALIZER = Load;
+            public readonly string locName;
+            public readonly string itemName;
+            public readonly string player;
+            public readonly ItemFlags flag;
+            int IntFlag
+            {
+                get => (int)flag;
+            }
+            public SimpleItemInfo(string theLocName, string theItemName, string thePlayer, int theFlag)
+            {
+                locName = theLocName;
+                itemName = theItemName;
+                player = thePlayer;
+                flag = (ItemFlags)theFlag;
+            }
+            public SimpleItemInfo(ItemInfo info)
+            {
+                locName = info.LocationName;
+                itemName = info.ItemName;
+                player = info.Player.Name;
+                flag = info.Flags;
+            }
+            public override bool Equals(object obj) => this.Equals(obj as SimpleItemInfo);
+            public bool Equals(SimpleItemInfo other)
+            {
+                return locName == other.locName && itemName == other.itemName;
+            }
+            public SimpleItemInfo(TagCompound tag)
+            {
+                locName = tag.GetString(nameof(locName));
+                itemName = tag.GetString(nameof(itemName));
+                player = tag.GetString(nameof(player));
+                flag = (ItemFlags)tag.GetInt(nameof(flag));
+            }
+            public TagCompound SerializeData()
+            {
+                return new TagCompound
+                {
+                    [nameof(locName)] = locName,
+                    [nameof(itemName)] = itemName,
+                    [nameof(player)] = player,
+                    [nameof(flag)] = IntFlag
+                };
+            }
+            public static SimpleItemInfo Load(TagCompound tag) => new SimpleItemInfo(tag);
+        }
+
         // System that stores, manages, and processes flags
         public class FlagSystem : TagSerializable
         {
@@ -140,16 +197,11 @@ namespace SeldomArchipelago.Systems
             }
             #endregion
             #region Activation Methods
-            public bool TryUnlockFlag(string flagLoc, bool safeEvent, bool safeHardmode)
+            public void UnlockFlag(Flag flag, bool safeEvent, bool safeHardmode)
             {
-                if (TryGetNextFlag(flagLoc) is Flag flag)
-                {
-                    bool safeUnlock = (safeEvent && flagLoc != "Hardmode") || (safeHardmode && flagLoc == "Hardmode");
-                    flag.ActivateFlag(safeUnlock);
-                    activeFlags.Add(flag.id);
-                    return true;
-                }
-                return false;
+                bool safeUnlock = (safeEvent && flag.id != FlagID.Hardmode) || (safeHardmode && flag.id == FlagID.Hardmode);
+                flag.ActivateFlag(safeUnlock);
+                activeFlags.Add(flag.id);
             }
             public void UnlockBiomesNormally() => activeFlags.UnionWith(FlagSystemDatabase.biomeFlags);
             public void UnlockWeatherNormally() => activeFlags.UnionWith(FlagSystemDatabase.weatherFlags);
@@ -177,7 +229,7 @@ namespace SeldomArchipelago.Systems
             }
             public static FlagID? GetNPCRegion(int npc) => FlagSystemDatabase.FlagNPCBannerSet.UseAsDict(Item.NPCtoBanner(npc));
             public static FlagID? GetNPCRegion(NPC npc) => GetNPCRegion(npc.BannerID());
-            public static readonly Dictionary<int, FlagID> RandoNPCSet = new()
+            public static readonly Dictionary<int, FlagID> RandoNPCDict = new()
                 {
                     {NPCID.Merchant, FlagID.Merchant},
                 {NPCID.Nurse, FlagID.Nurse },
@@ -300,7 +352,7 @@ namespace SeldomArchipelago.Systems
                 return biome is null || FlagIsActive((FlagID)biome);
             }
             // TODO: Update this so that items that aren't randomized aren't removed from chests.
-            public static void UpdateChests()
+            public static void UpdateChests(SessionMemory sess)
             {
                 var chestList = from chest in Main.chest
                                 where chest != null
@@ -328,6 +380,29 @@ namespace SeldomArchipelago.Systems
 
                     if (chestBiome is FlagID notNullBiome)
                     {
+                        Item archItem = new Item(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
+                        var archItemMod = (ArchipelagoItem.ArchipelagoItem)archItem.ModItem;
+                        archItemMod.SetCheckType(LocationSystem.GetChestName(notNullBiome));
+                        
+                        List<Item> newItemList = [archItem, .. from item in chest.item where item.type !=0 select item];
+                        newItemList.RemoveAll(x => sess.chestItems.Contains(x.Name));
+                        if (newItemList.Count > chest.item.Length)
+                        {
+                            throw new Exception($"New chest item list for chest FlagID {notNullBiome} ({newItemList.Count}) exceeded chest inv size ({chest.item.Length})");
+                        }
+                        int newItemCount = newItemList.Count;
+                        for (int index = 0; index < chest.item.Length; index++)
+                        {
+                            if (index < newItemCount)
+                            {
+                                chest.item[index] = newItemList[index];
+                            }
+                            else
+                            {
+                                chest.item[index] = new Item(0);
+                            }
+                        }
+                        /*
                         int oldItem = chest.item[0].type;
                         int[] oldItemSet = ItemRef.GetItemSet(oldItem);
                         chest.item = chest.item.OffsetInventory(oldItemSet.Length, 1);
@@ -335,6 +410,7 @@ namespace SeldomArchipelago.Systems
                         chest.item[0].SetDefaults(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
                         var archItem = (ArchipelagoItem.ArchipelagoItem)chest.item[0].ModItem;
                         archItem.SetCheckType(LocationSystem.GetChestName(notNullBiome));
+                        */
                     }
                 }
             }
@@ -590,6 +666,8 @@ namespace SeldomArchipelago.Systems
                     {"Mechanic",                new Flag(FlagID.Mechanic) },
                     {"Party Girl",              new Flag(FlagID.PartyGirl) },
                     {"Tax Collector",           new Flag(FlagID.TaxCollector) },
+                    {"Santa Claus",             new Flag(FlagID.SantaClaus) },
+                    {"Princess",                new Flag(FlagID.Princess) }
                 };
                 public static readonly FlagID[] hardmodeFlags = [
                     FlagID.Wizard,
@@ -734,21 +812,29 @@ namespace SeldomArchipelago.Systems
             // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
             // `ArchipelagoPlayer` knows not to clear them.
             public List<string> achieved = new List<string>();
-            //Whether this world has had its chests randomized.
+            // Whether this world has had its chests randomized.
             public bool chestsRandomized = false;
+            // Whether Skeletron has been defeated (surrogate for NPC.downedBoss3)
+            public bool skeletronDied = false;
+            // whether Plantera has been defeated (surrogate for NPC.downedPlantBoss)
+            public bool planteraDied = false;
             public TagCompound SerializeData()
             {
                 return new TagCompound
                 {
-                    ["achieved"] = achieved,
-                    ["chestsRandomized"] = chestsRandomized
+                    [nameof(achieved)] = achieved,
+                    [nameof(chestsRandomized)] = chestsRandomized,
+                    [nameof(skeletronDied)] = skeletronDied,
+                    [nameof(planteraDied)] = planteraDied,
                 };
             }
             public static WorldState Load(TagCompound tag)
             {
                 WorldState state = new WorldState();
-                state.achieved = tag.GetList<string>("achieved").ToList();
-                state.chestsRandomized = tag.GetBool("chestsRandomized");
+                state.achieved = tag.GetList<string>(nameof(achieved)).ToList();
+                state.chestsRandomized = tag.GetBool(nameof(chestsRandomized));
+                state.skeletronDied = tag.GetBool(nameof(skeletronDied));
+                state.planteraDied = tag.GetBool(nameof(planteraDied));
                 return state;
             }
 
@@ -767,10 +853,9 @@ namespace SeldomArchipelago.Systems
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
             public List<string> locationBacklog = new();
-            // Multiple lists that contain the names of the items within enumerable location groups.
+            // Multiple lists grouped by check type that contain serializable item information.
             // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
-            // Item1 is the name of a location, and Item2 is the full name of the item at said location.
-            public Dictionary<string, List<(string, string)>> locGroupRewardNames = new();
+            public Dictionary<string, List<SimpleItemInfo>> locGroupRewardNames = new();
             // Number of items the player has collected in this world
             public int collectedItems = 0;
             // List of rewards received in this world, so they don't get reapplied. Saved in the
@@ -782,8 +867,11 @@ namespace SeldomArchipelago.Systems
             public readonly Dictionary<string, int> enemyToKillCount = new();
             // Whether or not an enemy is a location
             public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(LocationSystem.GetNPCLocKey(name), out var count);
+            // All Chest-specific Items
+            public readonly HashSet<string> chestItems = new();
             // All Enemy-specific Items
             public readonly HashSet<string> enemyItems = new();
+            // All Shop-specific Items
             public readonly HashSet<string> shopItems = new();
             // All Enemy 
             // Backlog of hardmode-only items to be cashed in once Hardmode activates.
@@ -804,6 +892,7 @@ namespace SeldomArchipelago.Systems
                 // Handles Slot-side storage that the apworld creates, and the client doesn't modify.
                 Slot = success.Slot;
                 enemyToKillCount = DeserializeSlotObject<Dictionary<string, int>>(success, "enemy_to_kill_count");
+                chestItems = DeserializeSlotObject<HashSet<String>>(success, "chest_items");
                 enemyItems = DeserializeSlotObject<HashSet<String>>(success, "enemy_items");
                 shopItems = DeserializeSlotObject<HashSet<String>>(success, "shop_items");
                 hardmodeItems = DeserializeSlotObject<HashSet<String>>(success, "hardmode_items");
@@ -841,6 +930,7 @@ namespace SeldomArchipelago.Systems
                 {
                     enemyToKillCount[enemyKillKeys[i]] = enemyKillValues[i];
                 }
+                chestItems = tag.Get<List<string>>(nameof(chestItems)).ToHashSet();
                 enemyItems = tag.Get<List<string>>(nameof(enemyItems)).ToHashSet();
                 shopItems = tag.Get<List<string>>(nameof(shopItems)).ToHashSet();
                 hardmodeBacklog = tag.Get<List<string>>(nameof(hardmodeBacklog));
@@ -850,17 +940,9 @@ namespace SeldomArchipelago.Systems
                 List<string> locKeyList = tag.Get<List<string>>(nameof(locGroupRewardNames) + "Keys");
                 foreach (string key in locKeyList)
                 {
-                    if (!tag.ContainsKey(key + "1")) throw new Exception($"TAG ERROR: Key {key} missing the 1 value.");
-                    if (!tag.ContainsKey(key + "2")) throw new Exception($"TAG ERROR: Key {key} missing the 2 value.");
-                    List<string> values1 = tag.Get<List<string>>(key + "1");
-                    List<string> values2 = tag.Get<List<string>>(key + "2");
-                    if (values1.Count != values2.Count) throw new Exception($"TAG ERROR: Key {key} has value mismatch; List 1 has {values1.Count} items, List 2 has {values2.Count} items.");
-                    List<(string, string)> completeValues = new();
-                    for (int i = 0; i < values1.Count; i++)
-                    {
-                        completeValues.Append((values1[i], values2[i]));
-                    }
-                    locGroupRewardNames[key] = completeValues;
+                    if (!tag.ContainsKey(key + "Value")) throw new Exception($"TAG ERROR: Key {key} missing list value.");
+                    List<SimpleItemInfo> values = tag.Get<List<SimpleItemInfo>>(key + "Value");
+                    locGroupRewardNames[key] = values;
                 }
             }
             public static SessionMemory CreateDummySession() => new SessionMemory();
@@ -888,6 +970,7 @@ namespace SeldomArchipelago.Systems
                     [nameof(receivedRewards)] = receivedRewards,
                     [nameof(enemyToKillCount) + "Keys"] = enemyToKillCount.Keys.ToList(),
                     [nameof(enemyToKillCount) + "Values"] = enemyToKillCount.Values.ToList(),
+                    [nameof(chestItems)] = chestItems.ToList(),
                     [nameof(enemyItems)] = enemyItems.ToList(),
                     [nameof(shopItems)] = shopItems.ToList(),
                     [nameof(hardmodeBacklog)] = hardmodeBacklog,
@@ -896,10 +979,9 @@ namespace SeldomArchipelago.Systems
                     [nameof(randomizeGuide)] = randomizeGuide,
                     [nameof(locGroupRewardNames) + "Keys"] = locGroupRewardNames.Keys.ToList(),
                 };
-                foreach ((string key, List<(string, string)> values) in locGroupRewardNames)
+                foreach ((string key, List<SimpleItemInfo> valueList) in locGroupRewardNames)
                 {
-                    tag[key + "1"] = (from value in values select value.Item1).ToList();
-                    tag[key + "2"] = (from value in values select value.Item2).ToList();
+                    tag[key + "Value"] = valueList;
                 }
                 return tag;
             }
@@ -932,30 +1014,52 @@ namespace SeldomArchipelago.Systems
                 if (flag is not null) return FlagSystem.FlagIsHardmode(flag.id);
                 return false;
             }
-            public void Activate(string item)
+            public bool? Activate(string item, bool test = false)
             {
-                if (flagSystem.TryUnlockFlag(item, EventAsItem, HardmodeAsItem)) return;
+                if (flagSystem.TryGetNextFlag(item) is Flag flag)
+                {
+                    if (test)
+                    {
+                        return true;
+                    }
+                    flagSystem.UnlockFlag(flag, EventAsItem, HardmodeAsItem);
+                    return null;
+                }
+                bool? successReturnValue = test ? false : null;
                 switch (item)
                 {
-                    case "Reward: Torch God's Favor": SessionState.GiveItem(ItemID.TorchGodsFavor); break;
-                    case "Post-OOA Tier 1": DD2Event.DownedInvasionT1 = true; break;
-                    case "Post-OOA Tier 2": DD2Event.DownedInvasionT2 = true; break;
-                    case "Post-OOA Tier 3": DD2Event.DownedInvasionT3 = true; break;
+                    case "Reward: Torch God's Favor": if (test) return true; SessionState.GiveItem(ItemID.TorchGodsFavor); return null;
+                    case "Post-OOA Tier 1": if (test) return true; DD2Event.DownedInvasionT1 = true; return null;
+                    case "Post-OOA Tier 2": if (test) return true; DD2Event.DownedInvasionT2 = true; return null;
+                    case "Post-OOA Tier 3": if (test) return true; DD2Event.DownedInvasionT3 = true; return null;
 
-                    case "Reward: Coins": GiveCoins(); break;
+                    case "Saddle": if (test) return true;
+                        int saddle = Main.rand.Next(3);
+                        switch (saddle)
+                        {
+                            case 0: GiveItem(ItemID.DarkHorseSaddle); break;
+                            case 1: GiveItem(ItemID.PaintedHorseSaddle); break;
+                            case 2: GiveItem(ItemID.MajesticHorseSaddle); break;
+                        }
+                        return null;
+                    case "Reward: Coins": if (test) return true; GiveCoins(); return null;
                     default:
                         string strippedItem = item.Replace("Reward: ", "");
                         if (SeldomArchipelago.englishLangToTypeDict.ContainsKey(strippedItem))
                         {
+                            if (test)
+                            {
+                                return true;
+                            }
                             int itemID = SeldomArchipelago.englishLangToTypeDict[strippedItem];
                             SessionState.GiveItem(itemID);
-                        }
-                        else
-                        {
-                            Main.NewText($"Received unknown item: {item}");
+                            return null;
                         }
                         break;
                 }
+                if (test) return false;
+                Main.NewText($"Received unknown item: {item}");
+                return null;
             }
             public static void GiveItem(int? item, Action<Player> giveItem)
             {
@@ -1066,13 +1170,20 @@ namespace SeldomArchipelago.Systems
                     collectedItems = 0;
                 }
                 string[] locKeys = session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<string[]>();
-                List<(string, string)>[] locValues = session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string)>[]>();
+                var locValues = session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string, string, int)>[]>();
                 if (locKeys is not null)
                 {
                     locGroupRewardNames = new();
                     for (int i = 0; i < locKeys.Length; i++)
                     {
-                        locGroupRewardNames[locKeys[i]] = locValues[i];
+                        var tupleList = locValues[i];
+                        locGroupRewardNames[locKeys[i]] = new List<SimpleItemInfo>();
+                        var address = locGroupRewardNames[locKeys[i]];
+                        for (int j = 0; j < tupleList.Count; j++)
+                        {
+                            var tuple = tupleList[j];
+                            address.Add(new SimpleItemInfo(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4));
+                        }
                     }
                 }
                 else
@@ -1102,7 +1213,7 @@ namespace SeldomArchipelago.Systems
                 while (allBaseLocs.Count > 0)
                 {
                     string baseLoc = allBaseLocs[0];
-                    locGroupRewardNames[baseLoc] = new List<(string, string)>();
+                    locGroupRewardNames[baseLoc] = new List<SimpleItemInfo>();
                     string[] locs = multiLocDict[baseLoc].ToArray();
                     long[] itemIDs = (from loc in locs select session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, loc)).ToArray();
                     if (itemIDs.Contains(-1))
@@ -1117,8 +1228,7 @@ namespace SeldomArchipelago.Systems
                         string loc = itemInfo.LocationName;
                         if (collectedLocations.Contains(loc))
                             continue;
-                        string itemName = $"{itemInfo.Player.Name}'s {itemInfo.ItemName}";
-                        locGroupRewardNames[baseLoc].Add((loc, itemName));
+                        locGroupRewardNames[baseLoc].Add(new SimpleItemInfo(itemInfo));
                     }
                     allBaseLocs.RemoveAt(0);
                 }
@@ -1127,10 +1237,23 @@ namespace SeldomArchipelago.Systems
             {
                 session.DataStorage[Scope.Slot, nameof(collectedItems)] = collectedLocations.ToArray();
                 session.DataStorage[Scope.Slot, "LocRewardNamesKeys"] = locGroupRewardNames.Keys.ToArray();
-                session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = locGroupRewardNames.Values.ToArray();
                 session.DataStorage[Scope.Slot, nameof(hardmodeBacklog)] = hardmodeBacklog.ToArray();
                 session.DataStorage[Scope.Slot, nameof(receivedRewards)] = receivedRewards.ToArray();
                 session.DataStorage[Scope.Slot, nameof(collectedItems)] = collectedItems;
+
+                var arrayOfLists = locGroupRewardNames.Values.ToArray();
+                var listOfTupleLists = new List<List<(string, string, string, int)>>();
+                for (int i = 0; i < arrayOfLists.Length; i++)
+                {
+                    var listOfInfo = arrayOfLists[i];
+                    listOfTupleLists.Add(new List<(string, string, string, int)>());
+                    for (int j = 0; j < listOfInfo.Count; j++)
+                    {
+                        var info = listOfInfo[j];
+                        listOfTupleLists[i].Add((info.locName, info.itemName, info.player, (int)info.flag));
+                    }
+                }
+                session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = listOfTupleLists.ToArray();
             }
         }
 
@@ -1141,6 +1264,7 @@ namespace SeldomArchipelago.Systems
         public WorldState dummyWorld = new();
         // We add dummySess because a lot of the hooks that access Session() are called during world generation,
         // when session & sessionMemory would normally both be null
+        public static ArchipelagoSystem GetSystem() => ModContent.GetInstance<ArchipelagoSystem>();
         public static SessionMemory GetSession(bool overrideDummy = false) {
             var system = ModContent.GetInstance<ArchipelagoSystem>();
             return Main.gameMenu && !overrideDummy ? system.dummySess : system.session ?? system.sessionMemory;
@@ -1192,11 +1316,19 @@ namespace SeldomArchipelago.Systems
             }
             if (!world.chestsRandomized && session.randomizeChests)
             {
-                FlagSystem.UpdateChests();
+                FlagSystem.UpdateChests(session);
                 world.chestsRandomized = true;
             }
         }
-
+        public void ChatMessage(LogMessage message)
+        {
+            var text = "";
+            foreach (var part in message.Parts)
+            {
+                text += part.Text;
+            }
+            Chat(text);
+        }
         public override void OnWorldLoad()
         {
             // Needed for achievements to work right
@@ -1211,15 +1343,7 @@ namespace SeldomArchipelago.Systems
             var success = (LoginSuccessful)result;
             session = new(success, newSession);
 
-            session.session.MessageLog.OnMessageReceived += (message) =>
-            {
-                var text = "";
-                foreach (var part in message.Parts)
-                {
-                    text += part.Text;
-                }
-                Chat(text);
-            };
+            session.session.MessageLog.OnMessageReceived += ChatMessage;
 
             int counter = -200;
             HashSet<string> locationNPCs = session.enemyToKillCount.Keys.ToHashSet();
@@ -1229,13 +1353,15 @@ namespace SeldomArchipelago.Systems
                 counter++;
             }
 
-            if (session.randomizeGuide && !session.flagSystem.FlagIsActive(FlagID.Guide) && NPC.AnyNPCs(22))
-            {
-                Main.npc[NPC.FindFirstNPC(22)].StrikeInstantKill();
-                Main.NewText("MURDER");
-            }
-
             Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
+
+            object allItemsObj = success.SlotData["all_items"];
+            List<string> allItems = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(allItemsObj.ToString());
+            foreach (string item in allItems)
+            {
+                bool works = (bool)session.Activate(item, true);
+                if (!works) Console.WriteLine(item);
+            }
         }
         private static bool ConnectToArchipelago(out LoginResult result, out ArchipelagoSession newSession)
         {
@@ -1258,7 +1384,81 @@ namespace SeldomArchipelago.Systems
             }
             return true;
         }
+        private int CountTownNPCs()
+        {
+            int npcSum = 0;
+            for (int i = 200; i < 200; i++)
+            {
+                if (Main.npc[i].active && Main.npc[i].townNPC) npcSum++;
+            }
+            return npcSum;
+        }
+        private readonly int[] princessNPCs =
+            {
+                NPCID.Guide,
+                NPCID.Merchant,
+                NPCID.Nurse,
+                NPCID.Demolitionist,
+                NPCID.DyeTrader,
+                NPCID.Angler,
+                NPCID.BestiaryGirl,
+                NPCID.Dryad,
+                NPCID.Painter,
+                NPCID.Golfer,
+                NPCID.ArmsDealer,
+                NPCID.DD2Bartender,
+                NPCID.Stylist,
+                NPCID.GoblinTinkerer,
+                NPCID.WitchDoctor,
+                NPCID.Clothier,
+                NPCID.Mechanic,
+                NPCID.PartyGirl,
+                NPCID.Wizard,
+                NPCID.TaxCollector,
+                NPCID.Truffle,
+                NPCID.Pirate,
+                NPCID.Steampunker,
+                NPCID.Cyborg
+            };
+        public override void PostUpdateTime()
+        {
+            if (Main.netMode == NetmodeID.MultiplayerClient) return;
+            var session = GetSession();
+            if (session is null) return;
+            if (session.randomizeGuide && !session.flagSystem.FlagIsActive(FlagID.Guide) && NPC.AnyNPCs(NPCID.Guide))
+            {
+                Main.npc[NPC.FindFirstNPC(NPCID.Guide)].StrikeInstantKill();
+            }
+            if (!session.randomizeExtraNPCs) return;
+            int npcCount = CountTownNPCs();
+            // Buncha conditions stolen directly from Main.UpdateTime_SpawnNPCs
+            if (npcCount >= 8) QueueLocation("Painter");
+            if (npcCount >= 14) QueueLocation("PartyGirl");
+            if (NPC.SpawnAllowed_Merchant()) QueueLocation("Merchant");
+            if (NPC.SpawnAllowed_Nurse()) QueueLocation("Nurse");
+            if (NPC.SpawnAllowed_DyeTrader()) QueueLocation("Dye Trader");
+            if (NPC.SpawnAllowed_Demolitionist()) QueueLocation("Demolitionist");
+            if (NPC.SpawnAllowed_ArmsDealer()) QueueLocation("Arms Dealer");
+            if (NPC.downedBoss1 || NPC.downedBoss2 || GetWorld().skeletronDied) QueueLocation("Dryad");
+            if (NPC.downedQueenBee) QueueLocation("Witch Doctor");
+            if (GetWorld().skeletronDied) QueueLocation("Clothier");
+            if (WorldGen.CheckSpecialTownNPCSpawningConditions(NPCID.Truffle)) QueueLocation("Truffle");
+            if (NPC.downedPirates) QueueLocation("Pirate");
+            if (NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3) QueueLocation("Steampunker");
+            if (GetWorld().planteraDied) QueueLocation("Cyborg");
+            if (NPC.downedFrost) QueueLocation("Santa Claus");
 
+            bool princessCanSpawn = true;
+            foreach (int npc in princessNPCs)
+            {
+                if (!NPC.AnyNPCs(npc))
+                {
+                    princessCanSpawn = false;
+                    break;
+                }
+            }
+            if (princessCanSpawn) QueueLocation("Princess");
+        }
         public override void PostUpdateWorld()
         {
             if (session == null) return;
@@ -1350,6 +1550,8 @@ namespace SeldomArchipelago.Systems
 
         public override void OnWorldUnload()
         {
+            session.session.MessageLog.OnMessageReceived -= ChatMessage;
+
             world = new();
             session = null;
             sessionMemory = null;
@@ -1497,7 +1699,7 @@ namespace SeldomArchipelago.Systems
             if (activeSession is null) return;
             if (session is null)
             {
-                activeSession.locationBacklog.Add(locationName);
+                if (!activeSession.locationBacklog.Contains(locationName)) activeSession.locationBacklog.Add(locationName);
                 return;
             }
 
@@ -1526,14 +1728,14 @@ namespace SeldomArchipelago.Systems
             packet.Send();
         }
 
-        public void QueueLocationKey(string locType, string checkName = null)
+        public void QueueLocationKey(string locType, SimpleItemInfo info = null)
         {
             bool locFoundAndRemoved = false;
-            var locList = GetSession().locGroupRewardNames[locType];
+            List<SimpleItemInfo> locList = GetSession().locGroupRewardNames[locType];
             if (locList.Count == 0) return;
-            if (checkName is null)
+            if (info is null)
             {
-                string loc = locList[0].Item1;
+                string loc = locList[0].locName;
                 locList.RemoveAt(0);
                 QueueLocationClient(loc);
                 Main.NewText($"Queued and removed {loc} under {locType}");
@@ -1541,18 +1743,18 @@ namespace SeldomArchipelago.Systems
             {
                 for (int i = 0; i < locList.Count; i++)
                 {
-                    if (locList[i].Item1 == checkName)
+                    if (locList[i] == info)
                     {
                         locList.RemoveAt(i);
-                        QueueLocationClient(checkName);
+                        QueueLocationClient(info.locName);
                         locFoundAndRemoved = true;
-                        Main.NewText($"Queued and removed {checkName} under {locType}");
+                        Main.NewText($"Queued and removed {info.locName} under {locType}");
                         break;
                     }
                 }
                 if (!locFoundAndRemoved)
                 {
-                    throw new Exception($"Location {checkName} not found in {locType} list.");
+                    Main.NewText($"NOTICE: Location {info.locName} not found in {locType} list.");
                 }
             }
         }
