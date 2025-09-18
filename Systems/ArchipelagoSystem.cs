@@ -5,15 +5,11 @@ using Archipelago.MultiClient.Net.Models;
 using Archipelago.MultiClient.Net.Packets;
 using Microsoft.Xna.Framework;
 using Color = Microsoft.Xna.Framework.Color;
-using MyExtensions;
 using Newtonsoft.Json.Linq;
-using SeldomArchipelago.HardmodeItem;
-using SeldomArchipelago.Locking;
-using SeldomArchipelago;
 using SeldomArchipelago.Players;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Collections.Immutable;
 using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
@@ -21,1121 +17,54 @@ using Terraria.Chat;
 using Terraria.DataStructures;
 using Terraria.GameContent.Events;
 using Terraria.GameContent.Generation;
-using Terraria.GameContent.ItemDropRules;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.Social;
 using Terraria.WorldBuilding;
-using CalamityMod.NPCs.VanillaNPCAIOverrides.Bosses;
-using CalamityMod.NPCs.Yharon;
-using CalamityMod.Projectiles.Ranged;
-using System.Security.Policy;
-
-using SeldomArchipelago.ArchipelagoItem;
-using Microsoft.Xna.Framework.Content;
-using static SeldomArchipelago.Systems.ArchipelagoSystem.WorldState;
-using System.Runtime.Intrinsics.Arm;
-using Steamworks;
-using System.Resources;
-using System.Collections.Immutable;
-using System.Diagnostics.Metrics;
-using Microsoft.Build.Tasks;
-using CalamityMod.Particles;
-using static SeldomArchipelago.Systems.ArchipelagoSystem.FlagSystem;
-using System.Runtime.InteropServices;
-using System.Text.Json.Serialization;
-using Archipelago.MultiClient.Net.MessageLog.Messages;
-using static Terraria.GameContent.Bestiary.IL_BestiaryDatabaseNPCsPopulator.CommonTags.SpawnConditions;
+using SeldomArchipelago.HardmodeItem;
+using System.Linq;
+using SeldomArchipelago.NPCs;
 
 namespace SeldomArchipelago.Systems
 {
-    public class ArchipelagoSystem : ModSystem
-
+    class ArchipelagoSystem : ModSystem
     {
-        public enum FlagID
+        // Data that's reset between worlds
+        public class WorldState
         {
-            Hook,
-            Rain,
-            Wind,
-            Forest,
-            Snow,
-            Desert,
-            Jungle,
-            JungleUpgrade,
-            Ocean,
-            Sky,
-            Evil,
-            Dungeon,
-            DungeonUpgrade,
-            Mushroom,
-            Marble,
-            Granite,
-            Web,
-            Underworld,
-            BloodMoon,
-            Dryad,
-            Tavernkeep,
-            Meteor,
-            GoblinArmy,
-            GoblinTinkerer,
-            WitchDoctor,
-            Hardmode,
-            Wizard,
-            Truffle,
-            PirateInvasion,
-            Pirate,
-            Eclipse,
-            EclipseUpgrade,
-            Steampunker,
-            Cyborg,
-            PrismaticLacewing,
-            Temple,
-            PumpkinMoon,
-            FrostMoon,
-            Martians,
-            Cultists,
-            SantaClaus,
-
-            Guide,
-            Merchant,
-            Nurse,
-            Demolitionist,
-            DyeTrader,
-            Angler,
-            Zoologist,
-            Painter,
-            Golfer,
-            ArmsDealer,
-            Stylist,
-            Clothier,
-            Mechanic,
-            PartyGirl,
-            TaxCollector,
-            Princess,
-        }
-
-        // Struct that takes all necessary info from scouted items
-        public class SimpleItemInfo : TagSerializable
-        {
-            public static readonly Func<TagCompound, SimpleItemInfo> DESERIALIZER = Load;
-            public readonly string locName;
-            public readonly string itemName;
-            public readonly string player;
-            public readonly ItemFlags flag;
-            int IntFlag
-            {
-                get => (int)flag;
-            }
-            public SimpleItemInfo(string theLocName, string theItemName, string thePlayer, int theFlag)
-            {
-                locName = theLocName;
-                itemName = theItemName;
-                player = thePlayer;
-                flag = (ItemFlags)theFlag;
-            }
-            public SimpleItemInfo(ItemInfo info)
-            {
-                locName = info.LocationName;
-                itemName = info.ItemName;
-                player = info.Player.Name;
-                flag = info.Flags;
-            }
-            public override bool Equals(object obj) => this.Equals(obj as SimpleItemInfo);
-            public bool Equals(SimpleItemInfo other)
-            {
-                return locName == other.locName && itemName == other.itemName;
-            }
-            public SimpleItemInfo(TagCompound tag)
-            {
-                locName = tag.GetString(nameof(locName));
-                itemName = tag.GetString(nameof(itemName));
-                player = tag.GetString(nameof(player));
-                flag = (ItemFlags)tag.GetInt(nameof(flag));
-            }
-            public TagCompound SerializeData()
-            {
-                return new TagCompound
-                {
-                    [nameof(locName)] = locName,
-                    [nameof(itemName)] = itemName,
-                    [nameof(player)] = player,
-                    [nameof(flag)] = IntFlag
-                };
-            }
-            public static SimpleItemInfo Load(TagCompound tag) => new SimpleItemInfo(tag);
-        }
-
-        // System that stores, manages, and processes flags
-        public class FlagSystem : TagSerializable
-        {
-            #region Instance Data
-            public static readonly Func<TagCompound, FlagSystem> DESERIALIZER = Load;
-
-            private HashSet<FlagID> activeFlags = new HashSet<FlagID>() { FlagID.Forest };
-            private List<int> ActiveIntFlags
-            {
-                get => (from id in activeFlags select (int)id).ToList();
-            }
-            public TagCompound SerializeData()
-            {
-                return new TagCompound
-                {
-                    ["activeFlags"] = ActiveIntFlags
-                };
-            }
-            public static FlagSystem Load(TagCompound tag)
-            {
-                FlagSystem flagSystem = new();
-                if (tag.ContainsKey("activeFlags"))
-                {
-                    foreach (int i in tag.GetList<int>("activeFlags")) flagSystem.activeFlags.Add((FlagID)i);
-                }
-                flagSystem.activeFlags.Add(FlagID.Forest);
-                return flagSystem;
-            }
-            #endregion
-            #region Activation Methods
-            public void UnlockFlag(Flag flag, bool safeEvent, bool safeHardmode)
-            {
-                bool safeUnlock = (safeEvent && flag.id != FlagID.Hardmode) || (safeHardmode && flag.id == FlagID.Hardmode);
-                flag.ActivateFlag(safeUnlock);
-                activeFlags.Add(flag.id);
-            }
-            public void UnlockBiomesNormally() => activeFlags.UnionWith(FlagSystemDatabase.biomeFlags);
-            public void UnlockWeatherNormally() => activeFlags.UnionWith(FlagSystemDatabase.weatherFlags);
-            public void UnlockHookNormally() => activeFlags.Add(FlagID.Hook);
-            #endregion
-            #region Database Methods
-            private static void GiveItem(int id) => SessionState.GiveItem(id);
-
-            public static FlagID? GetChestRegion(int i, int j)
-            {
-                Terraria.Tile chest = Main.tile[i, j];
-                int id = chest.IDChest();
-                return FlagSystemDatabase.BiomeChestSet.UseAsDict(id);
-            }
-            public static void InitializeBannerSet()
-            {
-                FlagSystemDatabase.FlagNPCBannerSet = new (FlagID, int[])[FlagSystemDatabase.FlagNPCSet.Length];
-                for (int i = 0; i < FlagSystemDatabase.FlagNPCBannerSet.Length; i++)
-                {
-                    (FlagID, int[]) tuple = FlagSystemDatabase.FlagNPCSet[i];
-                    int[] bannerIDset = (from id in tuple.Item2 select Item.NPCtoBanner(id)).ToArray();
-                    FlagSystemDatabase.FlagNPCBannerSet[i] = (tuple.Item1, bannerIDset);
-                }
-                FlagSystemDatabase.FlagNPCSet = null;
-            }
-            public static FlagID? GetNPCRegion(int npc) => FlagSystemDatabase.FlagNPCBannerSet.UseAsDict(Item.NPCtoBanner(npc));
-            public static FlagID? GetNPCRegion(NPC npc) => GetNPCRegion(npc.BannerID());
-            public static readonly Dictionary<int, FlagID> RandoNPCDict = new()
-                {
-                    {NPCID.Merchant, FlagID.Merchant},
-                {NPCID.Nurse, FlagID.Nurse },
-                {NPCID.Demolitionist, FlagID.Demolitionist},
-                {NPCID.DyeTrader, FlagID.DyeTrader},
-                {NPCID.Angler, FlagID.Angler},
-                {NPCID.BestiaryGirl, FlagID.Zoologist },
-                    {NPCID.Dryad, FlagID.Dryad },
-                {NPCID.Painter, FlagID.Painter},
-                {NPCID.Golfer, FlagID.Golfer},
-                {NPCID.ArmsDealer, FlagID.ArmsDealer},
-                {NPCID.DD2Bartender, FlagID.Tavernkeep },
-                {NPCID.Stylist, FlagID.Stylist},
-                    {NPCID.GoblinTinkerer, FlagID.GoblinTinkerer },
-                    {NPCID.WitchDoctor, FlagID.WitchDoctor },
-                {NPCID.Clothier, FlagID.Clothier },
-                {NPCID.Mechanic, FlagID.Mechanic},
-                {NPCID.PartyGirl, FlagID.PartyGirl},
-                    {NPCID.Wizard, FlagID.Wizard },
-                {NPCID.TaxCollector, FlagID.TaxCollector },
-                {NPCID.Princess, FlagID.Princess},
-                    {NPCID.Steampunker, FlagID.Steampunker },
-                    {NPCID.Pirate, FlagID.Pirate },
-                    {NPCID.Truffle, FlagID.Truffle },
-                    {NPCID.Cyborg, FlagID.Cyborg },
-                    {NPCID.SantaClaus, FlagID.SantaClaus },
-                };
-            #endregion
-            public bool FlagIsActive(FlagID flag) => activeFlags.Contains(flag);
-            public bool FlagIsActive(string flagName) => FlagIsActive(FlagSystemDatabase.locToFlag[flagName].id);
-            public static bool FlagIsHardmode(FlagID flag) => FlagSystemDatabase.hardmodeFlags.Contains(flag);
-            // This method tries to get the next unactivated flag and return it.
-            public Flag TryGetNextFlag(string flagLoc)
-            {
-                if (!FlagSystemDatabase.locToFlag.TryGetValue(flagLoc, out Flag flag)) return null;
-                while (true)
-                {
-                    if (!activeFlags.Contains(flag.id)) return flag;
-                    if (flag.nestedFlag is null) return null;
-                    flag = flag.nestedFlag;
-                }
-            }
-            public static string[] AllKeys
-            {
-                get { return FlagSystemDatabase.locToFlag.Keys.ToArray(); }
-            }
-
-            private List<string> HardmodeBacklog
-            {
-                get
-                {
-                    return ModContent.GetInstance<ArchipelagoSystem>().session.hardmodeBacklog;
-                }
-            }
-            #region General Checks
-            public bool PlayerBiomeUnlocked(Player player)
-            {
-                bool[] biomeList = {
-                    player.ZoneForest &&                            !FlagIsActive(FlagID.Forest),
-                    player.ZoneSnow &&                              !FlagIsActive(FlagID.Snow),
-                    player.ZoneDesert &&                            !FlagIsActive(FlagID.Desert),
-                    player.ZoneJungle &&                            !FlagIsActive(FlagID.Jungle),
-                    player.ZoneBeach &&                             !FlagIsActive(FlagID.Ocean),
-                    player.ZoneSkyHeight &&                         !FlagIsActive(FlagID.Sky),
-                    player.ZoneUnderworldHeight &&                  !FlagIsActive(FlagID.Underworld),
-                    (player.ZoneCorrupt || player.ZoneCrimson) &&   !FlagIsActive(FlagID.Evil),
-                    player.ZoneGlowshroom &&                        !FlagIsActive(FlagID.Mushroom),
-                };
-                return !biomeList.Any(p => p);
-            }
-            public bool IllegalDepth(int j) => j >= Main.UnderworldLayer && !FlagIsActive(FlagID.Underworld);
-            #endregion
-            #region Tile Checks
-            
-
-            public bool TileRegionUnlocked(int i, int j, Player player = null)
-            {
-                if (IllegalDepth(j)) return false;
-                int id = ItemRef.IDTree(i, j);
-                if (id != -1)
-                {
-                    FlagID? biome = FlagSystemDatabase.BiomeTreeSet.UseAsDict(id);
-                    return biome is null || FlagIsActive((FlagID)biome);
-                }
-
-                id = ItemRef.IDHerb(i, j);
-                if (id != -1)
-                {
-                    return FlagIsActive(FlagSystemDatabase.BiomeHerbSet[id]);
-                }
-
-                id = Main.tile[i, j].TileType;
-                FlagID? tileBiome = FlagSystemDatabase.OtherTiles.UseAsDict(id);
-                if (tileBiome is not null)
-                {
-                    return FlagIsActive((FlagID)tileBiome);
-                }
-
-                return player is null ? true : PlayerBiomeUnlocked(player);
-            }
-            public bool KillTileRegionUnlocked(int i, int j, bool computeDepth = false)
-            {
-                if (Main.gameMenu) return true;
-                if (computeDepth && IllegalDepth(j)) return false;
-                int type = Main.tile[i, j].TileType;
-                FlagID? tileBiome = FlagSystemDatabase.OtherTiles.UseAsDict(type);
-                if (tileBiome is not null)
-                {
-                    return FlagIsActive((FlagID)tileBiome);
-                }
-                return true;
-            }
-            #endregion
-            #region Chest Checks
-            
-            public bool ChestRegionUnlocked(int i, int j)
-            {
-                if (IllegalDepth(j)) return false;
-                FlagID? biome = GetChestRegion(i, j);
-                return biome is null || FlagIsActive((FlagID)biome);
-            }
-            // TODO: Update this so that items that aren't randomized aren't removed from chests.
-            public static void UpdateChests(SessionMemory sess)
-            {
-                var chestList = from chest in Main.chest
-                                where chest != null
-                                select chest;
-                foreach (Chest chest in chestList)
-                {
-                    int i = chest.x;
-                    int j = chest.y;
-                    int blockUnderChestType = Main.tile[i, j + 2].TileType;
-                    FlagID? blockBiome;
-                    if (blockUnderChestType == TileID.Mud)
-                    {
-                        blockBiome = FlagID.Jungle; //Hardcoding Mud because making a very common tile a biome specific block is problematic.
-                    }
-                    else
-                    {
-                        blockBiome = FlagSystemDatabase.OtherTiles.UseAsDict(blockUnderChestType);
-                    }
-
-                    if (blockBiome != FlagID.Forest && blockBiome is not null && Main.tile[i, j].IDChest() == 0) foreach ((FlagID, int[]) chestTuple in FlagSystemDatabase.BiomeChestSet)
-                        {
-                            if (chestTuple.Item1 == blockBiome) ItemRef.ChangeChest(i, j, chestTuple.Item2[0]);
-                        }
-                    FlagID? chestBiome = GetChestRegion(i, j);
-
-                    if (chestBiome is FlagID notNullBiome)
-                    {
-                        Item archItem = new Item(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
-                        var archItemMod = (ArchipelagoItem.ArchipelagoItem)archItem.ModItem;
-                        archItemMod.SetCheckType(LocationSystem.GetChestName(notNullBiome));
-                        
-                        List<Item> newItemList = [archItem, .. from item in chest.item where item.type !=0 select item];
-                        newItemList.RemoveAll(x => sess.chestItems.Contains(x.Name));
-                        if (newItemList.Count > chest.item.Length)
-                        {
-                            throw new Exception($"New chest item list for chest FlagID {notNullBiome} ({newItemList.Count}) exceeded chest inv size ({chest.item.Length})");
-                        }
-                        int newItemCount = newItemList.Count;
-                        for (int index = 0; index < chest.item.Length; index++)
-                        {
-                            if (index < newItemCount)
-                            {
-                                chest.item[index] = newItemList[index];
-                            }
-                            else
-                            {
-                                chest.item[index] = new Item(0);
-                            }
-                        }
-                        /*
-                        int oldItem = chest.item[0].type;
-                        int[] oldItemSet = ItemRef.GetItemSet(oldItem);
-                        chest.item = chest.item.OffsetInventory(oldItemSet.Length, 1);
-
-                        chest.item[0].SetDefaults(ModContent.ItemType<ArchipelagoItem.ArchipelagoItem>());
-                        var archItem = (ArchipelagoItem.ArchipelagoItem)chest.item[0].ModItem;
-                        archItem.SetCheckType(LocationSystem.GetChestName(notNullBiome));
-                        */
-                    }
-                }
-            }
-
-            public int[] GetLegalHerbs()
-            {
-                List<int> herbList = new List<int>();
-                foreach ((FlagID, int[]) tuple in FlagSystemDatabase.BiomeHerbItemIDSet)
-                {
-                    FlagID flag = tuple.Item1;
-                    if (FlagIsActive(flag)) herbList.AddRange(tuple.Item2);
-                }
-                return herbList.ToArray();
-            }
-            public static int[] GetAllHerbs()
-            {
-                List<int> herbList = new List<int>();
-                foreach ((FlagID, int[]) tuple in FlagSystemDatabase.BiomeHerbItemIDSet)
-                {
-                    herbList.AddRange(tuple.Item2);
-                }
-                return herbList.ToArray();
-            }
-            #endregion
-            #region NPC Checks
-
-            public bool NPCRegionUnlocked(DropAttemptInfo info) => NPCRegionUnlocked(info.npc);
-            public bool NPCRegionUnlocked(NPC npc)
-            {
-                FlagID? biome = GetNPCRegion(npc);
-                return biome is null || FlagIsActive((FlagID)biome);
-            }
-            #endregion
-            #region Bound NPC Spawn Checks (includes martian probe and prismatic lacewing)
-            public bool NPCShouldDespawn(int id)
-            {
-                switch (id)
-                {
-                    case NPCID.SleepingAngler: return !FlagIsActive(FlagID.Ocean);
-                    case NPCID.GolferRescue: return !FlagIsActive(FlagID.Desert);
-                    case NPCID.WebbedStylist: return !FlagIsActive(FlagID.Web);
-                    case NPCID.DemonTaxCollector: return !FlagIsActive(FlagID.Underworld);
-                    case NPCID.MartianProbe: return !FlagIsActive(FlagID.Martians);
-                    case NPCID.EmpressButterfly: return !FlagIsActive(FlagID.PrismaticLacewing);
-                    default: return false;
-                }
-            }
-
-            public bool BoundNPCFindable(int id, NPCSpawnInfo info = default)
-            {
-                if (!NPC.AnyNPCs(id) && info.Water)
-                {
-                    switch (id)
-                    {
-                        case NPCID.MartianProbe: return (info.Player.ZoneSkyHeight && Math.Abs(info.Player.position.X - Main.spawnTileX) > Main.maxTilesX / 3 && FlagIsActive(FlagID.Martians));
-                        case NPCID.EmpressButterfly: return (info.Player.ZoneHallow && info.Player.ZoneOverworldHeight && FlagIsActive(FlagID.PrismaticLacewing));
-                        default: return false;
-                    }
-                    throw new Exception($"Didn't expect to check {id} for being a Bound NPC.");
-                }
-                return false;
-            }
-            public void SetBoundNPCsInSpawnDict(IDictionary<int, float> dict, NPCSpawnInfo info)
-            {
-                foreach (int id in FlagSystemDatabase.ImportantNPCSet)
-                {
-                    dict[id] = BoundNPCFindable(id, info) ? 1f : 0f;
-                }
-            }
-
-            #endregion
-            #region Item Checks
-            public bool ItemIsUsable(int id)
-            {
-                switch (id)
-                {
-                    case ItemID.SolarTable: return FlagIsActive(FlagID.Eclipse);
-                    case ItemID.BloodMoonStarter: return FlagIsActive(FlagID.BloodMoon);
-                    case ItemID.GoblinBattleStandard: return FlagIsActive(FlagID.GoblinArmy);
-                    case ItemID.PirateMap: return FlagIsActive(FlagID.PirateInvasion);
-                    case ItemID.PumpkinMoonMedallion: return FlagIsActive(FlagID.PumpkinMoon);
-                    case ItemID.NaughtyPresent: return FlagIsActive(FlagID.FrostMoon);
-                    default: return true;
-                }
-            }
-            #endregion
-            public class Flag
-            {
-                public enum ActivateResult
-                {
-                    Activated,
-                    ActivateOnHardmode
-                }
-                #region Instance Data & Methods
-                public Action<bool> SideEffects;
-                public Flag nestedFlag;
-                public FlagID id;
-                private string FlagName => Enum.GetName(typeof(FlagID), id);
-                // Handles the flag becoming active, which we differentiate from unlocking (or receiving) the flag
-                public ActivateResult ActivateFlag(bool unlockSafely)
-                {
-                    if (SideEffects is not null) SideEffects(unlockSafely);
-                    return ActivateResult.Activated;
-                }
-
-                public Flag(FlagID theID, Action<bool> theSideEffects = null, Flag theNestedFlag = null)
-                {
-                    SideEffects = theSideEffects;
-                    nestedFlag = theNestedFlag;
-                    id = theID;
-                }
-                #endregion
-            }
-            private static class FlagSystemDatabase
-            {
-                public static readonly Dictionary<string, Flag> locToFlag = new Dictionary<string, Flag>()
-                {
-                    {"Grappling Hook",          new Flag(FlagID.Hook, theSideEffects: delegate(bool safe)
-                    {
-                        GiveItem(ItemID.GrapplingHook);
-                    }
-                    )},
-                    {"Rain",                    new Flag(FlagID.Rain) },
-                    {"Wind",                    new Flag(FlagID.Wind) },
-                    {"Snow Biome",              new Flag(FlagID.Snow) },
-                    {"Desert Biome",            new Flag(FlagID.Desert) },
-                    {"Progressive Jungle",      new Flag(FlagID.Jungle, theNestedFlag: new Flag(FlagID.JungleUpgrade)) },
-                    {"Jungle Upgrade",          new Flag(FlagID.JungleUpgrade) },
-                    {"Ocean",                   new Flag(FlagID.Ocean) },
-                    {"Sky and Floating Islands",new Flag(FlagID.Sky) },
-                    {"Evil Biome",              new Flag(FlagID.Evil) },
-                    {"Progressive Dungeon",     new Flag(FlagID.Dungeon, theSideEffects: delegate(bool safe)
-                    {
-                        NPC.downedBoss3 = true;
-                    }, theNestedFlag: new Flag(FlagID.DungeonUpgrade, theSideEffects: delegate(bool safe)
-                    {
-                        NPC.downedPlantBoss = true;
-                    }))
-                    },
-                    {"Mushroom Biome",          new Flag(FlagID.Mushroom) },
-                    {"Marble Biome",            new Flag(FlagID.Marble) },
-                    {"Granite Biome",           new Flag(FlagID.Granite) },
-                    {"Spider Nest",             new Flag(FlagID.Web) },
-                    {"Underworld",              new Flag(FlagID.Underworld, theSideEffects: delegate(bool safe)
-                    {
-                        var chestList = from chest in Main.chest
-                                        where chest != null && Main.tile[chest.x, chest.y].IDChest() == 4
-                                        select chest;
-                        foreach (Chest chest in chestList) Chest.Unlock(chest.x, chest.y);
-                    }) },
-                    {"Blood Moon",              new Flag(FlagID.BloodMoon, theSideEffects: delegate(bool safe)
-                    {
-                        if (safe)
-                        {
-                            GiveItem(ItemID.BloodMoonStarter);
-                        }
-                        else
-                        {
-                            ModContent.GetInstance<SeldomArchipelago>().guaranteeBloodMoon = true;
-                        }
-                    }) },
-                    {"Dryad",                   new Flag(FlagID.Dryad) },
-                    {"Tavernkeep",              new Flag(FlagID.Tavernkeep) },
-                    {"Meteor",                  new Flag(FlagID.Meteor, theSideEffects: delegate(bool safe)
-                    {
-                        WorldGen.dropMeteor();
-                    }) },
-                    {"Goblin Army",             new Flag(FlagID.GoblinArmy, theSideEffects: delegate(bool safe)
-                    {
-                        if (safe)
-                        {
-                            GiveItem(ItemID.GoblinBattleStandard);
-                        }
-                        else
-                        {
-                            InvasionLock.invasionList.Add(1);
-                        }
-                    }) },
-                    {"Goblin Tinkerer",         new Flag(FlagID.GoblinTinkerer) },
-                    {"Witch Doctor",            new Flag(FlagID.WitchDoctor) },
-                    {"Hardmode",                new Flag(FlagID.Hardmode, theSideEffects: delegate(bool safe)
-                    {
-                        if (safe)
-                        {
-                            GiveItem(ModContent.ItemType<HardmodeStarter>());
-                        }
-                        else
-                        {
-                            GetSession().ActivateHardmode();
-                        }
-                    }) },
-                    {"Wizard",                  new Flag(FlagID.Wizard) },
-                    {"Truffle",                 new Flag(FlagID.Truffle) },
-                    {"Pirate Invasion",         new Flag(FlagID.PirateInvasion, theSideEffects: delegate(bool safe)
-                    {
-                        if (safe)
-                        {
-                            GiveItem(ItemID.PirateMap);
-                        }
-                        else
-                        {
-                            InvasionLock.invasionList.Add(3);
-                        }
-                    }) },
-                    {"Pirate",                  new Flag(FlagID.Pirate) },
-                    {"Progressive Eclipse",     new Flag(FlagID.Eclipse, theSideEffects: delegate(bool safe)
-                    {
-                        if (safe)
-                        {
-                            GiveItem(ItemID.SolarTablet);
-                        } else
-                        {
-                            ModContent.GetInstance<SeldomArchipelago>().guaranteeEclipse = true;
-                        }
-                    }, theNestedFlag: new Flag(FlagID.EclipseUpgrade, theSideEffects: delegate(bool safe)
-                    {
-                        if (!safe) ModContent.GetInstance<SeldomArchipelago>().guaranteeEclipse = true;
-                    })) },
-                    {"Steampunker",             new Flag(FlagID.Steampunker) },
-                    {"Cyborg",                  new Flag(FlagID.Cyborg) },
-                    {"Temple",                  new Flag(FlagID.Temple, theSideEffects: delegate(bool safe)
-                    {
-                        GiveItem(ItemID.TempleKey);
-                    }) },
-                    {"Pumpkin Moon Medallion",  new Flag(FlagID.PumpkinMoon, theSideEffects: delegate(bool safe)
-                    {
-                        GiveItem(ItemID.PumpkinMoonMedallion);
-                    }) },
-                    {"Naughty Present",         new Flag(FlagID.FrostMoon, theSideEffects: delegate(bool safe)
-                    {
-                        GiveItem(ItemID.NaughtyPresent);
-                    }) },
-                    {"Martian Madness",         new Flag(FlagID.Martians, theSideEffects: delegate(bool safe)
-                    {
-                        if (!safe) InvasionLock.invasionList.Add(4);
-                    }) },
-                    {"Cultists",                new Flag(FlagID.Cultists, theSideEffects: delegate(bool safe)
-                    {
-                        NPC.downedGolemBoss = true;
-                    }) },
-                    {"Guide",                   new Flag(FlagID.Guide) },
-                    {"Merchant",                new Flag(FlagID.Merchant) },
-                    {"Nurse",                   new Flag(FlagID.Nurse) },
-                    {"Demolitionist",           new Flag(FlagID.Demolitionist) },
-                    {"Dye Trader",              new Flag(FlagID.DyeTrader) },
-                    {"Angler",                  new Flag(FlagID.Angler) },
-                    {"Zoologist",               new Flag(FlagID.Zoologist) },
-                    {"Painter",                 new Flag(FlagID.Painter) },
-                    {"Golfer",                  new Flag(FlagID.Golfer) },
-                    {"Arms Dealer",             new Flag(FlagID.ArmsDealer) },
-                    {"Stylist",                 new Flag(FlagID.Stylist) },
-                    {"Clothier",                new Flag(FlagID.Clothier) },
-                    {"Mechanic",                new Flag(FlagID.Mechanic) },
-                    {"Party Girl",              new Flag(FlagID.PartyGirl) },
-                    {"Tax Collector",           new Flag(FlagID.TaxCollector) },
-                    {"Santa Claus",             new Flag(FlagID.SantaClaus) },
-                    {"Princess",                new Flag(FlagID.Princess) }
-                };
-                public static readonly FlagID[] hardmodeFlags = [
-                    FlagID.Wizard,
-                    FlagID.PirateInvasion,
-                    FlagID.Pirate,
-                    FlagID.Eclipse,
-                    FlagID.JungleUpgrade,
-                    FlagID.DungeonUpgrade,
-                    FlagID.EclipseUpgrade,
-                    FlagID.Steampunker,
-                    FlagID.Cyborg,
-                    FlagID.Temple,
-                    FlagID.PumpkinMoon,
-                    FlagID.FrostMoon,
-                    FlagID.Martians,
-                    FlagID.Cultists,
-                    FlagID.TaxCollector,
-                    FlagID.Truffle,
-                    FlagID.SantaClaus,
-                    FlagID.Princess
-                ];
-                public static readonly FlagID[] biomeFlags = [
-                    FlagID.Desert,
-                    FlagID.Snow,
-                    FlagID.Underworld,
-                    FlagID.Jungle,
-                    FlagID.Mushroom,
-                    FlagID.Marble,
-                    FlagID.Granite,
-                    FlagID.Web,
-                    FlagID.Ocean,
-                    FlagID.Evil
-                ];
-                public static readonly FlagID[] weatherFlags = [
-                    FlagID.Rain,
-                FlagID.Wind
-                    ];
-                public static readonly (FlagID, int[])[] OtherTiles =
-    [
-            (FlagID.Forest, new int[] {TileID.Plants, TileID.Iron, TileID.Copper, TileID.Gold, TileID.Silver,
-                                        TileID.Tin, TileID.Lead, TileID.Tungsten, TileID.Platinum,
-                                        TileID.ExposedGems, TileID.Sapphire, TileID.Ruby, TileID.Emerald, TileID.Topaz, TileID.Amethyst, TileID.Diamond}),
-                    (FlagID.Snow, new int[] {  TileID.SnowBlock, TileID.IceBlock, TileID.HallowedIce, TileID.CorruptIce, TileID.FleshIce}),
-                    (FlagID.Evil, new int[] {  TileID.ShadowOrbs, TileID.CorruptPlants, TileID.CrimsonPlants, TileID.Demonite, TileID.Crimtane, TileID.Ebonstone, TileID.Crimstone, TileID.CorruptGrass, TileID.CrimsonGrass,
-                                        TileID.Ebonsand, TileID.Crimsand, TileID.CorruptSandstone, TileID.CrimsonSandstone,
-                                        TileID.CorruptIce, TileID.FleshIce}),
-                    (FlagID.Dungeon, new int[] {TileID.Books}),
-                    (FlagID.Desert, new int[] {    TileID.AmberStoneBlock,
-                                            TileID.HardenedSand, TileID.CorruptHardenedSand, TileID.CrimsonHardenedSand, TileID.HallowHardenedSand,
-                                            TileID.Sandstone, TileID.CorruptSandstone, TileID.CrimsonSandstone, TileID.HallowSandstone}),
-                    (FlagID.Jungle, new int[] {    TileID.Hive, TileID.Larva, TileID.JunglePlants, TileID.JunglePlants2, TileID.JungleGrass, TileID.RichMahogany}),
-                    (FlagID.JungleUpgrade, new int[] {TileID.Chlorophyte}),
-                    (FlagID.Mushroom, new int[] {  TileID.MushroomBlock, TileID.MushroomGrass, TileID.MushroomPlants}),
-                    (FlagID.Marble, new int[] { TileID.Marble}),
-                    (FlagID.Granite, new int[] { TileID.Granite})
-    ];
-                public static readonly (FlagID, int[])[] BiomeTreeSet =
-                {
-                    (FlagID.Forest, new int[]         {ItemRef.ForestTree, ItemRef.SakuraTree, ItemRef.YellowWillowTree,
-                                                       ItemRef.TopazTree, ItemRef.AmethystTree, ItemRef.SapphireTree, ItemRef.EmeraldTree, ItemRef.RubyTree, ItemRef.DiamondTree, ItemRef.AmberTree}),
-                    (FlagID.Snow, new int[]            {ItemRef.SnowTree}),
-                    (FlagID.Desert, new int[]          {ItemRef.Cactus}),
-                    (FlagID.Jungle, new int[]          {ItemRef.JungleTree, ItemRef.UndergroundJungleTree}),
-                    (FlagID.Ocean, new int[]   {ItemRef.PalmTree}),
-                    (FlagID.Mushroom, new int[]        {ItemRef.GiantGlowingMushroom, ItemRef.GiantGlowingMushroomSurface}),
-                    (FlagID.Underworld, new int[]            {ItemRef.AshTree}),
-                    (FlagID.Evil, new int[]            {ItemRef.CorruptTree, ItemRef.CrimsonTree})
-                };
-                public static readonly Dictionary<int, FlagID> BiomeHerbSet = new Dictionary<int, FlagID>()
-                {
-                    {0, FlagID.Forest},
-                    {1, FlagID.Jungle},
-                    {2, FlagID.Forest},
-                    {3, FlagID.Evil},
-                    {4, FlagID.Desert},
-                    {5, FlagID.Underworld},
-                    {6, FlagID.Snow},
-                };
-                public static readonly (FlagID, int[])[] BiomeChestSet = {
-                    (FlagID.Forest, new int[] {0, 12, 1, 56}),
-                    (FlagID.Granite, new int [] {50}),
-                    (FlagID.Marble, new int[] {51}),
-                    (FlagID.Web, new int[] {15}),
-                    (FlagID.Snow, new int[] {11}),
-                    (FlagID.Desert, new int[] {62, 69}),
-                    (FlagID.Jungle, new int[] {10, 8}),
-                    (FlagID.Ocean, new int[] {17}),
-                    (FlagID.Sky, new int[] {13}),
-                    (FlagID.Mushroom, new int[] {32}),
-                    (FlagID.Dungeon, new int[] {2}),
-                    (FlagID.Underworld, new int[] {4}),
-                };
-                public static readonly int[] ImportantNPCSet =
-    {
-                    NPCID.MartianProbe,
-                    NPCID.EmpressButterfly,
-                };
-                public static readonly (FlagID, int[])[] BiomeHerbItemIDSet =
-[
-(FlagID.Forest, [ItemID.Daybloom, ItemID.DaybloomSeeds, ItemID.Blinkroot, ItemID.BlinkrootSeeds] ),
-                (FlagID.Jungle, [ItemID.Moonglow, ItemID.MoonglowSeeds] ),
-                (FlagID.Evil, [ItemID.Deathweed, ItemID.DeathweedSeeds] ),
-                (FlagID.Desert, [ItemID.Waterleaf, ItemID.WaterleafSeeds] ),
-                (FlagID.Underworld, [ItemID.Fireblossom, ItemID.FireblossomSeeds] ),
-                (FlagID.Snow, [ItemID.Shiverthorn, ItemID.ShiverthornSeeds] ),
-                ];
-                public static (FlagID, int[])[] FlagNPCSet = [
-                        (FlagID.Forest,new int[]   {NPCID.GreenSlime, NPCID.BlueSlime, NPCID.PurpleSlime, NPCID.Pinky, NPCID.Zombie, NPCID.DemonEye, NPCID.Raven, NPCID.GoblinScout, NPCID.KingSlime, NPCID.PossessedArmor, NPCID.WanderingEye, NPCID.Wraith, NPCID.Werewolf, NPCID.HoppinJack,
-                                                NPCID.GiantWormHead, NPCID.RedSlime, NPCID.YellowSlime, NPCID.DiggerHead, NPCID.ToxicSludge,
-                                                NPCID.BlackSlime, NPCID.MotherSlime, NPCID.BabySlime, NPCID.Skeleton, NPCID.CaveBat, NPCID.Salamander, NPCID.Crawdad, NPCID.GiantShelly, NPCID.UndeadMiner, NPCID.Tim, NPCID.Nymph, NPCID.CochinealBeetle,
-                                                NPCID.Mimic, NPCID.ArmoredSkeleton, NPCID.GiantBat, NPCID.RockGolem, NPCID.SkeletonArcher, NPCID.RuneWizard}),
-                    (FlagID.Marble, new int[]  {NPCID.GreekSkeleton, NPCID.Medusa}),
-                    (FlagID.Granite, new int[] {NPCID.GraniteFlyer, NPCID.GraniteGolem}),
-                    (FlagID.Web, new int[]     {NPCID.BlackRecluse, NPCID.WallCreeper}),
-                    (FlagID.Snow,  new int[]   {NPCID.IceSlime, NPCID.ZombieEskimo, NPCID.CorruptPenguin, NPCID.CrimsonPenguin, NPCID.IceElemental, NPCID.Wolf, NPCID.IceGolem,
-                                                NPCID.IceBat, NPCID.SnowFlinx, NPCID.SpikedIceSlime, NPCID.UndeadViking, NPCID.CyanBeetle, NPCID.ArmoredViking, NPCID.IceTortoise, NPCID.IceElemental, NPCID.IcyMerman, NPCID.IceMimic, NPCID.PigronCorruption, NPCID.PigronCrimson, NPCID.PigronHallow}),
-                    (FlagID.Desert, new int[]  {NPCID.Vulture, NPCID.Antlion, NPCID.Mummy, NPCID.LightMummy, NPCID.DarkMummy, NPCID.BloodMummy,
-                                                NPCID.Tumbleweed, NPCID.SandElemental, NPCID.SandShark, NPCID.SandsharkCorrupt, NPCID.SandsharkCrimson, NPCID.SandsharkHallow,
-                                                NPCID.WalkingAntlion, NPCID.LarvaeAntlion, NPCID.FlyingAntlion, NPCID.GiantWalkingAntlion, NPCID.GiantFlyingAntlion, NPCID.SandSlime, NPCID.TombCrawlerHead,
-                                                NPCID.DesertBeast, NPCID.DesertScorpionWalk, NPCID.DesertLamiaLight, NPCID.DesertLamiaDark, NPCID.DuneSplicerHead, NPCID.DesertGhoul, NPCID.DesertGhoulCorruption, NPCID.DesertGhoulCrimson, NPCID.DesertGhoulHallow, NPCID.DesertDjinn}),
-                    (FlagID.Jungle, new int[]  {NPCID.JungleSlime, NPCID.JungleBat, NPCID.Snatcher, NPCID.DoctorBones, NPCID.Derpling, NPCID.GiantTortoise, NPCID.GiantFlyingFox, NPCID.Arapaima, NPCID.AngryTrapper,
-                                                NPCID.Hornet, NPCID.ManEater, NPCID.SpikedJungleSlime, NPCID.LacBeetle, NPCID.JungleCreeper, NPCID.Moth, NPCID.MossHornet}),
-                    (FlagID.Ocean, new int[]   {NPCID.BlueJellyfish, NPCID.PinkJellyfish, NPCID.GreenJellyfish, NPCID.Piranha, NPCID.AnglerFish, NPCID.Crab, NPCID.Squid, NPCID.SeaSnail, NPCID.Shark}),
-                    (FlagID.Sky,   new int[]   {NPCID.Harpy, NPCID.WyvernHead}),
-                    (FlagID.Underworld,new int[]{NPCID.Hellbat, NPCID.LavaSlime, NPCID.FireImp, NPCID.Demon, NPCID.VoodooDemon, NPCID.BoneSerpentHead, NPCID.Lavabat, NPCID.RedDevil}),
-                    (FlagID.Evil,  new int[]   {NPCID.EaterofSouls, NPCID.CorruptGoldfish, NPCID.DevourerHead, NPCID.Corruptor, NPCID.CorruptSlime, NPCID.Slimeling, NPCID.Slimer, NPCID.Slimer2, NPCID.SeekerHead, NPCID.DarkMummy,
-                                                NPCID.CursedHammer, NPCID.Clinger, NPCID.BigMimicCorruption, NPCID.DesertGhoulCorruption, NPCID.PigronCorruption,
-                                                NPCID.BloodCrawler, NPCID.CrimsonGoldfish, NPCID.FaceMonster, NPCID.Crimera, NPCID.Herpling, NPCID.Crimslime, NPCID.BloodJelly, NPCID.BloodFeeder, NPCID.BloodMummy,
-                                                NPCID.CrimsonAxe, NPCID.IchorSticker, NPCID.FloatyGross, NPCID.BigMimicCrimson, NPCID.DesertGhoulCrimson, NPCID.PigronCrimson}),
-                    (FlagID.Mushroom, new int[] {NPCID.AnomuraFungus, NPCID.FungiBulb, NPCID.MushiLadybug, NPCID.SporeBat, NPCID.SporeSkeleton, NPCID.ZombieMushroom,
-                                                NPCID.FungoFish, NPCID.GiantFungiBulb})
-                    ];
-                public static (FlagID, int[])[] FlagNPCBannerSet;
-            }
-        }
-
-        // Data that's reset and specific between worlds
-        public class WorldState : TagSerializable
-        {
-            public static readonly Func<TagCompound, WorldState> DESERIALIZER = Load;            // Achievements can be completed while loading into the world, but those complete before
+            // Achievements can be completed while loading into the world, but those complete before
             // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
             // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
             // `ArchipelagoPlayer` knows not to clear them.
             public List<string> achieved = new List<string>();
-            // Whether this world has had its chests randomized.
-            public bool chestsRandomized = false;
-            // Whether Skeletron has been defeated (surrogate for NPC.downedBoss3)
-            public bool skeletronDied = false;
-            // whether Plantera has been defeated (surrogate for NPC.downedPlantBoss)
-            public bool planteraDied = false;
-            public TagCompound SerializeData()
-            {
-                return new TagCompound
-                {
-                    [nameof(achieved)] = achieved,
-                    [nameof(chestsRandomized)] = chestsRandomized,
-                    [nameof(skeletronDied)] = skeletronDied,
-                    [nameof(planteraDied)] = planteraDied,
-                };
-            }
-            public static WorldState Load(TagCompound tag)
-            {
-                WorldState state = new WorldState();
-                state.achieved = tag.GetList<string>(nameof(achieved)).ToList();
-                state.chestsRandomized = tag.GetBool(nameof(chestsRandomized));
-                state.skeletronDied = tag.GetBool(nameof(skeletronDied));
-                state.planteraDied = tag.GetBool(nameof(planteraDied));
-                return state;
-            }
-
-        }
-
-        // SessionState data that's saved to a world in case of offline play
-        public class SessionMemory : TagSerializable
-        {
-            public static readonly Func<TagCompound, SessionMemory> DESERIALIZER = Load;
-            public int Slot { get; protected set; }
-            public string SeedName { get; protected set; }
-            public string SlotName { get; protected set; }
-            const int Empty = -1;
-            public bool HasActiveMemory => SeedName is not null && SlotName is not null && Slot > -1;
-            public FlagSystem flagSystem = new();
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
-            public List<string> locationBacklog = new();
-            // Multiple lists grouped by check type that contain serializable item information.
-            // Indexed by base location names. The tuple at index zero of each list is the next one to be retrieved.
-            public Dictionary<string, List<SimpleItemInfo>> locGroupRewardNames = new();
+            public List<string> locationBacklog = new List<string>();
             // Number of items the player has collected in this world
-            public int collectedItems = 0;
+            public int collectedItems;
             // List of rewards received in this world, so they don't get reapplied. Saved in the
             // Terraria world instead of Archipelago data in case the player is, for example,
             // playing Hardcore and wants to receive all the rewards again when making a new player/
             // world.
-            public List<int> receivedRewards = new();
-            // Enemy names to kills required to cash in a check
-            public readonly Dictionary<string, int> enemyToKillCount = new();
-            // Whether or not an enemy is a location
-            public bool ArchipelagoEnemy(string name) => enemyToKillCount.TryGetValue(LocationSystem.GetNPCLocKey(name), out var count);
-            // All Chest-specific Items
-            public readonly HashSet<string> chestItems = new();
-            // All Enemy-specific Items
-            public readonly HashSet<string> enemyItems = new();
-            // All Shop-specific Items
-            public readonly HashSet<string> shopItems = new();
-            // All Enemy 
-            // Backlog of hardmode-only items to be cashed in once Hardmode activates.
-            public List<string> hardmodeBacklog = new();
-            public readonly HashSet<string> hardmodeItems = new();
-            // Whether chests should be randomized.
-            public bool randomizeChests = false;
-            // Whether extra NPCs are randomized.
-            public bool randomizeExtraNPCs = false;
-            // Whether the guide is randomized. Used to decide whether to kill Guide on world entry.
-            public bool randomizeGuide = false;
-            public List<string> goals = new();
-            public static bool EventAsItem => ModContent.GetInstance<Config.Config>().eventsAsItems;
-            public static bool HardmodeAsItem => ModContent.GetInstance<Config.Config>().hardmodeAsItem;
+            public List<int> receivedRewards = new List<int>();
+            // All NPCs that have been randomized.
+            public ImmutableHashSet<int> randomizedNPCs = null;
+            // Set of town NPC items received in this world.
+            public HashSet<int> receivedNPCs = null;
+            // Contains all ghosts that are available to spawn.
+            public Queue<int> ghostNPCqueue = new();
+            // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
+            // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
+            public Dictionary<int, int> npcLocTypeToNpcItemType = null;
 
-            public SessionMemory(LoginSuccessful success)
-            {
-                // Handles Slot-side storage that the apworld creates, and the client doesn't modify.
-                Slot = success.Slot;
-                enemyToKillCount = DeserializeSlotObject<Dictionary<string, int>>(success, "enemy_to_kill_count");
-                chestItems = DeserializeSlotObject<HashSet<String>>(success, "chest_items");
-                enemyItems = DeserializeSlotObject<HashSet<String>>(success, "enemy_items");
-                shopItems = DeserializeSlotObject<HashSet<String>>(success, "shop_items");
-                hardmodeItems = DeserializeSlotObject<HashSet<String>>(success, "hardmode_items");
-                goals = DeserializeSlotObject<List<string>>(success, "goal");
-                randomizeChests = (bool)success.SlotData["chest_loot"];
-                randomizeExtraNPCs = (bool)success.SlotData["randomize_npcs"];
-                randomizeGuide = (bool)success.SlotData["randomize_guide"];
-
-                if (!(bool)success.SlotData["biome_locks"])
-                {
-                    flagSystem.UnlockBiomesNormally();
-                }
-
-                if (!(bool)success.SlotData["weather_locks"])
-                {
-                    flagSystem.UnlockWeatherNormally();
-                }
-
-                if (!(bool)success.SlotData["grappling_hook_rando"])
-                {
-                    flagSystem.UnlockHookNormally();
-                }    
-            }
-            public SessionMemory(TagCompound tag)
-            {
-                SeedName = tag.GetString(nameof(SeedName));
-                SlotName = tag.GetString(nameof(SlotName));
-                flagSystem = tag.Get<FlagSystem>(nameof(flagSystem));
-                locationBacklog = tag.Get<List<string>>(nameof(locationBacklog));
-                collectedItems = tag.GetInt(nameof(collectedItems));
-                receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
-                List<string> enemyKillKeys = tag.Get<List<string>>(nameof(enemyToKillCount) + "Keys");
-                List<int> enemyKillValues = tag.Get<List<int>>(nameof(enemyToKillCount) + "Values");
-                for (int i = 0; i < enemyKillKeys.Count; i++)
-                {
-                    enemyToKillCount[enemyKillKeys[i]] = enemyKillValues[i];
-                }
-                chestItems = tag.Get<List<string>>(nameof(chestItems)).ToHashSet();
-                enemyItems = tag.Get<List<string>>(nameof(enemyItems)).ToHashSet();
-                shopItems = tag.Get<List<string>>(nameof(shopItems)).ToHashSet();
-                hardmodeBacklog = tag.Get<List<string>>(nameof(hardmodeBacklog));
-                randomizeChests = tag.GetBool(nameof(randomizeChests));
-                randomizeExtraNPCs = tag.GetBool(nameof(randomizeExtraNPCs));
-                randomizeGuide = tag.GetBool(nameof(randomizeGuide));
-                List<string> locKeyList = tag.Get<List<string>>(nameof(locGroupRewardNames) + "Keys");
-                foreach (string key in locKeyList)
-                {
-                    if (!tag.ContainsKey(key + "Value")) throw new Exception($"TAG ERROR: Key {key} missing list value.");
-                    List<SimpleItemInfo> values = tag.Get<List<SimpleItemInfo>>(key + "Value");
-                    locGroupRewardNames[key] = values;
-                }
-            }
-            public static SessionMemory CreateDummySession() => new SessionMemory();
-            private SessionMemory()
-            {
-                Slot = Empty;
-                SeedName = "";
-                SlotName = "";
-            }
-            public bool IsDummySession() => Slot == Empty;
-            private static T DeserializeSlotObject<T>(LoginSuccessful success, string varName)
-            {
-                string varData = success.SlotData[varName].ToString();
-                return Newtonsoft.Json.JsonConvert.DeserializeObject<T>(varData);
-            }
-            public TagCompound SerializeData()
-            {
-                TagCompound tag = new TagCompound
-                {
-                    [nameof(SeedName)] = SeedName,
-                    [nameof(SlotName)] = SlotName,
-                    [nameof(flagSystem)] = flagSystem,
-                    [nameof(locationBacklog)] = locationBacklog,
-                    [nameof(collectedItems)] = collectedItems,
-                    [nameof(receivedRewards)] = receivedRewards,
-                    [nameof(enemyToKillCount) + "Keys"] = enemyToKillCount.Keys.ToList(),
-                    [nameof(enemyToKillCount) + "Values"] = enemyToKillCount.Values.ToList(),
-                    [nameof(chestItems)] = chestItems.ToList(),
-                    [nameof(enemyItems)] = enemyItems.ToList(),
-                    [nameof(shopItems)] = shopItems.ToList(),
-                    [nameof(hardmodeBacklog)] = hardmodeBacklog,
-                    [nameof(randomizeChests)] = randomizeChests,
-                    [nameof(randomizeExtraNPCs)] = randomizeExtraNPCs,
-                    [nameof(randomizeGuide)] = randomizeGuide,
-                    [nameof(locGroupRewardNames) + "Keys"] = locGroupRewardNames.Keys.ToList(),
-                };
-                foreach ((string key, List<SimpleItemInfo> valueList) in locGroupRewardNames)
-                {
-                    tag[key + "Value"] = valueList;
-                }
-                return tag;
-            }
-            public static SessionMemory Load(TagCompound tag) => new SessionMemory(tag);
-            public void ActivateHardmode()
-            {
-                WorldGen.StartHardmode();
-                BossFlag(NPCID.WallofFlesh);
-                RedeemHardmodeBacklog();
-            }
-            public void RedeemHardmodeBacklog()
-            {
-                foreach (string flagName in hardmodeBacklog) Activate(flagName);
-                hardmodeBacklog.Clear();
-            }
-            public void Collect(string item)
-            {
-                if (!Main.hardMode && ItemIsHardmode(item))
-                {
-                    hardmodeBacklog.Add(item);
-                    Main.NewText($"ADDED {item} TO HARDMODE BACKLOG");
-                    return;
-                }
-                Activate(item);
-            }
-            public bool ItemIsHardmode(string item)
-            {
-                if (hardmodeItems.Contains(item)) return true;
-                FlagSystem.Flag flag = flagSystem.TryGetNextFlag(item);
-                if (flag is not null) return FlagSystem.FlagIsHardmode(flag.id);
-                return false;
-            }
-            public bool? Activate(string item, bool test = false)
-            {
-                if (flagSystem.TryGetNextFlag(item) is Flag flag)
-                {
-                    if (test)
-                    {
-                        return true;
-                    }
-                    flagSystem.UnlockFlag(flag, EventAsItem, HardmodeAsItem);
-                    return null;
-                }
-                bool? successReturnValue = test ? false : null;
-                switch (item)
-                {
-                    case "Reward: Torch God's Favor": if (test) return true; SessionState.GiveItem(ItemID.TorchGodsFavor); return null;
-                    case "Post-OOA Tier 1": if (test) return true; DD2Event.DownedInvasionT1 = true; return null;
-                    case "Post-OOA Tier 2": if (test) return true; DD2Event.DownedInvasionT2 = true; return null;
-                    case "Post-OOA Tier 3": if (test) return true; DD2Event.DownedInvasionT3 = true; return null;
-
-                    case "Saddle": if (test) return true;
-                        int saddle = Main.rand.Next(3);
-                        switch (saddle)
-                        {
-                            case 0: GiveItem(ItemID.DarkHorseSaddle); break;
-                            case 1: GiveItem(ItemID.PaintedHorseSaddle); break;
-                            case 2: GiveItem(ItemID.MajesticHorseSaddle); break;
-                        }
-                        return null;
-                    case "Reward: Coins": if (test) return true; GiveCoins(); return null;
-                    default:
-                        string strippedItem = item.Replace("Reward: ", "");
-                        if (SeldomArchipelago.englishLangToTypeDict.ContainsKey(strippedItem))
-                        {
-                            if (test)
-                            {
-                                return true;
-                            }
-                            int itemID = SeldomArchipelago.englishLangToTypeDict[strippedItem];
-                            SessionState.GiveItem(itemID);
-                            return null;
-                        }
-                        break;
-                }
-                if (test) return false;
-                Main.NewText($"Received unknown item: {item}");
-                return null;
-            }
-            public static void GiveItem(int? item, Action<Player> giveItem)
-            {
-                if (item != null)
-                {
-                    SessionMemory state = GetSession();
-                    state.receivedRewards.Add(item.Value);
-                }
-
-                for (var i = 0; i < Main.maxPlayers; i++)
-                {
-                    var player = Main.player[i];
-                    if (player.active)
-                    {
-                        giveItem(player);
-                        if (item != null)
-                        {
-                            if (Main.netMode == NetmodeID.Server)
-                            {
-                                var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
-                                packet.Write("YouGotAnItem");
-                                packet.Write(item.Value);
-                                packet.Send(i);
-                            }
-                            else player.GetModPlayer<ArchipelagoPlayer>().ReceivedReward(item.Value);
-                        }
-                    }
-                }
-            }
-            public static void GiveItem(int item) => GiveItem(item, player => player.QuickSpawnItem(player.GetSource_GiftOrReward(), item, 1));
-            public static void GiveItem<T>() where T : ModItem => GiveItem(ModContent.ItemType<T>());
-            public void GiveCoins()
-            {
-                var flagCount = 0;
-                foreach (var flag in Flags) if (CheckFlag(flag)) flagCount++;
-                var count = baseCoins[flagCount % 8] * (int)Math.Pow(10, flagCount / 8);
-
-                var platinum = count / 10000;
-                var gold = count % 10000 / 100;
-                var silver = count % 100;
-                SessionState.GiveItem(null, player =>
-                {
-                    if (platinum > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.PlatinumCoin, platinum);
-                    if (gold > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.GoldCoin, gold);
-                    if (silver > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.SilverCoin, silver);
-                });
-            }
-            public bool CheckFlag(string flag)
-            {
-                if (FlagSystem.AllKeys.Contains(flag))
-                {
-                    return flagSystem.FlagIsActive(flag);
-                }
-                return flag switch
-                {
-                    "Post-OOA Tier 1" => DD2Event.DownedInvasionT1,
-                    "Post-OOA Tier 2" => DD2Event.DownedInvasionT2,
-                    "Post-OOA Tier 3" => DD2Event.DownedInvasionT3,
-                    _ => ModContent.GetInstance<CalamitySystem>()?.CheckCalamityFlag(flag) ?? false,
-                };
-            }
-            public static string[] Flags
-            {
-                get
-                {
-                    List<string> flagList = FlagSystem.AllKeys.ToList();
-                    flagList.AddRange(["Post-OOA Tier 1", "Post-OOA Tier 2", "Post-OOA Tier 3"]);
-                    return flagList.ToArray();
-                }
-            }
+            public bool NPCRandoActive() => randomizedNPCs is not null;
         }
 
         // Data that's reset between Archipelago sessions
-        public class SessionState : SessionMemory
+        public class SessionState
         {
-            public static new readonly Func<TagCompound, SessionState> DESERIALIZER = LoadState;
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -1145,190 +74,33 @@ namespace SeldomArchipelago.Systems
             // instead of collecting them. This is needed bc AP just gives us a list of items that
             // we have, and it's up to us to keep track of which ones we've already applied.
             public int currentItem;
-            public List<string> collectedLocations;
+            public List<string> collectedLocations = new List<string>();
+            public List<string> goals = new List<string>();
 
             public bool victory;
-            public static SessionState LoadState(TagCompound tag)
-            {
-                return new SessionState(tag);
-            }
-            public SessionState(LoginSuccessful success, ArchipelagoSession newSession) : base(success)
-            {
-                session = newSession;
-
-                // Handles Slot-side storage that the client creates and modifies.
-                collectedLocations = session.DataStorage[Scope.Slot, nameof(collectedLocations)].To<List<string>>() ?? new();
-                hardmodeBacklog = session.DataStorage[Scope.Slot, nameof(hardmodeBacklog)].To<List<string>>() ?? new();
-                receivedRewards = session.DataStorage[Scope.Slot, nameof(receivedRewards)].To<List<int>>() ?? new();
-                var collectedItemsVar = session.DataStorage[Scope.Slot, nameof(collectedItems)];
-                try
-                {
-                    collectedItems = collectedItemsVar.To<int>();
-                }
-                catch
-                {
-                    collectedItems = 0;
-                }
-                string[] locKeys = session.DataStorage[Scope.Slot, "LocRewardNamesKeys"].To<string[]>();
-                var locValues = session.DataStorage[Scope.Slot, "LocRewardNamesValues"].To<List<(string, string, string, int)>[]>();
-                if (locKeys is not null)
-                {
-                    locGroupRewardNames = new();
-                    for (int i = 0; i < locKeys.Length; i++)
-                    {
-                        var tupleList = locValues[i];
-                        locGroupRewardNames[locKeys[i]] = new List<SimpleItemInfo>();
-                        var address = locGroupRewardNames[locKeys[i]];
-                        for (int j = 0; j < tupleList.Count; j++)
-                        {
-                            var tuple = tupleList[j];
-                            address.Add(new SimpleItemInfo(tuple.Item1, tuple.Item2, tuple.Item3, tuple.Item4));
-                        }
-                    }
-                }
-                else
-                {
-                    CreateMultiLocSlotDict(success);
-                }
-                SeedName = session.RoomState.Seed;
-                SlotName = session.Players.GetPlayerName(Slot);
-
-                // Some SessionState-specific constants we initialize
-                if ((bool)success.SlotData["deathlink"])
-                {
-                    deathlink = session.CreateDeathLinkService();
-                    deathlink.EnableDeathLink();
-                    deathlink.OnDeathLinkReceived += ReceiveDeathlink;
-                }
-            }
-            public SessionState(TagCompound tag) : base(tag)
-            {
-
-            }
-            public void CreateMultiLocSlotDict(LoginSuccessful success)
-            {
-                object multiLocDictObject = success.SlotData["multi_loc_slot_dicts"];
-                var multiLocDict = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(multiLocDictObject.ToString());
-                var allBaseLocs = multiLocDict.Keys.ToList();
-                while (allBaseLocs.Count > 0)
-                {
-                    string baseLoc = allBaseLocs[0];
-                    locGroupRewardNames[baseLoc] = new List<SimpleItemInfo>();
-                    string[] locs = multiLocDict[baseLoc].ToArray();
-                    long[] itemIDs = (from loc in locs select session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, loc)).ToArray();
-                    if (itemIDs.Contains(-1))
-                    {
-                        throw new Exception($"Some retrieved locations under {baseLoc} turned up -1 ids.");
-                    }
-                    var task = session.Locations.ScoutLocationsAsync(itemIDs);
-                    if (!task.Wait(1000)) continue;
-                    var itemInfoDictValues = task.Result.Values;
-                    foreach (ScoutedItemInfo itemInfo in itemInfoDictValues)
-                    {
-                        string loc = itemInfo.LocationName;
-                        if (collectedLocations.Contains(loc))
-                            continue;
-                        locGroupRewardNames[baseLoc].Add(new SimpleItemInfo(itemInfo));
-                    }
-                    allBaseLocs.RemoveAt(0);
-                }
-            }
-            public void SaveSessionToSlot()
-            {
-                session.DataStorage[Scope.Slot, nameof(collectedItems)] = collectedLocations.ToArray();
-                session.DataStorage[Scope.Slot, "LocRewardNamesKeys"] = locGroupRewardNames.Keys.ToArray();
-                session.DataStorage[Scope.Slot, nameof(hardmodeBacklog)] = hardmodeBacklog.ToArray();
-                session.DataStorage[Scope.Slot, nameof(receivedRewards)] = receivedRewards.ToArray();
-                session.DataStorage[Scope.Slot, nameof(collectedItems)] = collectedItems;
-
-                var arrayOfLists = locGroupRewardNames.Values.ToArray();
-                var listOfTupleLists = new List<List<(string, string, string, int)>>();
-                for (int i = 0; i < arrayOfLists.Length; i++)
-                {
-                    var listOfInfo = arrayOfLists[i];
-                    listOfTupleLists.Add(new List<(string, string, string, int)>());
-                    for (int j = 0; j < listOfInfo.Count; j++)
-                    {
-                        var info = listOfInfo[j];
-                        listOfTupleLists[i].Add((info.locName, info.itemName, info.player, (int)info.flag));
-                    }
-                }
-                session.DataStorage[Scope.Slot, "LocRewardNamesValues"] = listOfTupleLists.ToArray();
-            }
+            public int slot;
         }
 
         public WorldState world = new();
         public SessionState session;
-        public SessionMemory sessionMemory;
-        public SessionMemory dummySess = SessionMemory.CreateDummySession();
-        public WorldState dummyWorld = new();
-        // We add dummySess because a lot of the hooks that access Session() are called during world generation,
-        // when session & sessionMemory would normally both be null
-        public static ArchipelagoSystem GetSystem() => ModContent.GetInstance<ArchipelagoSystem>();
-        public static SessionMemory GetSession(bool overrideDummy = false) {
-            var system = ModContent.GetInstance<ArchipelagoSystem>();
-            return Main.gameMenu && !overrideDummy ? system.dummySess : system.session ?? system.sessionMemory;
-        }
-        public static FlagSystem GetFlags()
-        {
-            var session = GetSession();
-            if (session is null) return null;
-            return session.flagSystem;
-        }
-        public static WorldState GetWorld()
-        {
-            var system = ModContent.GetInstance<ArchipelagoSystem>();
-            return Main.gameMenu ? system.dummyWorld : system.world;
-        }
-        public bool SessionDisparity
-        {
-            get => (session is not null && sessionMemory is not null && sessionMemory.SlotName != "" && (sessionMemory.SlotName != session.SlotName || sessionMemory.SeedName != session.SeedName));
-        }
 
-        public string[] CollectedLocations
-        {
-            get
-            {
-                return [.. GetSession().locationBacklog];
-            }
-        }
-        // This method does everything that needs to be done with sessionMemory when play switches from offline to online.
-        // The source of the parameter "memory" should be disposed after use.
-        public void UseSessionMemory(SessionMemory memory)
-        {
-            if (session is null) throw new Exception("UseSessionMemory: session is null!");
-            foreach (var location in memory.locationBacklog) QueueLocation(location);
-            session.flagSystem = memory.flagSystem;
-        }
+        // Contains ghosts that require special housing conditions to spawn.
+        public readonly static ImmutableHashSet<int> specialSpawnGhosts =
+        [
+            NPCID.Truffle
+        ];
+
         public override void LoadWorldData(TagCompound tag)
         {
-            world = tag.ContainsKey("WorldState") ? tag.Get<WorldState>("WorldState") : new();
-            sessionMemory = tag.ContainsKey("SessionMemory") ? tag.Get<SessionMemory>("SessionMemory") : null;
-            if (session is null) return;
-            if (sessionMemory != null)
+            world.collectedItems = tag.ContainsKey("ApCollectedItems") ? tag.Get<int>("ApCollectedItems") : 0;
+            world.receivedRewards = tag.ContainsKey("ApReceivedRewards") ? tag.Get<List<int>>("ApReceivedRewards") : new();
+            if (!world.NPCRandoActive())
             {
-                if (SessionDisparity)
-                {
-                    return;
-                }
-                UseSessionMemory(sessionMemory);
-                sessionMemory = null;
-            }
-            if (!world.chestsRandomized && session.randomizeChests)
-            {
-                FlagSystem.UpdateChests(session);
-                world.chestsRandomized = true;
+                world.randomizedNPCs = tag.ContainsKey("ApRandomizedNPCs") ? tag.Get<List<int>>("ApRandomizedNPCs").ToImmutableHashSet() : null;
+                world.receivedNPCs = tag.ContainsKey("ApReceivedNPCs") ? tag.Get<List<int>>("ApReceivedNPCs").ToHashSet() : null;
             }
         }
-        public void ChatMessage(LogMessage message)
-        {
-            var text = "";
-            foreach (var part in message.Parts)
-            {
-                text += part.Text;
-            }
-            Chat(text);
-        }
+
         public override void OnWorldLoad()
         {
             // Needed for achievements to work right
@@ -1338,141 +110,402 @@ namespace SeldomArchipelago.Systems
 
             var config = ModContent.GetInstance<Config.Config>();
 
-            if (!ConnectToArchipelago(out var result, out var newSession)) return;
-
-            var success = (LoginSuccessful)result;
-            session = new(success, newSession);
-
-            session.session.MessageLog.OnMessageReceived += ChatMessage;
-
-            int counter = -200;
-            HashSet<string> locationNPCs = session.enemyToKillCount.Keys.ToHashSet();
-            while (Lang.GetNPCNameValue(counter) is string npcName && counter < 10000)
-            {
-                locationNPCs.Remove(npcName);
-                counter++;
-            }
-
-            Console.WriteLine("A FOUL SMELL FILLS THE AIR...");
-
-            object allItemsObj = success.SlotData["all_items"];
-            List<string> allItems = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>(allItemsObj.ToString());
-            foreach (string item in allItems)
-            {
-                bool works = (bool)session.Activate(item, true);
-                if (!works) Console.WriteLine(item);
-            }
-        }
-        private static bool ConnectToArchipelago(out LoginResult result, out ArchipelagoSession newSession)
-        {
-            result = null;
-            newSession = null;
-            var config = ModContent.GetInstance<Config.Config>();
+            LoginResult result;
+            ArchipelagoSession newSession;
             try
             {
                 newSession = ArchipelagoSessionFactory.CreateSession(config.address, config.port);
 
-                result = newSession.TryConnectAndLogin(SeldomArchipelago.gameName, config.name, ItemsHandlingFlags.AllItems, null, null, null, config.password == "" ? null : config.password);
+                result = newSession.TryConnectAndLogin("Terraria", config.name, ItemsHandlingFlags.AllItems, null, null, null, config.password == "" ? null : config.password);
                 if (result is LoginFailure)
                 {
-                    return false;
+                    return;
                 }
             }
             catch
             {
-                return false;
+                return;
             }
-            return true;
-        }
-        private int CountTownNPCs()
-        {
-            int npcSum = 0;
-            for (int i = 200; i < 200; i++)
-            {
-                if (Main.npc[i].active && Main.npc[i].townNPC) npcSum++;
-            }
-            return npcSum;
-        }
-        private readonly int[] princessNPCs =
-            {
-                NPCID.Guide,
-                NPCID.Merchant,
-                NPCID.Nurse,
-                NPCID.Demolitionist,
-                NPCID.DyeTrader,
-                NPCID.Angler,
-                NPCID.BestiaryGirl,
-                NPCID.Dryad,
-                NPCID.Painter,
-                NPCID.Golfer,
-                NPCID.ArmsDealer,
-                NPCID.DD2Bartender,
-                NPCID.Stylist,
-                NPCID.GoblinTinkerer,
-                NPCID.WitchDoctor,
-                NPCID.Clothier,
-                NPCID.Mechanic,
-                NPCID.PartyGirl,
-                NPCID.Wizard,
-                NPCID.TaxCollector,
-                NPCID.Truffle,
-                NPCID.Pirate,
-                NPCID.Steampunker,
-                NPCID.Cyborg
-            };
-        public override void PostUpdateTime()
-        {
-            if (Main.netMode == NetmodeID.MultiplayerClient) return;
-            var session = GetSession();
-            if (session is null) return;
-            if (session.randomizeGuide && !session.flagSystem.FlagIsActive(FlagID.Guide) && NPC.AnyNPCs(NPCID.Guide))
-            {
-                Main.npc[NPC.FindFirstNPC(NPCID.Guide)].StrikeInstantKill();
-            }
-            if (!session.randomizeExtraNPCs) return;
-            int npcCount = CountTownNPCs();
-            // Buncha conditions stolen directly from Main.UpdateTime_SpawnNPCs
-            if (npcCount >= 8) QueueLocation("Painter");
-            if (npcCount >= 14) QueueLocation("PartyGirl");
-            if (NPC.SpawnAllowed_Merchant()) QueueLocation("Merchant");
-            if (NPC.SpawnAllowed_Nurse()) QueueLocation("Nurse");
-            if (NPC.SpawnAllowed_DyeTrader()) QueueLocation("Dye Trader");
-            if (NPC.SpawnAllowed_Demolitionist()) QueueLocation("Demolitionist");
-            if (NPC.SpawnAllowed_ArmsDealer()) QueueLocation("Arms Dealer");
-            if (NPC.downedBoss1 || NPC.downedBoss2 || GetWorld().skeletronDied) QueueLocation("Dryad");
-            if (NPC.downedQueenBee) QueueLocation("Witch Doctor");
-            if (GetWorld().skeletronDied) QueueLocation("Clothier");
-            if (WorldGen.CheckSpecialTownNPCSpawningConditions(NPCID.Truffle)) QueueLocation("Truffle");
-            if (NPC.downedPirates) QueueLocation("Pirate");
-            if (NPC.downedMechBoss1 || NPC.downedMechBoss2 || NPC.downedMechBoss3) QueueLocation("Steampunker");
-            if (GetWorld().planteraDied) QueueLocation("Cyborg");
-            if (NPC.downedFrost) QueueLocation("Santa Claus");
 
-            bool princessCanSpawn = true;
-            foreach (int npc in princessNPCs)
+            session = new();
+            session.session = newSession;
+
+            var locations = session.session.DataStorage[Scope.Slot, "CollectedLocations"].To<String[]>();
+            if (locations != null)
             {
-                if (!NPC.AnyNPCs(npc))
-                {
-                    princessCanSpawn = false;
-                    break;
-                }
+                session.collectedLocations = new List<string>(locations);
             }
-            if (princessCanSpawn) QueueLocation("Princess");
+
+            var success = (LoginSuccessful)result;
+            session.goals = new List<string>(((JArray)success.SlotData["goal"]).ToObject<string[]>());
+
+            session.session.MessageLog.OnMessageReceived += (message) =>
+            {
+                var text = "";
+                foreach (var part in message.Parts)
+                {
+                    text += part.Text;
+                }
+                Chat(text);
+            };
+
+            if ((bool)success.SlotData["deathlink"])
+            {
+                session.deathlink = session.session.CreateDeathLinkService();
+                session.deathlink.EnableDeathLink();
+
+                session.deathlink.OnDeathLinkReceived += ReceiveDeathlink;
+            }
+
+            string[] randomizedNPCnames = ((JArray)success.SlotData["randomize_npcs"]).ToObject<string[]>();
+            if (randomizedNPCnames.Length > 0)
+            {
+                world.randomizedNPCs = (from name in randomizedNPCnames select npcNameToID[name]).ToImmutableHashSet();
+                world.receivedNPCs = new();
+                string[] allNPCnames = npcNameToID.Keys.ToArray();
+                var locIDtoNPCname = new Dictionary<long, string>();
+                foreach (string loc in allNPCnames)
+                {
+                    locIDtoNPCname[session.session.Locations.GetLocationIdFromName("Terraria", loc)] = loc;
+                }
+                if (locIDtoNPCname.ContainsKey(-1))
+                {
+                    throw new Exception($"Some retrieved NPC locations turned up -1 ids.");
+                }
+                var task = session.session.Locations.ScoutLocationsAsync(locIDtoNPCname.Keys.ToArray());
+                if (task.Wait(1000))
+                {
+                    world.npcLocTypeToNpcItemType = new();
+                    int playerID = success.Slot;
+                    var npcLocDict = task.Result;
+                    foreach(long key in npcLocDict.Keys)
+                        {
+                            ItemInfo itemInfo = npcLocDict[key];
+                            if (itemInfo.Player.Slot == playerID && allNPCnames.Contains(itemInfo.ItemName))
+                            {
+                                int npcType = npcNameToID[locIDtoNPCname[key]];
+                                world.npcLocTypeToNpcItemType[npcType] = npcNameToID[itemInfo.ItemName];
+                            }
+                        }
+                }
+                
+            }
+
+                session.slot = success.Slot;
+
+            foreach (var location in world.locationBacklog) QueueLocation(location);
+            world.locationBacklog.Clear();
+        }
+        public bool LocationCollected(string loc) => session.collectedLocations.Contains(loc) || world.locationBacklog.Contains(loc);
+
+        public string[] flags = { "Post-King Slime", "Post-Desert Scourge", "Post-Giant Clam", "Post-Eye of Cthulhu", "Post-Acid Rain Tier 1", "Post-Crabulon", "Post-Evil Boss", "Post-Old One's Army Tier 1", "Post-Goblin Army", "Post-Queen Bee", "Post-The Hive Mind", "Post-The Perforators", "Post-Skeletron", "Post-Deerclops", "Post-The Slime God", "Hardmode", "Post-Dreadnautilus", "Post-Hardmode Giant Clam", "Post-Pirate Invasion", "Post-Queen Slime", "Post-Aquatic Scourge", "Post-Cragmaw Mire", "Post-Acid Rain Tier 2", "Post-The Twins", "Post-Old One's Army Tier 2", "Post-Brimstone Elemental", "Post-The Destroyer", "Post-Cryogen", "Post-Skeletron Prime", "Post-Calamitas Clone", "Post-Plantera", "Post-Great Sand Shark", "Post-Leviathan and Anahita", "Post-Astrum Aureus", "Post-Golem", "Post-Old One's Army Tier 3", "Post-Martian Madness", "Post-The Plaguebringer Goliath", "Post-Duke Fishron", "Post-Mourning Wood", "Post-Pumpking", "Post-Everscream", "Post-Santa-NK1", "Post-Ice Queen", "Post-Frost Legion", "Post-Ravager", "Post-Empress of Light", "Post-Lunatic Cultist", "Post-Astrum Deus", "Post-Lunar Events", "Post-Moon Lord", "Post-Profaned Guardians", "Post-The Dragonfolly", "Post-Providence, the Profaned Goddess", "Post-Storm Weaver", "Post-Ceaseless Void", "Post-Signus, Envoy of the Devourer", "Post-Polterghast", "Post-Mauler", "Post-Nuclear Terror", "Post-The Old Duke", "Post-The Devourer of Gods", "Post-Yharon, Dragon of Rebirth", "Post-Exo Mechs", "Post-Supreme Witch, Calamitas", "Post-Primordial Wyrm", "Post-Boss Rush" };
+
+        public bool CheckFlag(string flag) => flag switch
+        {
+            "Post-King Slime" => NPC.downedSlimeKing,
+            "Post-Eye of Cthulhu" => NPC.downedBoss1,
+            "Post-Evil Boss" => NPC.downedBoss2,
+            "Post-Old One's Army Tier 1" => DD2Event.DownedInvasionT1,
+            "Post-Goblin Army" => NPC.downedGoblins,
+            "Post-Queen Bee" => NPC.downedQueenBee,
+            "Post-Skeletron" => NPC.downedBoss3,
+            "Post-Deerclops" => NPC.downedDeerclops,
+            "Hardmode" => Main.hardMode,
+            "Post-Pirate Invasion" => NPC.downedPirates,
+            "Post-Queen Slime" => NPC.downedQueenSlime,
+            "Post-The Twins" => NPC.downedMechBoss2,
+            "Post-Old One's Army Tier 2" => DD2Event.DownedInvasionT2,
+            "Post-The Destroyer" => NPC.downedMechBoss1,
+            "Post-Skeletron Prime" => NPC.downedMechBoss3,
+            "Post-Plantera" => NPC.downedPlantBoss,
+            "Post-Golem" => NPC.downedGolemBoss,
+            "Post-Old One's Army Tier 3" => DD2Event.DownedInvasionT3,
+            "Post-Martian Madness" => NPC.downedMartians,
+            "Post-Duke Fishron" => NPC.downedFishron,
+            "Post-Mourning Wood" => NPC.downedHalloweenTree,
+            "Post-Pumpking" => NPC.downedHalloweenKing,
+            "Post-Everscream" => NPC.downedChristmasTree,
+            "Post-Santa-NK1" => NPC.downedChristmasSantank,
+            "Post-Ice Queen" => NPC.downedChristmasIceQueen,
+            "Post-Frost Legion" => NPC.downedFrost,
+            "Post-Empress of Light" => NPC.downedEmpressOfLight,
+            "Post-Lunatic Cultist" => NPC.downedAncientCultist,
+            "Post-Lunar Events" => NPC.downedTowerNebula,
+            "Post-Moon Lord" => NPC.downedMoonlord,
+            _ => ModContent.GetInstance<CalamitySystem>()?.CheckCalamityFlag(flag) ?? false,
+        };
+        public static Dictionary<string, int> npcNameToID = new()
+            {
+                {"Guide", NPCID.Guide },
+                {"Merchant", NPCID.Merchant },
+                {"Nurse", NPCID.Nurse },
+                {"Demolitionist", NPCID.Demolitionist },
+                {"Dye Trader", NPCID.DyeTrader },
+                {"Angler", NPCID.Angler },
+                {"Zoologist", NPCID.BestiaryGirl },
+                {"Dryad", NPCID.Dryad },
+                {"Painter", NPCID.Painter },
+                {"Golfer", NPCID.Golfer },
+                {"Arms Dealer", NPCID.ArmsDealer },
+                {"Tavernkeep", NPCID.DD2Bartender },
+                {"Stylist", NPCID.Stylist },
+                {"Goblin Tinkerer", NPCID.GoblinTinkerer },
+                {"Witch Doctor", NPCID.WitchDoctor },
+                {"Clothier", NPCID.Clothier },
+                {"Mechanic", NPCID.Mechanic },
+                {"Party Girl", NPCID.PartyGirl },
+                {"Wizard", NPCID.Wizard },
+                {"Tax Collector", NPCID.TaxCollector },
+                {"Truffle", NPCID.Truffle },
+                {"Pirate", NPCID.Pirate },
+                {"Steampunker", NPCID.Steampunker },
+                {"Cyborg", NPCID.Cyborg },
+                {"Santa Claus", NPCID.SantaClaus },
+                {"Princess", NPCID.Princess },
+            };
+        public static Dictionary<int, string> npcIDtoName = npcNameToID.ToDictionary(x => x.Value, x => x.Key);
+        public void Collect(string item)
+        {
+            if (npcNameToID.ContainsKey(item))
+            {
+                world.receivedNPCs.Add(npcNameToID[item]);
+                return;
+            }
+            switch (item)
+            {
+                case "Reward: Torch God's Favor": GiveItem(ItemID.TorchGodsFavor); break;
+                case "Post-King Slime": BossFlag(ref NPC.downedSlimeKing, NPCID.KingSlime); break;
+                case "Post-Eye of Cthulhu": BossFlag(ref NPC.downedBoss1, NPCID.EyeofCthulhu); break;
+                case "Post-Evil Boss": BossFlag(ref NPC.downedBoss2, NPCID.EaterofWorldsHead); break;
+                case "Post-Old One's Army Tier 1": DD2Event.DownedInvasionT1 = true; break;
+                case "Post-Goblin Army": NPC.downedGoblins = true; break;
+                case "Post-Queen Bee": BossFlag(ref NPC.downedQueenBee, NPCID.QueenBee); break;
+                case "Post-Skeletron": BossFlag(ref NPC.downedBoss3, NPCID.SkeletronHead); break;
+                case "Post-Deerclops": BossFlag(ref NPC.downedDeerclops, NPCID.Deerclops); break;
+                case "Hardmode":
+                    if (ModContent.GetInstance<Config.Config>().hardmodeAsItem)
+                    {
+                        GiveItem(ModContent.ItemType<HardmodeStarter>());
+                    }
+                    else
+                    {
+                        ActivateHardmode();
+                    }
+                    break;
+                case "Post-Pirate Invasion": NPC.downedPirates = true; break;
+                case "Post-Queen Slime": BossFlag(ref NPC.downedQueenSlime, NPCID.QueenSlimeBoss); break;
+                case "Post-The Twins":
+                    Action set = () => NPC.downedMechBoss2 = NPC.downedMechBossAny = true;
+                    if (NPC.AnyNPCs(NPCID.Retinazer))
+                    {
+                        if (NPC.AnyNPCs(NPCID.Spazmatism))
+                        {
+                            // If the player is fighting The Twins, it would mess with the `CalamityGlobalNPC.OnKill` logic, so we have a fallback
+                            if (ModLoader.HasMod("CalamityMod")) ModContent.GetInstance<CalamitySystem>().SpawnMechOres();
+                            NPC.downedMechBoss2 = NPC.downedMechBossAny = true;
+                        }
+                        else BossFlag(set, NPCID.Retinazer);
+                    }
+                    else BossFlag(set, NPCID.Spazmatism);
+                    break;
+                case "Post-Old One's Army Tier 2": DD2Event.DownedInvasionT2 = true; break;
+                case "Post-The Destroyer": BossFlag(() => NPC.downedMechBoss1 = NPC.downedMechBossAny = true, NPCID.TheDestroyer); break;
+                case "Post-Skeletron Prime": BossFlag(() => NPC.downedMechBoss3 = NPC.downedMechBossAny = true, NPCID.SkeletronPrime); break;
+                case "Post-Plantera": BossFlag(ref NPC.downedPlantBoss, NPCID.Plantera); break;
+                case "Post-Golem": BossFlag(ref NPC.downedGolemBoss, NPCID.Golem); break;
+                case "Post-Old One's Army Tier 3": DD2Event.DownedInvasionT3 = true; break;
+                case "Post-Martian Madness": NPC.downedMartians = true; break;
+                case "Post-Duke Fishron": BossFlag(ref NPC.downedFishron, NPCID.DukeFishron); break;
+                case "Post-Mourning Wood": BossFlag(ref NPC.downedHalloweenTree, NPCID.MourningWood); break;
+                case "Post-Pumpking": BossFlag(ref NPC.downedHalloweenKing, NPCID.Pumpking); break;
+                case "Post-Everscream": BossFlag(ref NPC.downedChristmasTree, NPCID.Everscream); break;
+                case "Post-Santa-NK1": BossFlag(ref NPC.downedChristmasSantank, NPCID.SantaNK1); break;
+                case "Post-Ice Queen": BossFlag(ref NPC.downedChristmasIceQueen, NPCID.IceQueen); break;
+                case "Post-Frost Legion": NPC.downedFrost = true; break;
+                case "Post-Empress of Light": BossFlag(ref NPC.downedEmpressOfLight, NPCID.HallowBoss); break;
+                case "Post-Lunatic Cultist": BossFlag(ref NPC.downedAncientCultist, NPCID.CultistBoss); break;
+                case "Post-Lunar Events": NPC.downedTowerNebula = NPC.downedTowerSolar = NPC.downedTowerStardust = NPC.downedTowerVortex = true; break;
+                case "Post-Moon Lord": BossFlag(ref NPC.downedMoonlord, NPCID.MoonLordCore); break;
+                case "Post-Desert Scourge": ModContent.GetInstance<CalamitySystem>().CalamityOnKillDesertScourge(); break;
+                case "Post-Giant Clam": ModContent.GetInstance<CalamitySystem>().CalamityOnKillGiantClam(false); break;
+                case "Post-Acid Rain Tier 1": ModContent.GetInstance<CalamitySystem>().CalamityAcidRainTier1Downed(); break;
+                case "Post-Crabulon": ModContent.GetInstance<CalamitySystem>().CalamityOnKillCrabulon(); break;
+                case "Post-The Hive Mind": ModContent.GetInstance<CalamitySystem>().CalamityOnKillTheHiveMind(); break;
+                case "Post-The Perforators": ModContent.GetInstance<CalamitySystem>().CalamityOnKillThePerforators(); break;
+                case "Post-The Slime God": ModContent.GetInstance<CalamitySystem>().CalamityOnKillTheSlimeGod(); break;
+                case "Post-Dreadnautilus": ModContent.GetInstance<CalamitySystem>().CalamityDreadnautilusDowned(); break;
+                case "Post-Hardmode Giant Clam": ModContent.GetInstance<CalamitySystem>().CalamityOnKillGiantClam(true); break;
+                case "Post-Aquatic Scourge": ModContent.GetInstance<CalamitySystem>().CalamityOnKillAquaticScourge(); break;
+                case "Post-Cragmaw Mire": ModContent.GetInstance<CalamitySystem>().CalamityOnKillCragmawMire(); break;
+                case "Post-Acid Rain Tier 2": ModContent.GetInstance<CalamitySystem>().CalamityAcidRainTier2Downed(); break;
+                case "Post-Brimstone Elemental": ModContent.GetInstance<CalamitySystem>().CalamityOnKillBrimstoneElemental(); break;
+                case "Post-Cryogen": ModContent.GetInstance<CalamitySystem>().CalamityOnKillCryogen(); break;
+                case "Post-Calamitas Clone": ModContent.GetInstance<CalamitySystem>().CalamityOnKillCalamitasClone(); break;
+                case "Post-Great Sand Shark": ModContent.GetInstance<CalamitySystem>().CalamityOnKillGreatSandShark(); break;
+                case "Post-Leviathan and Anahita": ModContent.GetInstance<CalamitySystem>().CalamityOnKillLeviathanAndAnahita(); break;
+                case "Post-Astrum Aureus": ModContent.GetInstance<CalamitySystem>().CalamityOnKillAstrumAureus(); break;
+                case "Post-The Plaguebringer Goliath": ModContent.GetInstance<CalamitySystem>().CalamityOnKillThePlaguebringerGoliath(); break;
+                case "Post-Ravager": ModContent.GetInstance<CalamitySystem>().CalamityOnKillRavager(); break;
+                case "Post-Astrum Deus": ModContent.GetInstance<CalamitySystem>().CalamityOnKillAstrumDeus(); break;
+                case "Post-Profaned Guardians": ModContent.GetInstance<CalamitySystem>().CalamityOnKillProfanedGuardians(); break;
+                case "Post-The Dragonfolly": ModContent.GetInstance<CalamitySystem>().CalamityOnKillTheDragonfolly(); break;
+                case "Post-Providence, the Profaned Goddess": ModContent.GetInstance<CalamitySystem>().CalamityOnKillProvidenceTheProfanedGoddess(); break;
+                case "Post-Storm Weaver": ModContent.GetInstance<CalamitySystem>().CalamityOnKillStormWeaver(); break;
+                case "Post-Ceaseless Void": ModContent.GetInstance<CalamitySystem>().CalamityOnKillCeaselessVoid(); break;
+                case "Post-Signus, Envoy of the Devourer": ModContent.GetInstance<CalamitySystem>().CalamityOnKillSignusEnvoyOfTheDevourer(); break;
+                case "Post-Polterghast": ModContent.GetInstance<CalamitySystem>().CalamityOnKillPolterghast(); break;
+                case "Post-Mauler": ModContent.GetInstance<CalamitySystem>().CalamityOnKillMauler(); break;
+                case "Post-Nuclear Terror": ModContent.GetInstance<CalamitySystem>().CalamityOnKillNuclearTerror(); break;
+                case "Post-The Old Duke": ModContent.GetInstance<CalamitySystem>().CalamityOnKillTheOldDuke(); break;
+                case "Post-The Devourer of Gods": ModContent.GetInstance<CalamitySystem>().CalamityOnKillTheDevourerOfGods(); break;
+                case "Post-Yharon, Dragon of Rebirth": ModContent.GetInstance<CalamitySystem>().CalamityOnKillYharonDragonOfRebirth(); break;
+                case "Post-Exo Mechs": ModContent.GetInstance<CalamitySystem>().CalamityOnKillExoMechs(); break;
+                case "Post-Supreme Witch, Calamitas": ModContent.GetInstance<CalamitySystem>().CalamityOnKillSupremeWitchCalamitas(); break;
+                case "Post-Primordial Wyrm": ModContent.GetInstance<CalamitySystem>().CalamityPrimordialWyrmDowned(); break;
+                case "Post-Boss Rush": ModContent.GetInstance<CalamitySystem>().CalamityBossRushDowned(); break;
+                case "Reward: Hermes Boots": GiveItem(ItemID.HermesBoots); break;
+                case "Reward: Magic Mirror": GiveItem(ItemID.MagicMirror); break;
+                case "Reward: Demon Conch": GiveItem(ItemID.DemonConch); break;
+                case "Reward: Magic Conch": GiveItem(ItemID.MagicConch); break;
+                case "Reward: Grappling Hook": GiveItem(ItemID.GrapplingHook); break;
+                case "Reward: Cloud in a Bottle": GiveItem(ItemID.CloudinaBottle); break;
+                case "Reward: Climbing Claws": GiveItem(ItemID.ClimbingClaws); break;
+                case "Reward: Ancient Chisel": GiveItem(ItemID.AncientChisel); break;
+                case "Reward: Fledgling Wings": GiveItem(ItemID.CreativeWings); break;
+                case "Reward: Rod of Discord": GiveItem(ItemID.RodofDiscord); break;
+                case "Reward: Aglet": GiveItem(ItemID.Aglet); break;
+                case "Reward: Anklet of the Wind": GiveItem(ItemID.AnkletoftheWind); break;
+                case "Reward: Ice Skates": GiveItem(ItemID.IceSkates); break;
+                case "Reward: Lava Charm": GiveItem(ItemID.LavaCharm); break;
+                case "Reward: Water Walking Boots": GiveItem(ItemID.WaterWalkingBoots); break;
+                case "Reward: Flipper": GiveItem(ItemID.Flipper); break;
+                case "Reward: Frog Leg": GiveItem(ItemID.FrogLeg); break;
+                case "Reward: Shoe Spikes": GiveItem(ItemID.ShoeSpikes); break;
+                case "Reward: Tabi": GiveItem(ItemID.Tabi); break;
+                case "Reward: Black Belt": GiveItem(ItemID.BlackBelt); break;
+                case "Reward: Flying Carpet": GiveItem(ItemID.FlyingCarpet); break;
+                case "Reward: Moon Charm": GiveItem(ItemID.MoonCharm); break;
+                case "Reward: Neptune's Shell": GiveItem(ItemID.NeptunesShell); break;
+                case "Reward: Compass": GiveItem(ItemID.Compass); break;
+                case "Reward: Depth Meter": GiveItem(ItemID.DepthMeter); break;
+                case "Reward: Radar": GiveItem(ItemID.Radar); break;
+                case "Reward: Tally Counter": GiveItem(ItemID.TallyCounter); break;
+                case "Reward: Lifeform Analyzer": GiveItem(ItemID.LifeformAnalyzer); break;
+                case "Reward: DPS Meter": GiveItem(ItemID.DPSMeter); break;
+                case "Reward: Stopwatch": GiveItem(ItemID.Stopwatch); break;
+                case "Reward: Metal Detector": GiveItem(ItemID.MetalDetector); break;
+                case "Reward: Fisherman's Pocket Guide": GiveItem(ItemID.FishermansGuide); break;
+                case "Reward: Weather Radio": GiveItem(ItemID.WeatherRadio); break;
+                case "Reward: Sextant": GiveItem(ItemID.Sextant); break;
+                case "Reward: Band of Regeneration": GiveItem(ItemID.BandofRegeneration); break;
+                case "Reward: Celestial Magnet": GiveItem(ItemID.CelestialMagnet); break;
+                case "Reward: Nature's Gift": GiveItem(ItemID.NaturesGift); break;
+                case "Reward: Philosopher's Stone": GiveItem(ItemID.PhilosophersStone); break;
+                case "Reward: Cobalt Shield": GiveItem(ItemID.CobaltShield); break;
+                case "Reward: Armor Polish": GiveItem(ItemID.ArmorPolish); break;
+                case "Reward: Vitamins": GiveItem(ItemID.Vitamins); break;
+                case "Reward: Bezoar": GiveItem(ItemID.Bezoar); break;
+                case "Reward: Adhesive Bandage": GiveItem(ItemID.AdhesiveBandage); break;
+                case "Reward: Megaphone": GiveItem(ItemID.Megaphone); break;
+                case "Reward: Nazar": GiveItem(ItemID.Nazar); break;
+                case "Reward: Fast Clock": GiveItem(ItemID.FastClock); break;
+                case "Reward: Trifold Map": GiveItem(ItemID.TrifoldMap); break;
+                case "Reward: Blindfold": GiveItem(ItemID.Blindfold); break;
+                case "Reward: Pocket Mirror": GiveItem(ItemID.PocketMirror); break;
+                case "Reward: Paladin's Shield": GiveItem(ItemID.PaladinsShield); break;
+                case "Reward: Frozen Turtle Shell": GiveItem(ItemID.FrozenTurtleShell); break;
+                case "Reward: Flesh Knuckles": GiveItem(ItemID.FleshKnuckles); break;
+                case "Reward: Putrid Scent": GiveItem(ItemID.PutridScent); break;
+                case "Reward: Feral Claws": GiveItem(ItemID.FeralClaws); break;
+                case "Reward: Cross Necklace": GiveItem(ItemID.CrossNecklace); break;
+                case "Reward: Star Cloak": GiveItem(ItemID.StarCloak); break;
+                case "Reward: Titan Glove": GiveItem(ItemID.TitanGlove); break;
+                case "Reward: Obsidian Rose": GiveItem(ItemID.ObsidianRose); break;
+                case "Reward: Magma Stone": GiveItem(ItemID.MagmaStone); break;
+                case "Reward: Shark Tooth Necklace": GiveItem(ItemID.SharkToothNecklace); break;
+                case "Reward: Magic Quiver": GiveItem(ItemID.MagicQuiver); break;
+                case "Reward: Rifle Scope": GiveItem(ItemID.RifleScope); break;
+                case "Reward: Brick Layer": GiveItem(ItemID.BrickLayer); break;
+                case "Reward: Extendo Grip": GiveItem(ItemID.ExtendoGrip); break;
+                case "Reward: Paint Sprayer": GiveItem(ItemID.PaintSprayer); break;
+                case "Reward: Portable Cement Mixer": GiveItem(ItemID.PortableCementMixer); break;
+                case "Reward: Treasure Magnet": GiveItem(ItemID.TreasureMagnet); break;
+                case "Reward: Step Stool": GiveItem(ItemID.PortableStool); break;
+                case "Reward: Discount Card": GiveItem(ItemID.DiscountCard); break;
+                case "Reward: Gold Ring": GiveItem(ItemID.GoldRing); break;
+                case "Reward: Lucky Coin": GiveItem(ItemID.LuckyCoin); break;
+                case "Reward: High Test Fishing Line": GiveItem(ItemID.HighTestFishingLine); break;
+                case "Reward: Angler Earring": GiveItem(ItemID.AnglerEarring); break;
+                case "Reward: Tackle Box": GiveItem(ItemID.TackleBox); break;
+                case "Reward: Lavaproof Fishing Hook": GiveItem(ItemID.LavaFishingHook); break;
+                case "Reward: Red Counterweight": GiveItem(ItemID.RedCounterweight); break;
+                case "Reward: Yoyo Glove": GiveItem(ItemID.YoYoGlove); break;
+                case "Reward: Coins": GiveCoins(); break;
+                case "Reward: Cosmolight": ModContent.GetInstance<CalamitySystem>().GiveCosmolight(); break;
+                case "Reward: Diving Helmet": GiveItem(ItemID.DivingHelmet); break;
+                case "Reward: Jellyfish Necklace": GiveItem(ItemID.JellyfishNecklace); break;
+                case "Reward: Corrupt Flask": ModContent.GetInstance<CalamitySystem>().GiveCorruptFlask(); break;
+                case "Reward: Crimson Flask": ModContent.GetInstance<CalamitySystem>().GiveCrimsonFlask(); break;
+                case "Reward: Craw Carapace": ModContent.GetInstance<CalamitySystem>().GiveCrawCarapace(); break;
+                case "Reward: Giant Shell": ModContent.GetInstance<CalamitySystem>().GiveGiantShell(); break;
+                case "Reward: Life Jelly": ModContent.GetInstance<CalamitySystem>().GiveLifeJelly(); break;
+                case "Reward: Vital Jelly": ModContent.GetInstance<CalamitySystem>().GiveVitalJelly(); break;
+                case "Reward: Cleansing Jelly": ModContent.GetInstance<CalamitySystem>().GiveCleansingJelly(); break;
+                case "Reward: Giant Tortoise Shell": ModContent.GetInstance<CalamitySystem>().GiveGiantTortoiseShell(); break;
+                case "Reward: Coin of Deceit": ModContent.GetInstance<CalamitySystem>().GiveCoinOfDeceit(); break;
+                case "Reward: Ink Bomb": ModContent.GetInstance<CalamitySystem>().GiveInkBomb(); break;
+                case "Reward: Voltaic Jelly": ModContent.GetInstance<CalamitySystem>().GiveVoltaicJelly(); break;
+                case "Reward: Wulfrum Battery": ModContent.GetInstance<CalamitySystem>().GiveWulfrumBattery(); break;
+                case "Reward: Luxor's Gift": ModContent.GetInstance<CalamitySystem>().GiveLuxorsGift(); break;
+                case "Reward: Raider's Talisman": ModContent.GetInstance<CalamitySystem>().GiveRaidersTalisman(); break;
+                case "Reward: Rotten Dogtooth": ModContent.GetInstance<CalamitySystem>().GiveRottenDogtooth(); break;
+                case "Reward: Scuttler's Jewel": ModContent.GetInstance<CalamitySystem>().GiveScuttlersJewel(); break;
+                case "Reward: Unstable Granite Core": ModContent.GetInstance<CalamitySystem>().GiveUnstableGraniteCore(); break;
+                case "Reward: Amidias' Spark": ModContent.GetInstance<CalamitySystem>().GiveAmidiasSpark(); break;
+                case "Reward: Ursa Sergeant": ModContent.GetInstance<CalamitySystem>().GiveUrsaSergeant(); break;
+                case "Reward: Trinket of Chi": ModContent.GetInstance<CalamitySystem>().GiveTrinketOfChi(); break;
+                case "Reward: The Transformer": ModContent.GetInstance<CalamitySystem>().GiveTheTransformer(); break;
+                case "Reward: Rover Drive": ModContent.GetInstance<CalamitySystem>().GiveRoverDrive(); break;
+                case "Reward: Marnite Repulsion Shield": ModContent.GetInstance<CalamitySystem>().GiveMarniteRepulsionShield(); break;
+                case "Reward: Frost Barrier": ModContent.GetInstance<CalamitySystem>().GiveFrostBarrier(); break;
+                case "Reward: Ancient Fossil": ModContent.GetInstance<CalamitySystem>().GiveAncientFossil(); break;
+                case "Reward: Spelunker's Amulet": ModContent.GetInstance<CalamitySystem>().GiveSpelunkersAmulet(); break;
+                case "Reward: Fungal Symbiote": ModContent.GetInstance<CalamitySystem>().GiveFungalSymbiote(); break;
+                case "Reward: Gladiator's Locket": ModContent.GetInstance<CalamitySystem>().GiveGladiatorsLocket(); break;
+                case "Reward: Wulfrum Acrobatics Pack": ModContent.GetInstance<CalamitySystem>().GiveWulfrumAcrobaticsPack(); break;
+                case "Reward: Depths Charm": ModContent.GetInstance<CalamitySystem>().GiveDepthsCharm(); break;
+                case "Reward: Anechoic Plating": ModContent.GetInstance<CalamitySystem>().GiveAnechoicPlating(); break;
+                case "Reward: Iron Boots": ModContent.GetInstance<CalamitySystem>().GiveIronBoots(); break;
+                case "Reward: Sprit Glyph": ModContent.GetInstance<CalamitySystem>().GiveSpritGlyph(); break;
+                case "Reward: Abyssal Amulet": ModContent.GetInstance<CalamitySystem>().GiveAbyssalAmulet(); break;
+                case "Reward: Life Crystal": GiveItem(ItemID.LifeCrystal); break;
+                case "Reward: Enchanted Sword": GiveItem(ItemID.EnchantedSword); break;
+                case "Reward: Starfury": GiveItem(ItemID.Starfury); break;
+                case "Reward: Defender Medal": GiveItem(ItemID.DefenderMedal); break;
+                case null: break;
+                default: Chat($"Received unknown item: {item}"); break;
+            }
         }
         public override void PostUpdateWorld()
         {
             if (session == null) return;
 
-            if (!GetSession().flagSystem.FlagIsActive(FlagID.Wind))
-            {
-                Main.windSpeedCurrent = Main.windSpeedTarget = 0;
-            }
             if (!session.session.Socket.Connected)
             {
                 Chat("Disconnected from Archipelago. Reload the world to reconnect.");
-                sessionMemory = session;
                 session = null;
                 return;
+            }
+
+            if (world.NPCRandoActive() && !world.receivedNPCs.Contains(NPCID.Guide))
+            {
+                int guideIndex = NPC.FindFirstNPC(NPCID.Guide);
+                if (guideIndex != -1)
+                {
+                    Main.npc[guideIndex].Transform(ModContent.GetInstance<GhostNPC>().Type);
+                    GhostNPC ghost = Main.npc[guideIndex].ModNPC as GhostNPC;
+                    ghost.GhostType = NPCID.Guide;
+                }
             }
 
             var unqueue = new List<int>();
@@ -1498,17 +531,13 @@ namespace SeldomArchipelago.Systems
 
             while (session.session.Items.Any())
             {
-                ItemInfo item = session.session.Items.DequeueItem();
-                var itemName = item.ItemName;
+                var itemName = session.session.Items.DequeueItem().ItemName;
 
-                if (session.currentItem++ < session.collectedItems)
-                {
-                    continue;
-                }
+                if (session.currentItem++ < world.collectedItems) continue;
 
-                session.Collect(itemName);
+                Collect(itemName);
 
-                session.collectedItems++;
+                world.collectedItems++;
             }
 
             if (ModLoader.HasMod("CalamityMod")) ModContent.GetInstance<CalamitySystem>().CalamityPostUpdateWorld();
@@ -1528,15 +557,16 @@ namespace SeldomArchipelago.Systems
 
         public override void SaveWorldData(TagCompound tag)
         {
-            tag["WorldState"] = world;
-            if (!SessionDisparity)
+            tag["ApCollectedItems"] = world.collectedItems;
+            if (session != null)
             {
-                if (session != null) session.SaveSessionToSlot();
-                SessionMemory sess = GetSession(true); //explicit cast so it doesnt try to serialize SessionState
-                tag["SessionMemory"] = sess;
-            } else
+                session.session.DataStorage[Scope.Slot, "CollectedLocations"] = session.collectedLocations.ToArray();
+            }
+            tag["ApReceivedRewards"] = world.receivedRewards;
+            if (world.NPCRandoActive())
             {
-                tag["SessionMemory"] = sessionMemory;
+                tag["ApRandomizedNPCs"] = world.randomizedNPCs.ToList();
+                tag["ApReceivedNPCs"] = world.receivedNPCs.ToList();
             }
         }
 
@@ -1550,41 +580,25 @@ namespace SeldomArchipelago.Systems
 
         public override void OnWorldUnload()
         {
-            session.session.MessageLog.OnMessageReceived -= ChatMessage;
-
             world = new();
-            session = null;
-            sessionMemory = null;
             Reset();
         }
-        public string[] Status()
-        {
-            if (session is not null && sessionMemory is not null
-                && SessionDisparity)
-            {
-                return
-                [
-                    "WARNING: Disparity between current AP connection and world data detected!",
-                    "Please update the mod's config with the correct credentials, or try a different world.",
-                    $"CURRENT CONNECTION: {session.SlotName} in APworld seed {session.SeedName}",
-                    $"WORLD DATA: {sessionMemory.SlotName} in APworld seed {sessionMemory.SeedName}",
-                ];
-            }
-            else if (session is not null) return ["Archipelago is Active!"];
-            else
-            {
-                string[] defaultText = [
-                @"The world is not connected to Archipelago! Reload the world or run ""/apconnect"".",
-                "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
-                "Or in-game at Settings > Mod Configuration",
-                ];
-                if (sessionMemory is null) return defaultText;
-                string[] sessionMemoryText = sessionMemory.HasActiveMemory ? [$"Currently playing in Slot {sessionMemory.SlotName} in APworld seed {sessionMemory.SeedName}"] : [];
-                return defaultText.Concat(sessionMemoryText).ToArray();
-            }
-            
 
-        }
+        public string[] Status() => (session == null) switch
+        {
+            true => new[] {
+                @"The world is not connected to Archipelago! Reload the world to try again.",
+                "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
+            },
+            false => (ModContent.GetInstance<CalamitySystem>()) switch
+            {
+                null => new[] { "Archipelago is active!" },
+                _ => new[] {
+                    "Archipelago is active!",
+                    "Calamity Archipelago detected. If you beat a Calamity boss and it doesn't give you a check, restart your game and beat it again. It is a rare, unsolved bug."
+                }
+            },
+        };
 
         public bool SendCommand(string command)
         {
@@ -1610,17 +624,17 @@ namespace SeldomArchipelago.Systems
             else
             {
                 info.Add("You are in a world");
-                if (GetSession().locationBacklog.Count > 0)
+                if (world.locationBacklog.Count > 0)
                 {
                     info.Add("You have locations in the backlog, which should only be the case if Archipelago is inactive");
-                    info.Add($"Location backlog: [{string.Join("; ", GetSession().locationBacklog)}]");
+                    info.Add($"Location backlog: [{string.Join("; ", world.locationBacklog)}]");
                 }
                 else
                 {
                     info.Add("No locations in the backlog, which is usually normal");
                 }
 
-                info.Add($"You've collected {GetSession().collectedItems} items");
+                info.Add($"You've collected {world.collectedItems} items");
             }
 
             if (session == null)
@@ -1668,7 +682,7 @@ namespace SeldomArchipelago.Systems
                 info.Add($"Collected locations: [{string.Join("; ", session.collectedLocations)}]");
                 info.Add($"Goals: [{string.Join("; ", session.goals)}]");
                 info.Add($"Victory has {(session.victory ? "been achieved! Hooray!" : "not been achieved. Alas.")}");
-                info.Add($"You are Slot {session.Slot}");
+                info.Add($"You are slot {session.slot}");
             }
 
             return info.ToArray();
@@ -1680,12 +694,12 @@ namespace SeldomArchipelago.Systems
             {
                 if (Main.netMode == NetmodeID.Server)
                 {
-                    ChatHelper.BroadcastChatMessage(NetworkText.FromLiteral(message), Microsoft.Xna.Framework.Color.White);
+                    ChatHelper.BroadcastChatMessage(NetworkText.FromLiteral(message), Color.White);
                     Console.WriteLine(message);
                 }
                 else Main.NewText(message);
             }
-            else ChatHelper.SendChatMessageToClient(NetworkText.FromLiteral(message), Microsoft.Xna.Framework.Color.White, player);
+            else ChatHelper.SendChatMessageToClient(NetworkText.FromLiteral(message), Color.White, player);
         }
 
         public void Chat(string[] messages, int player = -1)
@@ -1695,20 +709,18 @@ namespace SeldomArchipelago.Systems
 
         public void QueueLocation(string locationName)
         {
-            var activeSession = GetSession();
-            if (activeSession is null) return;
-            if (session is null)
+            if (session == null)
             {
-                if (!activeSession.locationBacklog.Contains(locationName)) activeSession.locationBacklog.Add(locationName);
+                world.locationBacklog.Add(locationName);
                 return;
             }
 
-            var location = session.session.Locations.GetLocationIdFromName(SeldomArchipelago.gameName, locationName);
+            var location = session.session.Locations.GetLocationIdFromName("Terraria", locationName);
             if (location == -1 || !session.session.Locations.AllMissingLocations.Contains(location)) return;
 
             if (!session.collectedLocations.Contains(locationName))
             {
-                session.locationQueue.Add(session.session.Locations.ScoutLocationsAsync(location));
+                session.locationQueue.Add(session.session.Locations.ScoutLocationsAsync(new[] { location }));
                 session.collectedLocations.Add(locationName);
             }
 
@@ -1728,40 +740,9 @@ namespace SeldomArchipelago.Systems
             packet.Send();
         }
 
-        public void QueueLocationKey(string locType, SimpleItemInfo info = null)
-        {
-            bool locFoundAndRemoved = false;
-            List<SimpleItemInfo> locList = GetSession().locGroupRewardNames[locType];
-            if (locList.Count == 0) return;
-            if (info is null)
-            {
-                string loc = locList[0].locName;
-                locList.RemoveAt(0);
-                QueueLocationClient(loc);
-                Main.NewText($"Queued and removed {loc} under {locType}");
-            } else
-            {
-                for (int i = 0; i < locList.Count; i++)
-                {
-                    if (locList[i] == info)
-                    {
-                        locList.RemoveAt(i);
-                        QueueLocationClient(info.locName);
-                        locFoundAndRemoved = true;
-                        Main.NewText($"Queued and removed {info.locName} under {locType}");
-                        break;
-                    }
-                }
-                if (!locFoundAndRemoved)
-                {
-                    Main.NewText($"NOTICE: Location {info.locName} not found in {locType} list.");
-                }
-            }
-        }
-
         public void Achieved(string achievement)
         {
-            GetWorld().achieved.Add(achievement);
+            world.achieved.Add(achievement);
         }
 
         public List<string> GetAchieved()
@@ -1773,12 +754,12 @@ namespace SeldomArchipelago.Systems
         {
             if (session?.deathlink == null) return;
 
-            var death = new DeathLink(session.session.Players.GetPlayerAlias(session.Slot), message);
+            var death = new DeathLink(session.session.Players.GetPlayerAlias(session.slot), message);
             session.deathlink.SendDeathLink(death);
             ReceiveDeathlink(death);
         }
 
-        public static void ReceiveDeathlink(DeathLink death)
+        public void ReceiveDeathlink(DeathLink death)
         {
             var message = $"[DeathLink] {(death.Source == null ? "" : $"{death.Source} died")}{(death.Source != null && death.Cause != null ? ": " : "")}{(death.Cause == null ? "" : $"{death.Cause}")}";
 
@@ -1794,15 +775,76 @@ namespace SeldomArchipelago.Systems
             packet.Write(message);
             packet.Send();
         }
+        public static void ActivateHardmode()
+        {
+            ArchipelagoSystem.BossFlag(NPCID.WallofFlesh);
+            WorldGen.StartHardmode();
+        }
+        void BossFlag(ref bool flag, int boss)
+        {
+            BossFlag(boss);
+            flag = true;
+        }
+
+        void BossFlag(Action set, int boss)
+        {
+            BossFlag(boss);
+            set();
+        }
 
         static void BossFlag(int boss)
         {
             if (ModLoader.HasMod("CalamityMod")) ModContent.GetInstance<CalamitySystem>().VanillaBossKilled(boss);
         }
 
-        static int[] baseCoins = { 15, 20, 25, 30, 40, 50, 70, 100 };
+        void GiveItem(int? item, Action<Player> giveItem)
+        {
+            if (item != null) world.receivedRewards.Add(item.Value);
 
-        public List<int> ReceivedRewards() => GetSession().receivedRewards;
+            for (var i = 0; i < Main.maxPlayers; i++)
+            {
+                var player = Main.player[i];
+                if (player.active)
+                {
+                    giveItem(player);
+                    if (item != null)
+                    {
+                        if (Main.netMode == NetmodeID.Server)
+                        {
+                            var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
+                            packet.Write("YouGotAnItem");
+                            packet.Write(item.Value);
+                            packet.Send(i);
+                        }
+                        else player.GetModPlayer<ArchipelagoPlayer>().ReceivedReward(item.Value);
+                    }
+                }
+            }
+        }
+
+        void GiveItem(int item) => GiveItem(item, player => player.QuickSpawnItem(player.GetSource_GiftOrReward(), item, 1));
+        public void GiveItem<T>() where T : ModItem => GiveItem(ModContent.ItemType<T>());
+
+        int[] baseCoins = { 15, 20, 25, 30, 40, 50, 70, 100 };
+
+        void GiveCoins()
+        {
+            var flagCount = 0;
+            foreach (var flag in flags) if (CheckFlag(flag)) flagCount++;
+            var count = baseCoins[flagCount % 8] * (int)Math.Pow(10, flagCount / 8);
+
+            var platinum = count / 10000;
+            var gold = count % 10000 / 100;
+            var silver = count % 100;
+            GiveItem(null, player =>
+            {
+                if (platinum > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.PlatinumCoin, platinum);
+                if (gold > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.GoldCoin, gold);
+                if (silver > 0) player.QuickSpawnItem(player.GetSource_GiftOrReward(), ItemID.SilverCoin, silver);
+            });
+        }
+
+        public List<int> ReceivedRewards() => world.receivedRewards;
 
         public override void ModifyHardmodeTasks(List<GenPass> list)
         {

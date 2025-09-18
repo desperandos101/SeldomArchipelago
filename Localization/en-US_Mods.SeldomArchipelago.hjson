@@ -1,26 +1,79 @@
 Configs: {
 	Config: {
+		DisplayName: Config
+
 		Headers: {
+			Common: Common Header
+			Advanced: Advanced Header
+			Miscellaneous: Miscellaneous Header
 		}
 
 		name: {
+			Label: Name
+			Tooltip: ""
 		}
 
 		port: {
+			Label: Port
+			Tooltip: ""
 		}
 
 		address: {
+			Label: Server Address
+			Tooltip: ""
 		}
 
 		password: {
+			Label: Password
+			Tooltip: ""
 		}
 
 		hardmodeAsItem: {
+			Label: Receive Hardmode As Item
+			Tooltip: ""
 		}
+	}
+}
+
+NPCs: {
+	CollectionNPC.DisplayName: Collection N P C
+
+	CheckNPC: {
+		DisplayName: Check N P C
+
+		TownNPCMood: {
+			Content: I am content.
+			NoHome: I hate not having a home.
+			FarFromHome: I am too far from home.
+			LoveSpace: I love having so much space.
+			DislikeCrowded: I dislike how crowded I am.
+			HateCrowded: I hate how crowded I am.
+			LikeNPC_Princess: I like {NPCName}.
+			Princess_LovesNPC: I like {NPCName}.
+		}
+	}
+
+	GhostNPC: {
+		DisplayName: Ghost N P C
+
+		TownNPCMood: {
+			Content: I am content.
+			NoHome: I hate not having a home.
+			FarFromHome: I am too far from home.
+			LoveSpace: I love having so much space.
+			DislikeCrowded: I dislike how crowded I am.
+			HateCrowded: I hate how crowded I am.
+			LikeNPC_Princess: I like {NPCName}.
+			Princess_LovesNPC: I like {NPCName}.
+		}
+
+		Census.SpawnCondition: Conditions unknown
 	}
 }
 
 Items: {
 	HardmodeStarter: {
+		DisplayName: Hardmode Starter
+		Tooltip: ""
 	}
 }
