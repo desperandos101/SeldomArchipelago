@@ -702,7 +702,6 @@ namespace SeldomArchipelagoBeta.Systems
                         if (!handled) Chat($"Received unknown item: {item}");
                         break;
                     }
-
             }
         }
         public override void PostUpdateWorld()
