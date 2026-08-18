@@ -103,7 +103,7 @@ This expands upon the "Hardmode Starter" option in stable by allowing all vanill
 Setting a flag for manual activation means that once you receive the item, you gain the ability to trigger the corresponding item instead of it activating manually.
 ### Notes
 **This option allows you to opt out of receiving flags like Hardmode too early and making early-game difficult. Please make sure to configure it before entering a world.**
-Some good examples of flags to set as manual are Hardmode, Post-Plantera (for the dungeon changes especially) and Post-Moon Lord (which, in , adds incredibly tough enemies to the Hallow and Underworld).
+Some good examples of flags to set as manual are Hardmode, Post-Plantera (for the dungeon changes especially) and Post-Moon Lord (which, in Calamity, adds incredibly tough enemies to the Hallow and Underworld).
 ## Advanced AP Chat Configuration
 Accessible through the client-side mod's config.
 Provides the ability to toggle the color and visibility of AP messages unrelated to your world.
