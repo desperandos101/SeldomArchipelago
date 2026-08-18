@@ -56,24 +56,19 @@ namespace SeldomArchipelagoBeta
         private static readonly (Version Min, Version Max) calVersionRange = (new Version(2, 2, 2), new Version(2, 2, 4));
         private static readonly (Version Min, Version Max) fargoVersionRange = (new Version(1, 7, 3), new Version(1, 7, 3, 9));
         private static readonly (Version Min, Version Max) fargoCalVersionRange = (new Version(1, 2, 0, 27), new Version(1, 2, 0, 28));
-        private static void CheckCompatibility(Mod mod, (Version Min, Version Max) versionRange)
-        {
-            if (mod.Version < versionRange.Min)
-            {
-                throw new Exception($"You are using an older version of {mod.DisplayNameClean}.\nPlease reload with version {versionRange.Item2}.");
-            }
-
-            if (mod.Version > versionRange.Max)
-            {
-                throw new Exception($"You are using a newer version of {mod.DisplayNameClean}.\nThis is probably because the mod recently received an update.\nPlease downpatch to version {versionRange.Item2}.");
-            }
-        }
         private static Mod CheckMod(string modName, (Version Min, Version Max) versionRange)
         {
             if (!ModLoader.HasMod(modName)) return null;
 
             Mod mod = ModLoader.GetMod(modName);
-            CheckCompatibility(mod, versionRange);
+            if (mod.Version < versionRange.Min)
+            {
+                throw new Exception($"You are using an older version of {mod.DisplayNameClean}.\nPlease reload with version {versionRange.Item2}.");
+            }
+            if (mod.Version > versionRange.Max)
+            {
+                throw new Exception($"You are using a newer version of {mod.DisplayNameClean}.\nThis is probably because the mod recently received an update.\nPlease downpatch to version {versionRange.Item2}.");
+            }
             return mod;
         }
 
@@ -952,7 +947,8 @@ namespace SeldomArchipelagoBeta
             if (ModLoader.HasMod("CalamityMod"))
             {
                 var fargoCal = CheckMod("FargowiltasCrossmod", fargoCalVersionRange);
-                if (fargoCal is null) return;
+                if (fargoCal is null)
+                    throw new Exception("You have both Calamity and Fargo's Souls enabled, but Fargo's Souls DLC is missing.\nPlease install it to use the Archipelago mod with both Calamity and Fargo's Souls.");
             }
 
             Dictionary<string, string> defaultFargoOnKillChecks = new()
