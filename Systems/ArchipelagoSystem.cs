@@ -40,7 +40,7 @@ namespace SeldomArchipelagoBeta.Systems
 {
     class ArchipelagoSystem : ModSystem
     {
-        public readonly Version APversion = new Version(0, 6, 100);
+        public readonly Version APversion = new Version(0, 6, 200);
         public const string APWorldName = "Terraria Beta";
         // Data that's reset between worlds
         public class WorldState : TagSerializable
