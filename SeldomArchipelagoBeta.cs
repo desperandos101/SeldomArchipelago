@@ -770,7 +770,7 @@ namespace SeldomArchipelagoBeta
                 {"PlaguebringerGoliath", "The Plaguebringer Goliath"},
                 {"RavagerBody", "Ravager"},
                 {"ProfanedGuardianCommander", "Profaned Guardians"},
-                {"Dragonfolly", "The Dragonfolly"},
+                {"Dragonfolly", "Dragonfolly"},
                 {"Providence", "Providence, the Profaned Goddess"},
                 {"StormWeaverHead", "Storm Weaver"},
                 {"CeaselessVoid", "Ceaseless Void"},

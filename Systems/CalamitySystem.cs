@@ -103,7 +103,7 @@ namespace SeldomArchipelagoBeta.Systems
             "Post-Ravager" => CalamityMod.DownedBossSystem.downedRavager,
             "Post-Astrum Deus" => CalamityMod.DownedBossSystem.downedAstrumDeus,
             "Post-Profaned Guardians" => CalamityMod.DownedBossSystem.downedGuardians,
-            "Post-The Dragonfolly" => CalamityMod.DownedBossSystem.downedDragonfolly,
+            "Post-Dragonfolly" => CalamityMod.DownedBossSystem.downedDragonfolly,
             "Post-Providence, the Profaned Goddess" => CalamityMod.DownedBossSystem.downedProvidence,
             "Post-Storm Weaver" => CalamityMod.DownedBossSystem.downedStormWeaver,
             "Post-Ceaseless Void" => CalamityMod.DownedBossSystem.downedCeaselessVoid,
