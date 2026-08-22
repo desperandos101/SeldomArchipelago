@@ -75,7 +75,7 @@ namespace SeldomArchipelagoBeta
         public override void Load()
         {
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-            if (ModLoader.HasMod("SeldomArchipelago") || ModLoader.HasMod("SeldomArchipelagoExtended") || ModLoader.HasMod("SpikersArchipelago"))
+            if (ModLoader.HasMod("SeldomArchipelago") || ModLoader.HasMod("SeldomArchipelagoExtended") || ModLoader.HasMod("SpikersArchipelago") || ModLoader.HasMod("SeldomDespArchipelago"))
             {
                 throw new Exception("Multiple Archipelago mods detected! Make sure only one is enabled at a time.");
             }
