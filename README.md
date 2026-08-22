@@ -11,11 +11,25 @@ This process is identical to that of most custom games:
 5. Find the resulting `.zip` file in the `output` directory. From there, you can host the game easily on `archipelago.gg`.
 ## Installing the Mod
 The simplest way to install the mod is to subscribe to it [here](https://steamcommunity.com/sharedfiles/filedetails/?id=3676602360).
-Alternatively, you can download the `SeldomDespArchipelago.tmod` file in the corresponding release and place that in C:/Users/**YourPCName**/Documents/My Games/Terraria/tModLoader/Mods.
+Alternatively, you can download the `SeldomDespArchipelago.tmod` file in the corresponding release and downpatch as specified in the instructions below.
 ## Connecting to a Game
-1. Launch tModLoader, navigate to Workshop > Manage Mods, and check to see if Archipelago Randomizer (Desp's Beta) is properly installed.
+1. Launch tModLoader, navigate to Workshop > Manage Mods, and check to see if Archipelago Randomizer (BETA) is properly installed.
 2. Configure the server address, port, slot/player name, password as necessary, and the rest to your liking.
 3. Launch a world (creating a new one is recommended). If the chat displays "Archipelago is Active," you are connected successfully!
+## Downpatching Content Mods
+Sometimes content mods receive updates that impact randomizer logic overnight and are thus no longer compatible with a multiworld. If this happens in the midst of a playthrough, you will need to downpatch.
+### Via modpack
+**Currently recommended.**
+1. Download the modpack attached to the corresponding release and extract the contents to `C:/Users/YourPCName/Documents/My Games/Terraria/tModLoader/Mods/ModPacks`.
+    - You can also manually locate this folder by opening tModLoader, navigating to Workshop > Mod Packs, and clicking 'Open Mod Pack Folder'.
+2. Load tModLoader and navigate to your Mod Packs. Locate the pack you just installed and click 'Import Pack (Local)'.
+3. Navigate to Workshop > Manage Mods to ensure the mods are being loaded from the pack instance. If it has a light blue highlight, that means it worked.
+### Via .tmod file
+1. Unsubscribe from the mod you want to downpatch on the Workshop.
+2. Download the .tmod for the content mod version you need (pins in Archipelago discord's #terraria channel) and place it in `C:/Users/YourPCName/Documents/My Games/Terraria/tModLoader/Mods`.
+    - You can also manually locate this folder by opening tModLoader, navigating to Workshop > Manage Mods, and clicking 'Open Mods Folder'. *This will open two folders; ignore the one that shows a bunch of numbered folders.*
+3. Load tModLoader. If you are prompted to redownload lost mods or reinstall dependencies, click 'Continue Anyway.'
+4. Navigate to Workshop > Manage Mods to ensure the mods are being loaded locally. If it has a purple highlight, that means it worked.
 
 # About This Fork
 
@@ -27,21 +41,61 @@ If you're unclear about what Archipelago is, check out that page's README.
 ## Currently Implemented
 For in-depth information on what each feature does, scroll down to the **Feature Explanation** section.
 ### Major Features
-- Compatibility with Calamity 2.2.2 (Hog Wild update)
-- Compatibility with Fargo Souls 1.7.3.9
-- NPC randomization (Vanilla Town NPCs only, no pets, **GFB compatibility untested!**)
+- Compatibility with latest version of Calamity (2.2.4)
+- Compatibility with latest version of Fargo Souls (1.7.3.9)
+  - Includes new Fargo-themed goals
+- NPC randomization (Vanilla Town NPCs only, no pets)
 - Wall of Flesh + Princess goals
   - Additional configuration for randomizing checks after the set goal
 - Additional achievement classifications
 - Shimmer logic toggle
 - Health logic
+- Spoiler log compression
 - Advanced configuration for manual flag activation (building off of Hardmode Starter)
 - Advanced configuration for AP chat
 ### Minor Features
 - Fixed early activation of "Begone, Evil!"
 - Mute achievements on world load
-
 # Feature Explanation
+## Content Mod Integration
+You can choose to enable certain community-made content mods in your `.yaml` prior to generating a multiworld.
+Currently supported are:
+- Calamity
+- Fargo's Souls
+### Calamity
+This integration is mostly identical to core:
+- Randomizes Calamity boss/event flags
+- Adds Calamity items and accessories to the reward pool
+- Features several goals:
+  - Calamitas Clone
+  - Astrum Deus
+  - Providence
+  - Devourer of Gods
+  - Yharon
+  - Final Bosses (Supreme Calamitas, Exo Mechs)
+  - Boss Rush
+In addition to these, **Health Logic** has been added as an option in the `.yaml` (see below).
+#### Workshop Link
+https://steamcommunity.com/sharedfiles/filedetails/?id=2824688072
+### Fargo's Souls
+- Randomizes Fargo boss/event flags
+- Adds Fargo items and accessories to the reward pool
+- Features several goals:
+  - Eridanus
+  - Abominationn
+  - Mutant
+  - Soul of Eternity
+  - Deviant
+    - NOTICE: This goal is achievable early and intended only for use in very short syncs.
+
+Incompatible with the getfixedboi option.
+#### Workshop Link
+https://steamcommunity.com/sharedfiles/filedetails/?id=2815540735
+### Calamity + Fargo
+Both the Calamity and Fargo implementation can be enabled simultaneously.
+This requires usage of the Calamity - Fargo's Soul DLC.
+#### Workshop Link
+https://steamcommunity.com/sharedfiles/filedetails/?id=3044249615
 ## NPC Randomization
 NPC Randomization is a setting you can enable in your `.yaml` prior to generating a multiworld.
 If enabled: 
@@ -57,6 +111,8 @@ The Bound Tinkerer will appear after receiving Post-Goblin Army, *not* after def
 A real NPC will only move in if the corresponding item is received (you need the "Merchant" item for the Merchant to move in, etc.)
 
 Both the real Truffle and the ghost Truffle will only spawn in a glowing mushroom field.
+
+Incompatible with the getfixedboi option.
 ## New goals
 These are additional goals you can enable in your `.yaml` prior to generating a multiworld.
 - Wall of Flesh
@@ -67,6 +123,8 @@ Note that this is intended for use with NPC randomization. It is strongly recomm
 ### Princess
 Victory is earned once the requirements for the Princess is met (all Vanilla town NPCs move in besides Santa Claus & Town Pets).
 This goal randomizes everything up to and including Plantera. While created with NPC Randomization in mind, it is also perfectly playable otherwise.
+
+Incompatible with the getfixedboi option.
 ## "Shuffle To" Configuration
 This option is present in your `.yaml` and allows you to shuffle checks *past* your set goal.
 For example, setting it to 'Moon Lord' will randomize all checks up to Moon Lord, even if an earlier boss is chosen for the goal.
@@ -97,6 +155,8 @@ The randomizer considers a maximum health requirement for each boss, requiring a
 - All amounts are based off [the walkthrough from the official Calamity wiki](https://calamitymod.wiki.gg/wiki/Guide:Mod_progression).
 - Currently, each boss's health requirement cannot be fine-tuned. However, there is an additional handicap setting that allows you to decrease how many different types of max HP upgrades are needed for each boss.
   - For example, with Calamity enabled, setting the handicap to -2 would remove both the Sanguine Tangerine and Life Fruit requirement for Plantera, while Yharon would only require Life Crystals, Fruits, and one Calamity health upgrade (chosen between Sanguine Tangerine, Miracle Fruit, or Tainted Cloudberry)
+## Spoiler log compression
+The YAML option 'Compressed Playthrough', when enabled, hides events from the multiworld spoiler log's playthrough.
 ## Advanced Manual Flag Configuration
 Accessible through the client-side mod's config.
 This expands upon the "Hardmode Starter" option in stable by allowing all vanilla & Calamity flags to be set for manual activation.
@@ -107,6 +167,26 @@ Some good examples of flags to set as manual are Hardmode, Post-Plantera (for th
 ## Advanced AP Chat Configuration
 Accessible through the client-side mod's config.
 Provides the ability to toggle the color and visibility of AP messages unrelated to your world.
+# Credits
+## Seldom
+- Original mod creator, responsible for base compatibility + all features not mentioned
+## Desperandos
+- Calamity compatibility (2.2.0 - Present)
+- NPC Randomization
+- WoF + Princess goals
+- 'Shuffle Up To' config
+- Achievement classifications
+- Shimmer + Health logic
+- Manual Flag configuration
+- AP Chat configuration
+## @zuils
+- Fargo's Souls integration
+- Cross-mod compatibility with Calamity and Fargo's
+- Enhanced compatibility with UT
+## @Crackminer
+- Calamity compatibility (2.1.2)
+## @GMFelixfex
+- Major bugfix for NPC Randomization
 # License
 
 Archipelago Terraria Client is licensed under MIT. The purple and white Archipelago logo was created by this repo's owner (Desperandos). The icon and collection button image used by this
