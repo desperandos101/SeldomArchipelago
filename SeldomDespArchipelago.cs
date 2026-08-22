@@ -6,10 +6,10 @@ using Microsoft.CodeAnalysis.Operations;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using SeldomArchipelagoBeta.NPCs;
-using SeldomArchipelagoBeta.Players;
-using SeldomArchipelagoBeta.Systems;
-using SeldomArchipelagoBeta.UI;
+using SeldomDespArchipelago.NPCs;
+using SeldomDespArchipelago.Players;
+using SeldomDespArchipelago.Systems;
+using SeldomDespArchipelago.UI;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -29,7 +29,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 
 // Note: When pulling commits from here to main, this namespace needs to be refactored.
-namespace SeldomArchipelagoBeta
+namespace SeldomDespArchipelago
 {
     // TODO Use a data-oriented approach to get rid of all this repetition
 
@@ -75,7 +75,7 @@ namespace SeldomArchipelagoBeta
         public override void Load()
         {
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-            if (ModLoader.HasMod("SeldomArchipelago") || ModLoader.HasMod("SeldomArchipelagoExtended") || ModLoader.HasMod("SpikersArchipelago") || ModLoader.HasMod("SeldomDespArchipelago"))
+            if (ModLoader.HasMod("SeldomArchipelago") || ModLoader.HasMod("SeldomArchipelagoExtended") || ModLoader.HasMod("SpikersArchipelago"))
             {
                 throw new Exception("Multiple Archipelago mods detected! Make sure only one is enabled at a time.");
             }

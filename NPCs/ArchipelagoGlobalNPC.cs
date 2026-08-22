@@ -1,9 +1,9 @@
-using SeldomArchipelagoBeta.Systems;
+using SeldomDespArchipelago.Systems;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace SeldomArchipelagoBeta.NPCs
+namespace SeldomDespArchipelago.NPCs
 {
     public class ArchipelagoGlobalNPC : GlobalNPC
     {

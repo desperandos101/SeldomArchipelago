@@ -31,7 +31,7 @@ using FargowiltasSouls.Content.Patreon.Potato;
 using FargowiltasSouls.Content.Items.Accessories.Souls;
 
 
-namespace SeldomArchipelagoBeta.Systems
+namespace SeldomDespArchipelago.Systems
 {
     // Direct usage of Fargo must happen in here, else the mod won't compile without Fargo Souls
     [ExtendsFromMod("FargowiltasSouls")]

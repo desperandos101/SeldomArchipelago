@@ -1,7 +1,7 @@
-using SeldomArchipelagoBeta.Systems;
+using SeldomDespArchipelago.Systems;
 using Terraria.ModLoader;
 
-namespace SeldomArchipelagoBeta.Command
+namespace SeldomDespArchipelago.Command
 {
     public class ApConnectCommand : ModCommand
     {

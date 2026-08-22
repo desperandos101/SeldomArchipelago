@@ -3,7 +3,7 @@ using Terraria.GameContent.Achievements;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace SeldomArchipelagoBeta.Tiles
+namespace SeldomDespArchipelago.Tiles
 {
     public class ArchipelagoGlobalTile : GlobalTile
     {
