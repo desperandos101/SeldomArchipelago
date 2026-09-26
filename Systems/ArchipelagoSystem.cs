@@ -1028,7 +1028,7 @@ namespace SeldomDespArchipelago.Systems
             ReceiveDeathlink(death);
         }
 
-        public void ReceiveDeathlink(DeathLink death)
+        public static void ReceiveDeathlink(DeathLink death)
         {
             var message = $"[DeathLink] {(death.Source == null ? "" : $"{death.Source} died")}{(death.Source != null && death.Cause != null ? ": " : "")}{(death.Cause == null ? "" : $"{death.Cause}")}";
 
