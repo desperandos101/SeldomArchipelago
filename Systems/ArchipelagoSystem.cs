@@ -23,6 +23,7 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.Social;
 using Terraria.WorldBuilding;
+using Terraria.UI.Chat;
 using SeldomDespArchipelago.FlagItem;
 using System.Linq;
 using SeldomDespArchipelago.NPCs;
@@ -35,6 +36,7 @@ using Terraria.ModLoader.Config;
 using System.Text;
 using Archipelago.MultiClient.Net.Helpers;
 using System.Data;
+using Microsoft.Build.Tasks;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -170,6 +172,24 @@ namespace SeldomDespArchipelago.Systems
         [
             NPCID.Truffle
         ];
+        static string myMessage = "Idle";
+        public override void Load()
+        {
+            // Draw Test Method
+            On_Main.DoDraw += (On_Main.orig_DoDraw orig, Main m, GameTime gt) =>
+            {
+                orig(m, gt);
+                Main.spriteBatch.Begin();
+                ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, myMessage, Vector2.Zero, Color.Wheat, 0, Vector2.Zero, new Vector2(1, 3));
+                Main.spriteBatch.End();
+            };
+        }
+        void Subscribe()
+        {
+            if (session is null) return;
+            session.session.MessageLog.OnMessageReceived += ApMessageToChat;
+            session.deathlink?.OnDeathLinkReceived += ReceiveDeathlink;
+        }
 
         public override void OnWorldLoad()
         {
@@ -211,6 +231,7 @@ namespace SeldomDespArchipelago.Systems
 
             var success = (LoginSuccessful)result;
 
+            #region Validate
             bool versionSlotData = success.SlotData.TryGetValue("version", out var versionObj);
             bool newerVersion = false;
             if (versionSlotData)
@@ -225,6 +246,7 @@ namespace SeldomDespArchipelago.Systems
                 Reset();
                 return;
             }
+            #endregion
 
             session.goals = new List<string>(((JArray)success.SlotData["goal"]).ToObject<string[]>());
 
