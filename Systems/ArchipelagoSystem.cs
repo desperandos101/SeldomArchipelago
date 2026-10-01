@@ -37,6 +37,7 @@ using System.Text;
 using Archipelago.MultiClient.Net.Helpers;
 using System.Data;
 using Microsoft.Build.Tasks;
+using log4net.Repository.Hierarchy;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -48,14 +49,11 @@ namespace SeldomDespArchipelago.Systems
         public class WorldState : TagSerializable
         {
             public static readonly Func<TagCompound, WorldState> DESERIALIZER = LoadFromTagCompound;
-            // The slot & multiworld seed the world initialized under.
-            // We keep a copy here and in SessionState to prevent unwanted cross-pollination between different saves.
-            public string slotName = null;
-            public string seed = null;
             // Achievements can be completed while loading into the world, but those complete before
             // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
             // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
             // `ArchipelagoPlayer` knows not to clear them.
+            public SlotData slotData = null;
             public List<string> achieved = new List<string>();
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
@@ -69,68 +67,132 @@ namespace SeldomDespArchipelago.Systems
             public List<int> receivedRewards = new List<int>();
             // List of flags that have been received but not triggered
             public HashSet<string> suspendedFlags = new HashSet<string>();
-            // All NPCs that have been randomized.
-            public ImmutableHashSet<int> randomizedNPCs = null;
-            // Set of town NPC items received in this world. Since this is saved to the world and
-            // modded NPC IDs are not stable, the type will need to change if Calamity NPC support
-            // is added.
-            public HashSet<int> receivedNPCs = new();
             // Contains all ghosts that are available to spawn.
             public Queue<int> ghostNPCqueue = new();
-            // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
-            // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
-            public Dictionary<int, int> npcLocTypeToNpcItemType = null;
-
-            public bool NPCRandoActive() => !ModContent.GetInstance<Config.Config>().forceOffNPC && randomizedNPCs is not null;
             public TagCompound SerializeData()
             {
                 var tag = new TagCompound
                 {
-                    [nameof(slotName)] = slotName,
-                    [nameof(seed)] = seed,
+                    [nameof(slotData)] = slotData,
                     [nameof(locationBacklog)] = locationBacklog,
                     [nameof(collectedItems)] = collectedItems,
                     [nameof(receivedRewards)] = receivedRewards,
                     [nameof(suspendedFlags)] = suspendedFlags.ToList(),
                 };
-                if (NPCRandoActive())
-                {
-                    tag[nameof(randomizedNPCs)] = randomizedNPCs.ToList();
-                    tag[nameof(receivedNPCs)] = receivedNPCs.ToList();
-                    tag[nameof(npcLocTypeToNpcItemType) + "Keys"] = npcLocTypeToNpcItemType.Keys.ToList();
-                    tag[nameof(npcLocTypeToNpcItemType) + "Values"] = npcLocTypeToNpcItemType.Values.ToList();
-                }
                 return tag;
             }
             public static WorldState LoadFromTagCompound(TagCompound tag)
             {
                 var world = new WorldState();
-                world.slotName = tag.GetString(nameof(slotName));
-                world.seed = tag.GetString(nameof(seed));
+                world.slotData = tag.Get<SlotData>(nameof(slotData));
                 world.locationBacklog = tag.Get<List<string>>(nameof(locationBacklog));
                 world.collectedItems = tag.GetInt(nameof(collectedItems));
                 world.receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
                 world.suspendedFlags = tag.Get<List<string>>(nameof(suspendedFlags)).ToHashSet();
-                if (tag.TryGet(nameof(randomizedNPCs), out List<int> ranNPC))
-                {
-                    world.randomizedNPCs = ranNPC.ToImmutableHashSet();
-                    world.receivedNPCs = tag.Get<List<int>>(nameof(receivedNPCs)).ToHashSet();
-                    var npcKeys = tag.Get<List<int>>(nameof(npcLocTypeToNpcItemType) + "Keys");
-                    var npcValues = tag.Get<List<int>>(nameof(npcLocTypeToNpcItemType) + "Values");
-                    world.npcLocTypeToNpcItemType = npcKeys.Zip(npcValues, (k, v) => new { Key = k, Value = v }).ToDictionary(x => x.Key, x => x.Value);
-                }
                 return world;
             }
         }
+        // Slot data
+        public class SlotData : TagSerializable
+        {
+            public int Slot {get; init; }
+            public string SlotName {get; init; }
+            public string Seed {get; init; }
+            public ImmutableArray<string> Goals {get; init; }
+            public bool NpcRando {get; init; }
+            // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
+            // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
+            public ImmutableDictionary<int, int> ItemsByNPC {get; init; }
+            public bool Calamity {get; init; }
+            public bool Fargo {get; init; }
+            public SlotData() {}
+            public SlotData(ArchipelagoSession session, LoginSuccessful login)
+            {
+                Slot = login.Slot;
+                SlotName = session.Players.GetPlayerName(Slot);
+                Seed = session.RoomState.Seed;
+                Goals = ((JArray)login.SlotData["goal"]).ToObject<string[]>().ToImmutableArray();
+                bool isEnabled(string key) => (long)login.SlotData[key] == 1;
+                NpcRando = isEnabled("npc_rando");
+                Calamity = isEnabled("calamity");
+                Fargo = isEnabled("fargo");
 
+                var itemsByNPC = new Dictionary<int, int>();
+                if (NpcRando)
+                {
+                    string[] randomizedNPCnames = ((JArray)login.SlotData["randomize_npcs"]).ToObject<string[]>();
+                    int[] randomizedNPCs = (from name in randomizedNPCnames select npcNameToID[name]).ToArray();
+                    string[] allNPCnames = npcNameToID.Keys.ToArray();
+
+                    var locNamesByID = new Dictionary<long, string>();
+                    foreach (string loc in allNPCnames)
+                    {
+                        locNamesByID[session.Locations.GetLocationIdFromName(APWorldName, loc)] = loc;
+                    }
+                    if (locNamesByID.ContainsKey(-1))
+                    {
+                        throw new Exception($"Some retrieved NPC locations turned up -1 ids.");
+                    }
+                    var task = session.Locations.ScoutLocationsAsync(locNamesByID.Keys.ToArray());
+                    if (task.Wait(1000))
+                    {
+                        var locByID = task.Result;
+                        foreach (long key in locByID.Keys)
+                        {
+                            var itemInfo = locByID[key];
+                            if (itemInfo.Player.Slot == Slot && allNPCnames.Contains(itemInfo.ItemName))
+                            {
+                                int npcType = npcNameToID[locNamesByID[key]];
+                                itemsByNPC[npcType] = npcNameToID[itemInfo.ItemName];
+                            }
+                        }
+                    }
+                    else  // TODO: Have better backup plan
+                    {
+                        ModContent.GetInstance<ArchipelagoSystem>().Mod.Logger.Info("Failed to properly initialize " + nameof(ItemsByNPC));
+                    }
+                }
+                ItemsByNPC = itemsByNPC.ToImmutableDictionary();
+            }
+            public TagCompound SerializeData()
+            {
+                return new TagCompound
+                {
+                    [nameof(Slot)] = Slot,
+                    [nameof(SlotName)] = SlotName,
+                    [nameof(Seed)] = Seed,
+                    [nameof(Goals)] = Goals.ToList(),
+                    [nameof(NpcRando)] = NpcRando,
+                    [nameof(ItemsByNPC)+"Keys"] = ItemsByNPC.Keys.ToList(),
+                    [nameof(ItemsByNPC)+"Values"] = ItemsByNPC.Values.ToList(),
+                    [nameof(Calamity)] = Calamity,
+                    [nameof(Fargo)] = Fargo,
+                };
+            }
+            public static readonly Func<TagCompound, SlotData> DESERIALIZER = (tag) =>
+            {
+                // Outside constructor for slightly enhanced readability
+                var npcs = tag.Get<List<int>>(nameof(ItemsByNPC)+"Keys");
+                var items = tag.Get<List<int>>(nameof(ItemsByNPC)+"Values");
+                return new SlotData()
+                {
+                    Slot = tag.GetInt(nameof(Slot)),
+                    SlotName = tag.GetString(nameof(SlotName)),
+                    Seed = tag.GetString(nameof(Seed)),
+                    Goals = tag.GetList<string>(nameof(Goals)).ToImmutableArray(),
+                    NpcRando = tag.GetBool(nameof(NpcRando)),
+                    ItemsByNPC = npcs.Zip(items, (k, v) => new { Key = k, Value = v}).ToImmutableDictionary(x => x.Key, x => x.Value),
+                    Calamity = tag.GetBool(nameof(Calamity)),
+                    Fargo = tag.GetBool(nameof(Fargo)),
+                };
+            };
+        }
         // Data that's reset between Archipelago sessions
         public class SessionState
         {
             // The slot & multiworld seed of the currently connected session.
             public string slotName = null;
             public string seed = null;
-            public bool calamity = false;
-            public bool fargo = false;
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -140,10 +202,8 @@ namespace SeldomDespArchipelago.Systems
             // instead of collecting them. This is needed bc AP just gives us a list of items that
             // we have, and it's up to us to keep track of which ones we've already applied.
             public int currentItem;
-            public List<string> goals = new List<string>();
 
             public bool victory;
-            public int slot;
         }
 
         public WorldState world = new();
@@ -184,19 +244,14 @@ namespace SeldomDespArchipelago.Systems
                 Main.spriteBatch.End();
             };
         }
-        void Subscribe()
-        {
-            if (session is null) return;
-            session.session.MessageLog.OnMessageReceived += ApMessageToChat;
-            session.deathlink?.OnDeathLinkReceived += ReceiveDeathlink;
-        }
-
         public override void OnWorldLoad()
         {
             // Needed for achievements to work right
             typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
-
-            if (Main.netMode == NetmodeID.MultiplayerClient) return;
+        }
+        public bool ConnectSession()
+        {
+            if (Main.netMode == NetmodeID.MultiplayerClient) return false;
 
             var config = ModContent.GetInstance<Config.Config>();
 
@@ -218,12 +273,12 @@ namespace SeldomDespArchipelago.Systems
                         ConnectionRefusedError.InvalidPassword => ConnectStatus.WrongPass,
                         _ => ConnectStatus.Unset,
                     };
-                    return;
+                    return false;
                 }
             }
             catch
             {
-                return;
+                return false;
             }
 
             session = new();
@@ -244,11 +299,9 @@ namespace SeldomDespArchipelago.Systems
             {
                 status = ConnectStatus.ClientNewer;
                 Reset();
-                return;
+                return false;
             }
             #endregion
-
-            session.goals = new List<string>(((JArray)success.SlotData["goal"]).ToObject<string[]>());
 
             session.session.MessageLog.OnMessageReceived += ApMessageToChat;
 
@@ -259,54 +312,12 @@ namespace SeldomDespArchipelago.Systems
 
                 session.deathlink.OnDeathLinkReceived += ReceiveDeathlink;
             }
-
-            session.calamity = (long)success.SlotData["calamity"] == 1;
-            session.fargo = (long)success.SlotData["fargo"] == 1;
-
-            bool randomizedNPCs = (long)success.SlotData["npc_rando"] == 1;
-            string[] randomizedNPCnames = ((JArray)success.SlotData["randomize_npcs"]).ToObject<string[]>();
-            if (randomizedNPCs)
-            {
-                world.randomizedNPCs = (from name in randomizedNPCnames select npcNameToID[name]).ToImmutableHashSet();
-                string[] allNPCnames = npcNameToID.Keys.ToArray();
-                var locIDtoNPCname = new Dictionary<long, string>();
-                foreach (string loc in allNPCnames)
-                {
-                    locIDtoNPCname[session.session.Locations.GetLocationIdFromName(APWorldName, loc)] = loc;
-                }
-                if (locIDtoNPCname.ContainsKey(-1))
-                {
-                    throw new Exception($"Some retrieved NPC locations turned up -1 ids.");
-                }
-                var task = session.session.Locations.ScoutLocationsAsync(locIDtoNPCname.Keys.ToArray());
-                if (task.Wait(1000))
-                {
-                    world.npcLocTypeToNpcItemType = new();
-                    int playerID = success.Slot;
-                    var npcLocDict = task.Result;
-                    foreach (long key in npcLocDict.Keys)
-                    {
-                        ItemInfo itemInfo = npcLocDict[key];
-                        if (itemInfo.Player.Slot == playerID && allNPCnames.Contains(itemInfo.ItemName))
-                        {
-                            int npcType = npcNameToID[locIDtoNPCname[key]];
-                            world.npcLocTypeToNpcItemType[npcType] = npcNameToID[itemInfo.ItemName];
-                        }
-                    }
-                }
-
-            }
-
-            session.slot = success.Slot;
-            string theSlotName = session.session.Players.GetPlayerName(session.slot);
-            string theSeed = session.session.RoomState.Seed;
-            session.slotName = theSlotName;
-            world.slotName = theSlotName;
-            session.seed = theSeed;
-            world.seed = theSeed;
-
+            /* CLEARING BACKLOG
             foreach (var location in world.locationBacklog) QueueLocation(location);
             world.locationBacklog.Clear();
+            */
+
+            return true;
         }
         public override void LoadWorldData(TagCompound tag)
         {
@@ -317,7 +328,8 @@ namespace SeldomDespArchipelago.Systems
         }
         public override void PostWorldLoad()
         {
-            if (session is null) return;
+            bool sessCreated = ConnectSession();
+            if (!sessCreated) return;
             if (session.slotName != world.slotName || session.seed != world.seed)
             {
                 status = ConnectStatus.SlotOrSeedMismatch;
