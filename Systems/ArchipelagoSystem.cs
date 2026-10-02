@@ -39,6 +39,7 @@ using System.Data;
 using Microsoft.Build.Tasks;
 using log4net.Repository.Hierarchy;
 using Mono.Cecil.Cil;
+using Terraria.IO;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -97,7 +98,7 @@ namespace SeldomDespArchipelago.Systems
         public class SlotData : TagSerializable
         {
             public int Slot {get; init; }
-            public string SlotName {get; init; }
+            public string Name {get; init; }
             public string Seed {get; init; }
             public ImmutableArray<string> Goals {get; init; }
             public bool NpcRando {get; init; }
@@ -110,7 +111,7 @@ namespace SeldomDespArchipelago.Systems
             public SlotData(ArchipelagoSession session, LoginSuccessful login)
             {
                 Slot = login.Slot;
-                SlotName = session.Players.GetPlayerName(Slot);
+                Name = session.Players.GetPlayerName(Slot);
                 Seed = session.RoomState.Seed;
                 Goals = ((JArray)login.SlotData["goal"]).ToObject<string[]>().ToImmutableArray();
                 bool isEnabled(string key) => (long)login.SlotData[key] == 1;
@@ -160,7 +161,7 @@ namespace SeldomDespArchipelago.Systems
                 return new TagCompound
                 {
                     [nameof(Slot)] = Slot,
-                    [nameof(SlotName)] = SlotName,
+                    [nameof(Name)] = Name,
                     [nameof(Seed)] = Seed,
                     [nameof(Goals)] = Goals.ToList(),
                     [nameof(NpcRando)] = NpcRando,
@@ -178,7 +179,7 @@ namespace SeldomDespArchipelago.Systems
                 return new SlotData()
                 {
                     Slot = tag.GetInt(nameof(Slot)),
-                    SlotName = tag.GetString(nameof(SlotName)),
+                    Name = tag.GetString(nameof(Name)),
                     Seed = tag.GetString(nameof(Seed)),
                     Goals = tag.GetList<string>(nameof(Goals)).ToImmutableArray(),
                     NpcRando = tag.GetBool(nameof(NpcRando)),
@@ -189,9 +190,8 @@ namespace SeldomDespArchipelago.Systems
             };
             public override bool Equals(object obj)
             {
-                var otherSlot = obj as SlotData;
-                if (otherSlot is null) return false;
-                return (SlotName == otherSlot.SlotName && Seed == otherSlot.Seed);
+                if (obj is not SlotData otherSlot) return false;
+                return Name == otherSlot.Name && Seed == otherSlot.Seed;
             }
         }
         // Data that's reset between Archipelago sessions
@@ -212,7 +212,7 @@ namespace SeldomDespArchipelago.Systems
         }
 
         public WorldState world = new();
-        public SessionState session2;
+        public SessionState session;
         public ConnectStatus status = ConnectStatus.Unset;
         public enum ConnectStatus
         {
@@ -223,6 +223,10 @@ namespace SeldomDespArchipelago.Systems
             WrongGame,
             ClientOlder,
             ClientNewer,
+            CalamityNeeded,
+            NoCalamityNeeded,
+            FargoNeeded,
+            NoFargoNeeded
         }
         // Keeps track of the last APworld version the game tried to connect to for player convenience
         public int[] desiredAPversion = null;
@@ -244,17 +248,10 @@ namespace SeldomDespArchipelago.Systems
                 Main.spriteBatch.End();
             };
         }
-        public override void OnWorldLoad()
-        {
-            // Needed for achievements to work right
-            typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
-        }
-        // 
         public SessionState ConnectSession(out ConnectStatus status)
         {
-            if (Main.netMode == NetmodeID.MultiplayerClient) {
-                status = ConnectStatus.Unset;
-            }
+            status = ConnectStatus.Unset;
+            if (Main.netMode == NetmodeID.MultiplayerClient) return null;
 
             var config = ModContent.GetInstance<Config.Config>();
 
@@ -284,10 +281,13 @@ namespace SeldomDespArchipelago.Systems
                 return null;
             }
 
-            SessionState sess = new();
-            session.session = newSession;
+            SessionState sess = new()
+            {
+                session = newSession
+            };
 
             var success = (LoginSuccessful)result;
+            sess.slotData = new SlotData(sess.session, success);
 
             #region Validate
             bool versionSlotData = success.SlotData.TryGetValue("version", out var versionObj);
@@ -302,68 +302,85 @@ namespace SeldomDespArchipelago.Systems
             {
                 status = ConnectStatus.ClientNewer;
                 Reset();
-                return false;
+                return null;
             }
+
+            bool calamityActive = ModLoader.HasMod("CalamityMod");
+            if (calamityActive != session.slotData.Calamity)
+            {
+                if (calamityActive) status = ConnectStatus.NoCalamityNeeded;
+                else status = ConnectStatus.CalamityNeeded;
+                return null;
+            }
+            bool fargoActive = ModLoader.HasMod("FargowiltasSouls");
+            if (fargoActive != session.slotData.Fargo)
+            {
+                if (fargoActive) status = ConnectStatus.NoFargoNeeded;
+                else status = ConnectStatus.FargoNeeded;
+                return null;
+            }
+
             #endregion
 
+            status = ConnectStatus.Valid;
             // subscribe methods should be applied on world load instead
-            session.session.MessageLog.OnMessageReceived += ApMessageToChat;
+            sess.session.MessageLog.OnMessageReceived += ApMessageToChat;
 
             if ((bool)success.SlotData["deathlink"])
             {
-                session.deathlink = session.session.CreateDeathLinkService();
-                session.deathlink.EnableDeathLink();
+                sess.deathlink = sess.session.CreateDeathLinkService();
+                sess.deathlink.EnableDeathLink();
 
-                session.deathlink.OnDeathLinkReceived += ReceiveDeathlink;
+                sess.deathlink.OnDeathLinkReceived += ReceiveDeathlink;
             }
-            /* CLEARING BACKLOG
-            foreach (var location in world.locationBacklog) QueueLocation(location);
-            world.locationBacklog.Clear();
-            */
 
-            return se;
+            return sess;
+        }
+        public override bool CanWorldBePlayed(PlayerFileData _, WorldFileData worldData)
+        {
+            if (session is null) return true;
+            bool header = worldData.TryGetHeaderData(this, out TagCompound tag);
+            if (!header) return true;
+            string name = tag.GetString("Name");
+            string seed = tag.GetString("Seed");
+            return session.slotData.Name == name && session.slotData.Seed == seed;
+        }
+        public override string WorldCanBePlayedRejectionMessage(PlayerFileData playerData, WorldFileData worldData)
+        {
+            bool header = worldData.TryGetHeaderData(this, out TagCompound tag);
+            if (!header) return "Unknown error. Please contact the developer if you see this.";
+            string name = tag.GetString("Name");
+            string seed = tag.GetString("Seed");
+            return $"This world has save data for a different multiworld/slot.\nNAME: {name}\nSEED: {seed}";
+        }
+        public override void OnWorldLoad()
+        {
+            // Needed for achievements to work right
+            typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
         }
         public override void LoadWorldData(TagCompound tag)
         {
-            if (tag.TryGet<WorldState>("ApWorldData", out var worldData) && worldData.seed != "")  // Empty worldstates get saved to new worlds, so we check for that
+            if (tag.TryGet<WorldState>("ApWorldData", out var worldData) && worldData.slotData.Seed != "")  // Empty worldstates get saved to new worlds, so we check for that
             {
                 world = worldData;
             }
         }
         public override void PostWorldLoad()
         {
-            bool sessCreated = ConnectSession();
-            if (!sessCreated) return;
-            if (session.slotName != world.slotName || session.seed != world.seed)
-            {
-                status = ConnectStatus.SlotOrSeedMismatch;
-                Reset();
-                return;
-            }
-            bool calamityActive = ModLoader.HasMod("CalamityMod");
-            if (calamityActive != session.calamity)
-            {
-                if (calamityActive) status = ConnectStatus.NoCalamityNeeded;
-                else status = ConnectStatus.CalamityNeeded;
-                Reset();
-                return;
-            }
-            bool fargoActive = ModLoader.HasMod("FargowiltasSouls");
-            if (fargoActive != session.fargo)
-            {
-                if (fargoActive) status = ConnectStatus.NoFargoNeeded;
-                else status = ConnectStatus.FargoNeeded;
-                Reset();
-                return;
-            }
-            status = ConnectStatus.Valid;
+            var session = ConnectSession(out var stat);
+            if (session is null) return;   
+            status = stat;
+
+            // Clear Backlog
+            foreach (var location in world.locationBacklog) QueueLocation(location);
+            world.locationBacklog.Clear();
 
             // Refresh suspended flags
             HashSet<string> collectedItems = (from item in session.session.Items.AllItemsReceived select item.ItemName).ToHashSet();
             world.suspendedFlags = (from flag in flags where collectedItems.Contains(flag) && !CheckFlag(flag) select flag).ToHashSet();
 
             // Change Guide to Ghost
-            bool worldHasGuide = !world.NPCRandoActive() || world.receivedNPCs.Contains(NPCID.Guide);
+            bool worldHasGuide = !world.slotData.NpcRando || world.receivedNPCs.Contains(NPCID.Guide);
             bool sessHasGuide = session is not null && session.session.Items.AllItemsReceived.Any(i => i.ItemName == "Guide");
             if (!worldHasGuide && !sessHasGuide)
             {
@@ -804,6 +821,13 @@ namespace SeldomDespArchipelago.Systems
         public override void SaveWorldData(TagCompound tag)
         {
             tag["ApWorldData"] = world;
+        }
+        public override void SaveWorldHeader(TagCompound tag)
+        {
+            tag["Name"] = world.slotData.Name;
+            tag["Seed"] = world.slotData.Seed;
+            tag["Calamity"] = world.slotData.Calamity;
+            tag["Fargo"] = world.slotData.Fargo;
         }
 
         public void Reset()
