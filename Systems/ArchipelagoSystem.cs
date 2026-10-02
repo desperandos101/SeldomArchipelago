@@ -38,6 +38,7 @@ using Archipelago.MultiClient.Net.Helpers;
 using System.Data;
 using Microsoft.Build.Tasks;
 using log4net.Repository.Hierarchy;
+using Mono.Cecil.Cil;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -49,11 +50,11 @@ namespace SeldomDespArchipelago.Systems
         public class WorldState : TagSerializable
         {
             public static readonly Func<TagCompound, WorldState> DESERIALIZER = LoadFromTagCompound;
+            public SlotData slotData = null;
             // Achievements can be completed while loading into the world, but those complete before
             // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
             // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
             // `ArchipelagoPlayer` knows not to clear them.
-            public SlotData slotData = null;
             public List<string> achieved = new List<string>();
             // Stores locations that were collected before Archipelago is started so they can be
             // queued once it's started
@@ -186,13 +187,17 @@ namespace SeldomDespArchipelago.Systems
                     Fargo = tag.GetBool(nameof(Fargo)),
                 };
             };
+            public override bool Equals(object obj)
+            {
+                var otherSlot = obj as SlotData;
+                if (otherSlot is null) return false;
+                return (SlotName == otherSlot.SlotName && Seed == otherSlot.Seed);
+            }
         }
         // Data that's reset between Archipelago sessions
         public class SessionState
         {
-            // The slot & multiworld seed of the currently connected session.
-            public string slotName = null;
-            public string seed = null;
+            public SlotData slotData = null;
             // List of locations that are currently being sent
             public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
             public ArchipelagoSession session;
@@ -207,17 +212,12 @@ namespace SeldomDespArchipelago.Systems
         }
 
         public WorldState world = new();
-        public SessionState session;
+        public SessionState session2;
         public ConnectStatus status = ConnectStatus.Unset;
         public enum ConnectStatus
         {
             Unset,
             Valid,
-            SlotOrSeedMismatch,
-            CalamityNeeded,
-            NoCalamityNeeded,
-            FargoNeeded,
-            NoFargoNeeded,
             WrongSlot,
             WrongPass,
             WrongGame,
@@ -249,9 +249,12 @@ namespace SeldomDespArchipelago.Systems
             // Needed for achievements to work right
             typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
         }
-        public bool ConnectSession()
+        // 
+        public SessionState ConnectSession(out ConnectStatus status)
         {
-            if (Main.netMode == NetmodeID.MultiplayerClient) return false;
+            if (Main.netMode == NetmodeID.MultiplayerClient) {
+                status = ConnectStatus.Unset;
+            }
 
             var config = ModContent.GetInstance<Config.Config>();
 
@@ -273,15 +276,15 @@ namespace SeldomDespArchipelago.Systems
                         ConnectionRefusedError.InvalidPassword => ConnectStatus.WrongPass,
                         _ => ConnectStatus.Unset,
                     };
-                    return false;
+                    return null;
                 }
             }
             catch
             {
-                return false;
+                return null;
             }
 
-            session = new();
+            SessionState sess = new();
             session.session = newSession;
 
             var success = (LoginSuccessful)result;
@@ -303,6 +306,7 @@ namespace SeldomDespArchipelago.Systems
             }
             #endregion
 
+            // subscribe methods should be applied on world load instead
             session.session.MessageLog.OnMessageReceived += ApMessageToChat;
 
             if ((bool)success.SlotData["deathlink"])
@@ -317,7 +321,7 @@ namespace SeldomDespArchipelago.Systems
             world.locationBacklog.Clear();
             */
 
-            return true;
+            return se;
         }
         public override void LoadWorldData(TagCompound tag)
         {
