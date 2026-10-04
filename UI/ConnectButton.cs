@@ -8,21 +8,17 @@ using Terraria.Audio;
 using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
+using Terraria.ModLoader;
 namespace SeldomDespArchipelago.UI;
 public class ConnectButton
 {
 	private static Item _fakeItem = new Item();
-	public string TooltipTextKey;
-	public string LinkUrl;
-	public Asset<Texture2D> Image;
-	public Rectangle? FrameWhenNotSelected;
-	public Rectangle? FrameWehnSelected;
+	public string TooltipTextKey => "Connected";
+	public Asset<Texture2D> Image = ModContent.GetInstance<SeldomArchipelago>().Assets.Request<Texture2D>("UI/CollectionButton");
 
 	public void Draw(SpriteBatch spriteBatch, Vector2 anchorPosition)
 	{
 		Rectangle r = Image.Frame();
-		if (FrameWhenNotSelected.HasValue)
-			r = FrameWhenNotSelected.Value;
 
 		Vector2 vector = r.Size();
 		Vector2 vector2 = anchorPosition - vector / 2f;
@@ -34,10 +30,7 @@ public class ConnectButton
 			TryClicking();
 		}
 
-		Rectangle? rectangle = (flag ? FrameWehnSelected : FrameWhenNotSelected);
 		Rectangle rectangle2 = Image.Frame();
-		if (rectangle.HasValue)
-			rectangle2 = rectangle.Value;
 
 		Texture2D value = Image.Value;
 		spriteBatch.Draw(value, anchorPosition, rectangle2, Color.White, 0f, rectangle2.Size() / 2f, 1f, SpriteEffects.None, 0f);

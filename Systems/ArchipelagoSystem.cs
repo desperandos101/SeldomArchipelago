@@ -102,12 +102,7 @@ namespace SeldomDespArchipelago.Systems
         static ConnectButton btn;
         public override void Load()
         {
-            btn = new ConnectButton()
-            {
-                TooltipTextKey = "HGHG",
-                LinkUrl = "I DONT EXIST",
-                Image = ModContent.GetInstance<SeldomArchipelago>().Assets.Request<Texture2D>("UI/CollectionButton"),
-            };
+            btn = new ConnectButton();
             // Draw Test Method
             On_Main.DrawMenu += (On_Main.orig_DrawMenu orig, Main m, GameTime gt) =>
             {
