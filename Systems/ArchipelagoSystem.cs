@@ -38,6 +38,11 @@ using Microsoft.Build.Tasks;
 using log4net.Repository.Hierarchy;
 using Mono.Cecil.Cil;
 using Terraria.IO;
+using Archipelago.MultiClient.Net.Exceptions;
+using System.Net.WebSockets;
+using SeldomDespArchipelago.UI;
+using ReLogic.Content.Sources;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -94,24 +99,43 @@ namespace SeldomDespArchipelago.Systems
         }
         # endregion
         static string myMessage = "Idle";
+        static ConnectButton btn;
         public override void Load()
         {
-            // Draw Test Method
-            On_Main.DoDraw += (On_Main.orig_DoDraw orig, Main m, GameTime gt) =>
+            btn = new ConnectButton()
             {
-                orig(m, gt);
-                Main.spriteBatch.Begin();
-                ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, myMessage, Vector2.Zero, Color.Wheat, 0, Vector2.Zero, new Vector2(1, 3));
-                Main.spriteBatch.End();
+                TooltipTextKey = "HGHG",
+                LinkUrl = "I DONT EXIST",
+                Image = ModContent.GetInstance<SeldomArchipelago>().Assets.Request<Texture2D>("UI/CollectionButton"),
             };
-            session = SessionState.ConnectSession(out var state);
+            // Draw Test Method
+            On_Main.DrawMenu += (On_Main.orig_DrawMenu orig, Main m, GameTime gt) =>
+            {
+                if (Main.menuMode == MenuID.Title)
+                {
+                    ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, $"GOOD GOD ITS {Main.menuMode}", new Vector2(3, 3), Color.Wheat, 0, Vector2.Zero, new Vector2(1, 1));
+                    btn.Draw(Main.spriteBatch, new Vector2(100, 100));
+                }
+                orig(m, gt);
+            };
+            session = SessionState.InitializeSession(out var state);
             myMessage = state.ToString();
-            if (state != ConnectStatus.Valid) throw new Exception(state.ToString());
+            if (session is null) return;
+            session.ConnectionClosed += GoOffline;
         }
         public override void Unload()
         {
             if (session is null) return;
             session.Reset();
+            session = null;
+        }
+        public void GoOffline(object _, EventArgs b)
+        {
+            if (!Main.gameMenu)
+            {
+                Chat("Beginning offline play.", Color.Blue);
+                offline = new OfflineCache(session);
+            }
             session = null;
         }
         public int WorldIsUnplayable(WorldFileData worldData)
@@ -141,6 +165,8 @@ namespace SeldomDespArchipelago.Systems
         {
             // Needed for achievements to work right
             typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
+
+            if (Main.netMode == NetmodeID.MultiplayerClient) Unload();
         }
         public override void LoadWorldData(TagCompound tag)
         {
@@ -501,13 +527,6 @@ namespace SeldomDespArchipelago.Systems
         {
             if (session == null) return;
 
-            if (!session.session.Socket.Connected)
-            {
-                Chat("Disconnected from Archipelago. Reload the world to reconnect.");
-                session = null;
-                return;
-            }
-
             var unqueue = new List<int>();
             for (var i = 0; i < session.locationQueue.Count; i++)
             {
@@ -560,6 +579,13 @@ namespace SeldomDespArchipelago.Systems
         {
             if (ActiveSlot() is not null) {
                 tag["ApWorldData"] = world;
+            }
+            if (session is not null)
+            {
+                tag["ApOfflineCache"] = new OfflineCache(session);
+            }
+            else if (offline is not null)
+            {
                 tag["ApOfflineCache"] = offline;
             }
         }

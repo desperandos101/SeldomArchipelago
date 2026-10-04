@@ -18,6 +18,10 @@ using Archipelago.MultiClient.Net.MessageLog.Parts;
 using System;
 using Terraria.Social;
 using System.Reflection;
+using System.Net.WebSockets;
+using System.Net.Sockets;
+using FargowiltasSouls.Content.Projectiles.Souls;
+using System.Threading;
 
 namespace SeldomDespArchipelago.Systems.Data
 {
@@ -37,7 +41,7 @@ namespace SeldomDespArchipelago.Systems.Data
         // we have, and it's up to us to keep track of which ones we've already applied.
         public int currentItem;
         public bool victory;
-        public static SessionState ConnectSession(out ConnectStatus status)
+        public static SessionState InitializeSession(out ConnectStatus status)
         {
             status = ConnectStatus.Unset;
             if (Main.netMode == NetmodeID.MultiplayerClient) return null;
@@ -112,9 +116,10 @@ namespace SeldomDespArchipelago.Systems.Data
             #endregion
 
             status = ConnectStatus.Valid;
-            
-            sess.session.Socket.SocketClosed += (a) => {Console.WriteLine(a);};
-            sess.session.Socket.SocketOpened += () => {Console.WriteLine("WE BACK IN IT");};
+
+            sess.session.Socket.SocketClosed += sess.OnClose;
+            sess.session.Socket.ErrorReceived += sess.HandleError;
+
             sess.session.MessageLog.OnMessageReceived += sess.ApMessageToChat;
 
             if ((bool)success.SlotData["deathlink"])
@@ -127,6 +132,17 @@ namespace SeldomDespArchipelago.Systems.Data
 
             return sess;
         }
+        private void HandleError(Exception e, string msg)
+        {
+            Chat($"EXCEPTION {nameof(e.GetType)}: {msg}", Microsoft.Xna.Framework.Color.Red);
+            OnClose(msg);
+        }
+        private void OnClose(string _)
+        {
+            Chat("The server connection has been interrupted.", Microsoft.Xna.Framework.Color.Orange);
+            ConnectionClosed?.Invoke(this, EventArgs.Empty);
+        }
+        public event EventHandler ConnectionClosed;
         public void Reset()
         {
             typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.Steam);

@@ -20,6 +20,7 @@ namespace SeldomDespArchipelago.Systems.Data
         public string Name {get; init; }
         public string Seed {get; init; }
         public ImmutableArray<string> Goals {get; init; }
+        public bool Deathlink {get; init;}
         public bool NpcRando {get; init; }
         public ImmutableHashSet<int> RandomizedNPCs {get; init; }
         // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
@@ -35,6 +36,7 @@ namespace SeldomDespArchipelago.Systems.Data
             Seed = session.RoomState.Seed;
             Goals = ((JArray)login.SlotData["goal"]).ToObject<string[]>().ToImmutableArray();
             bool isEnabled(string key) => (long)login.SlotData[key] == 1;
+            Deathlink = (bool)login.SlotData["deathlink"];
             NpcRando = isEnabled("npc_rando");
             Calamity = isEnabled("calamity");
             Fargo = isEnabled("fargo");
@@ -83,6 +85,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 [nameof(Name)] = Name,
                 [nameof(Seed)] = Seed,
                 [nameof(Goals)] = Goals.ToList(),
+                [nameof(Deathlink)] = Deathlink,
                 [nameof(NpcRando)] = NpcRando,
                 [nameof(Calamity)] = Calamity,
                 [nameof(Fargo)] = Fargo,
@@ -107,6 +110,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 Name = tag.GetString(nameof(Name)),
                 Seed = tag.GetString(nameof(Seed)),
                 Goals = tag.GetList<string>(nameof(Goals)).ToImmutableArray(),
+                Deathlink = tag.GetBool(nameof(Deathlink)),
                 NpcRando = npcRando,
                 RandomizedNPCs = npcRando ? tag.GetList<int>(nameof(RandomizedNPCs)).ToImmutableHashSet() : null,
                 ItemsByNPC = npcRando ? npcs.Zip(items, (k, v) => new { Key = k, Value = v}).ToImmutableDictionary(x => x.Key, x => x.Value) : null,
