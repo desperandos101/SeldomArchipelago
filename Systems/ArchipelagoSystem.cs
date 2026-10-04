@@ -455,22 +455,28 @@ namespace SeldomDespArchipelago.Systems
 
             return sess;
         }
-        public override bool CanWorldBePlayed(PlayerFileData _, WorldFileData worldData)
+        public int WorldIsUnplayable(WorldFileData worldData)
         {
-            if (session is null) return true;
-            bool header = worldData.TryGetHeaderData(this, out TagCompound tag);
-            if (!header) return true;
+            if (session is null || !worldData.TryGetHeaderData(this, out TagCompound tag)) return  0;
             string name = tag.GetString("Name");
             string seed = tag.GetString("Seed");
-            return session.slotData.Name == name && session.slotData.Seed == seed;
+            if (session.slotData.Name != name || session.slotData.Seed != seed) return 1;
+            if (tag.GetBool("Calamity") != ModLoader.HasMod("CalamityMod")) return 2;
+            if (tag.GetBool("Fargo") != ModLoader.HasMod("FargowiltasSouls")) return 3;
+            return 4;
         }
-        public override string WorldCanBePlayedRejectionMessage(PlayerFileData playerData, WorldFileData worldData)
+        public override bool CanWorldBePlayed(PlayerFileData _, WorldFileData worldData) => WorldIsUnplayable(worldData) == 0;
+        public override string WorldCanBePlayedRejectionMessage(PlayerFileData _, WorldFileData worldData)
         {
-            bool header = worldData.TryGetHeaderData(this, out TagCompound tag);
-            if (!header) return "No header found. Please contact the developer if you see this.";
-            string name = tag.GetString("Name");
-            string seed = tag.GetString("Seed");
-            return $"This world has save data for a different multiworld/slot.\nNAME: {name}\nSEED: {seed}";
+            if (!worldData.TryGetHeaderData(this, out TagCompound tag)) return "Header is unsaved. Contact the developer if you see this.";
+            return WorldIsUnplayable(worldData) switch
+            {
+                0 => "False error occured. Contact the developer if you see this.",
+                1 => $"This world has save data for a different multiworld/slot.\nNAME: {tag.GetString("Name")}\nSEED: {tag.GetString("Seed")}",
+                2 => $"This world has Calamity {(ModLoader.HasMod("CalamityMod") ? "dis" : "en")}abled. Reload your mods accordingly.",
+                3 => $"This world has Fargo's Souls {(ModLoader.HasMod("FargoWiltasSouls") ? "dis" : "en")}abled. Reload your mods accordingly.",
+                _ => "Unknown error occured. Contact the developer if you see this.",
+            };
         }
         public override void OnWorldLoad()
         {
