@@ -43,6 +43,7 @@ using System.Net.WebSockets;
 using SeldomDespArchipelago.UI;
 using ReLogic.Content.Sources;
 using Microsoft.Xna.Framework.Graphics;
+using Terraria.Audio;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -108,13 +109,12 @@ namespace SeldomDespArchipelago.Systems
             {
                 if (Main.menuMode == MenuID.Title)
                 {
-                    ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, $"GOOD GOD ITS {Main.menuMode}", new Vector2(3, 3), Color.Wheat, 0, Vector2.Zero, new Vector2(1, 1));
-                    btn.Draw(Main.spriteBatch, new Vector2(100, 100));
+                    ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, $"{(session is null ? "Not connected" : "Connected")}", new Vector2(3, 3), Color.Red, 0, Vector2.Zero, new Vector2(1, 1));
+                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(100, 100));
+                    if (hover && btn.TryClicking()) session = SessionState.InitializeSession(out var _);
                 }
                 orig(m, gt);
             };
-            session = SessionState.InitializeSession(out var state);
-            myMessage = state.ToString();
             if (session is null) return;
             session.ConnectionClosed += GoOffline;
         }

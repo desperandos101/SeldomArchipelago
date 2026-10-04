@@ -16,24 +16,24 @@ public class ConnectButton
 	public string TooltipTextKey => "Connected";
 	public Asset<Texture2D> Image = ModContent.GetInstance<SeldomArchipelago>().Assets.Request<Texture2D>("UI/CollectionButton");
 
-	public void Draw(SpriteBatch spriteBatch, Vector2 anchorPosition)
+	// Returns true if the cursor is hovering over the drawn sprite
+	public bool Draw(SpriteBatch spriteBatch, Vector2 anchorPosition)
 	{
+		bool hover = false;
 		Rectangle r = Image.Frame();
 
 		Vector2 vector = r.Size();
 		Vector2 vector2 = anchorPosition - vector / 2f;
-		bool flag = false;
 		if (Main.MouseScreen.Between(vector2, vector2 + vector)) {
 			Main.LocalPlayer.mouseInterface = true;
-			flag = true;
-			DrawTooltip();
-			TryClicking();
+			hover = true;
 		}
 
 		Rectangle rectangle2 = Image.Frame();
 
 		Texture2D value = Image.Value;
 		spriteBatch.Draw(value, anchorPosition, rectangle2, Color.White, 0f, rectangle2.Size() / 2f, 1f, SpriteEffects.None, 0f);
+		return hover;
 	}
 
 	private void DrawTooltip()
@@ -51,17 +51,13 @@ public class ConnectButton
 		Main.mouseText = true;
 	}
 
-	private void TryClicking()
+	public bool TryClicking()
 	{
 		if (!PlayerInput.IgnoreMouseInterface && Main.mouseLeft && Main.mouseLeftRelease) {
 			SoundEngine.PlaySound(SoundID.AbigailCry);
 			Main.mouseLeftRelease = false;
-			OpenLink();
+			return true;
 		}
-	}
-
-	private void OpenLink()
-	{
-		Console.WriteLine("BGAWK");
+		return false;
 	}
 }
