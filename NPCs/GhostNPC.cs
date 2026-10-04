@@ -45,7 +45,8 @@ namespace SeldomDespArchipelago.NPCs
                 throw new Exception($"Attempted to set ghostType to value {type}.");
             }
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-            if (archipelagoSystem.world.npcLocTypeToNpcItemType is not null && archipelagoSystem.world.npcLocTypeToNpcItemType.TryGetValue(ghostType, out int newNpcType))
+            var itemsByNPC = archipelagoSystem.ActiveSlot()?.ItemsByNPC;
+            if (itemsByNPC is not null && itemsByNPC.TryGetValue(ghostType, out int newNpcType))
             {
                 transformType = newNpcType;
             }
