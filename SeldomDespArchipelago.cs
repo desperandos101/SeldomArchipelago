@@ -9,6 +9,7 @@ using MonoMod.Cil;
 using SeldomDespArchipelago.NPCs;
 using SeldomDespArchipelago.Players;
 using SeldomDespArchipelago.Systems;
+using SeldomDespArchipelago.Systems.Data;
 using SeldomDespArchipelago.UI;
 using System;
 using System.Collections.Generic;
@@ -199,7 +200,7 @@ namespace SeldomDespArchipelago
                             Main.townNPCCanSpawn[NPCID.Princess] = true;
                         }
                     }
-                    if (archipelagoSystem.ActiveSlot() is ArchipelagoSystem.SlotData slot && slot.NpcRando)
+                    if (archipelagoSystem.ActiveSlot() is SlotData slot && slot.NpcRando)
                     {
                         // Evaluate and Build
                         HashSet<int> validGhostTypes = new();
@@ -520,7 +521,7 @@ namespace SeldomDespArchipelago
                 cursor.EmitDelegate<Func<NPC, bool>>((NPC npc) =>
                 {
                     NPC.savedTaxCollector = true;
-                    if (!(archipelagoSystem.ActiveSlot() is ArchipelagoSystem.SlotData slot) || !slot.NpcRando) return false;
+                    if (!(archipelagoSystem.ActiveSlot() is SlotData slot) || !slot.NpcRando) return false;
                     archipelagoSystem.QueueLocationClient("Tax Collector");
 
                     if (slot.ItemsByNPC.TryGetValue(NPCID.TaxCollector, out int type))
@@ -997,7 +998,7 @@ namespace SeldomDespArchipelago
 
             // The way we handle packets kind of sucks. It's using string IDs with some special
             // cases.
-            if (message == "") archipelagoSystem.Chat(archipelagoSystem.Status(), whoAmI);
+            if (message == "") ArchipelagoSystem.Chat(archipelagoSystem.Status(), whoAmI);
             else if (message.StartsWith("deathlink")) archipelagoSystem.TriggerDeathlink(message.Substring(9), whoAmI);
             else if (message.StartsWith("[DeathLink]"))
             {

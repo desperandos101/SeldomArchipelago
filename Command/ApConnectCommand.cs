@@ -18,10 +18,7 @@ namespace SeldomDespArchipelago.Command
             }
 
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-            archipelagoSystem.Reset();
-            archipelagoSystem.OnWorldLoad();
-
-            archipelagoSystem.Chat(archipelagoSystem.Status());
+            // do stuff here later
         }
     }
 }

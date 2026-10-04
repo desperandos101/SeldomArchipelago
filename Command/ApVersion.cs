@@ -14,7 +14,7 @@ namespace SeldomDespArchipelago.Command
 
         public override void Action(CommandCaller caller, string input, string[] args)
         {
-            string version = ModContent.GetInstance<ArchipelagoSystem>().APversion.ToString();
+            string version = ArchipelagoSystem.APversion.ToString();
             caller.Reply($"APWORLD VERSION: {version}");
         }
     }

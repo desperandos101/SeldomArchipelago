@@ -1,7 +1,5 @@
-using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.BounceFeatures.DeathLink;
 using Archipelago.MultiClient.Net.Enums;
-using Archipelago.MultiClient.Net.Models;
 using Archipelago.MultiClient.Net.Packets;
 using Microsoft.Xna.Framework;
 using Color = Microsoft.Xna.Framework.Color;
@@ -26,6 +24,7 @@ using Terraria.WorldBuilding;
 using Terraria.UI.Chat;
 using SeldomDespArchipelago.FlagItem;
 using System.Linq;
+using SeldomDespArchipelago.Systems.Data;
 using SeldomDespArchipelago.NPCs;
 using System.Formats.Tar;
 using Archipelago.MultiClient.Net.MessageLog.Messages;
@@ -34,7 +33,6 @@ using Terraria.GameContent.UI.States;
 using Archipelago.MultiClient.Net.MessageLog.Parts;
 using Terraria.ModLoader.Config;
 using System.Text;
-using Archipelago.MultiClient.Net.Helpers;
 using System.Data;
 using Microsoft.Build.Tasks;
 using log4net.Repository.Hierarchy;
@@ -43,270 +41,17 @@ using Terraria.IO;
 
 namespace SeldomDespArchipelago.Systems
 {
-    class ArchipelagoSystem : ModSystem
+    partial class ArchipelagoSystem : ModSystem
     {
-        public readonly Version APversion = new Version(0, 6, 200);
+        public static readonly Version APversion = new Version(0, 6, 200);
         public const string APWorldName = "Terraria Beta";
-                // Slot data
-        public readonly struct SlotData : TagSerializable
-        {
-            public int Slot {get; init; }
-            public string Name {get; init; }
-            public string Seed {get; init; }
-            public ImmutableArray<string> Goals {get; init; }
-            public bool NpcRando {get; init; }
-            public ImmutableHashSet<int> RandomizedNPCs {get; init; }
-            // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
-            // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
-            public ImmutableDictionary<int, int> ItemsByNPC {get; init; }
-            public bool Calamity {get; init; }
-            public bool Fargo {get; init; }
-            public SlotData() {}
-            public SlotData(ArchipelagoSession session, LoginSuccessful login)
-            {
-                Slot = login.Slot;
-                Name = session.Players.GetPlayerName(Slot);
-                Seed = session.RoomState.Seed;
-                Goals = ((JArray)login.SlotData["goal"]).ToObject<string[]>().ToImmutableArray();
-                bool isEnabled(string key) => (long)login.SlotData[key] == 1;
-                NpcRando = isEnabled("npc_rando");
-                Calamity = isEnabled("calamity");
-                Fargo = isEnabled("fargo");
-
-                RandomizedNPCs = null;
-                var itemsByNPC = new Dictionary<int, int>();
-                if (NpcRando)
-                {
-                    string[] randomizedNPCnames = ((JArray)login.SlotData["randomize_npcs"]).ToObject<string[]>();
-                    RandomizedNPCs = (from name in randomizedNPCnames select npcNameToID[name]).ToImmutableHashSet();
-                    string[] allNPCnames = npcNameToID.Keys.ToArray();
-
-                    var locNamesByID = new Dictionary<long, string>();
-                    foreach (string loc in allNPCnames)
-                    {
-                        locNamesByID[session.Locations.GetLocationIdFromName(APWorldName, loc)] = loc;
-                    }
-                    if (locNamesByID.ContainsKey(-1))
-                    {
-                        throw new Exception($"Some retrieved NPC locations turned up -1 ids.");
-                    }
-                    var task = session.Locations.ScoutLocationsAsync(locNamesByID.Keys.ToArray());
-                    if (task.Wait(1000))
-                    {
-                        var locByID = task.Result;
-                        foreach (long key in locByID.Keys)
-                        {
-                            var itemInfo = locByID[key];
-                            if (itemInfo.Player.Slot == Slot && allNPCnames.Contains(itemInfo.ItemName))
-                            {
-                                int npcType = npcNameToID[locNamesByID[key]];
-                                itemsByNPC[npcType] = npcNameToID[itemInfo.ItemName];
-                            }
-                        }
-                    }
-                    else  // TODO: Have better backup plan
-                    {
-                        ModContent.GetInstance<ArchipelagoSystem>().Mod.Logger.Info("Failed to properly initialize " + nameof(ItemsByNPC));
-                    }
-                }
-                ItemsByNPC = NpcRando ? itemsByNPC.ToImmutableDictionary() : null;
-            }
-            public TagCompound SerializeData()
-            {
-                var tag = new TagCompound
-                {
-                    [nameof(Slot)] = Slot,
-                    [nameof(Name)] = Name,
-                    [nameof(Seed)] = Seed,
-                    [nameof(Goals)] = Goals.ToList(),
-                    [nameof(NpcRando)] = NpcRando,
-                    [nameof(Calamity)] = Calamity,
-                    [nameof(Fargo)] = Fargo,
-                };
-                if (NpcRando)
-                {
-                    tag[nameof(RandomizedNPCs)] = RandomizedNPCs.ToList();
-                    tag[nameof(ItemsByNPC)+"Keys"] = ItemsByNPC.Keys.ToList();
-                    tag[nameof(ItemsByNPC)+"Values"] = ItemsByNPC.Values.ToList();
-                }
-                return tag;
-            }
-            public static readonly Func<TagCompound, SlotData> DESERIALIZER = (tag) =>
-            {
-                // Outside constructor for slightly enhanced readability
-                bool npcRando = tag.GetBool(nameof(NpcRando));
-                var npcs = npcRando ? tag.Get<List<int>>(nameof(ItemsByNPC)+"Keys") : null;
-                var items = npcRando ? tag.Get<List<int>>(nameof(ItemsByNPC)+"Values") : null;
-                return new SlotData()
-                {
-                    Slot = tag.GetInt(nameof(Slot)),
-                    Name = tag.GetString(nameof(Name)),
-                    Seed = tag.GetString(nameof(Seed)),
-                    Goals = tag.GetList<string>(nameof(Goals)).ToImmutableArray(),
-                    NpcRando = npcRando,
-                    RandomizedNPCs = npcRando ? tag.GetList<int>(nameof(RandomizedNPCs)).ToImmutableHashSet() : null,
-                    ItemsByNPC = npcRando ? npcs.Zip(items, (k, v) => new { Key = k, Value = v}).ToImmutableDictionary(x => x.Key, x => x.Value) : null,
-                    Calamity = tag.GetBool(nameof(Calamity)),
-                    Fargo = tag.GetBool(nameof(Fargo)),
-                };
-            };
-            /*
-            public override bool Equals(object obj)
-            {
-                if (obj is not SlotData otherSlot) return false;
-                return Name == otherSlot.Name && Seed == otherSlot.Seed;
-            }
-            */
-        }
-
-        // Data that's reset between worlds
-        public class WorldState : TagSerializable
-        {
-            public static readonly Func<TagCompound, WorldState> DESERIALIZER = LoadFromTagCompound;
-            // Achievements can be completed while loading into the world, but those complete before
-            // `ArchipelagoPlayer::OnEnterWorld`, where achievements are reset, is run. So, this
-            // keeps track of which achievements have been completed since `OnWorldLoad` was run, so
-            // `ArchipelagoPlayer` knows not to clear them.
-            public List<string> achieved = new List<string>();
-            // Number of items the player has collected in this world
-            public int collectedItems;
-            // List of rewards received in this world, so they don't get reapplied. Saved in the
-            // Terraria world instead of Archipelago data in case the player is, for example,
-            // playing Hardcore and wants to receive all the rewards again when making a new player/
-            // world.
-            public List<int> receivedRewards = new List<int>();
-            // List of flags that have been received but not triggered
-            public HashSet<string> suspendedFlags = new HashSet<string>();
-            // Contains all ghosts that are available to spawn.
-            public Queue<int> ghostNPCqueue = new();
-            public TagCompound SerializeData()
-            {
-                var tag = new TagCompound
-                {
-                    [nameof(collectedItems)] = collectedItems,
-                    [nameof(receivedRewards)] = receivedRewards,
-                    [nameof(suspendedFlags)] = suspendedFlags.ToList(),
-                };
-                return tag;
-            }
-            public static WorldState LoadFromTagCompound(TagCompound tag)
-            {
-                var world = new WorldState();
-                world.collectedItems = tag.GetInt(nameof(collectedItems));
-                world.receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
-                world.suspendedFlags = tag.Get<List<string>>(nameof(suspendedFlags)).ToHashSet();
-                return world;
-            }
-        }
-        // Tracks player data during offline play.
-        public class OfflineCache : TagSerializable
-        {
-            public SlotData slotData;
-            ImmutableHashSet<string> sentLocations;
-            ImmutableHashSet<string> receivedItems;
-            public List<string> locationBacklog;
-            OfflineCache() {}
-            public OfflineCache(SessionState sess)
-            {
-                slotData = sess.slotData;
-                sentLocations = (from loc in sess.session.Locations.AllLocationsChecked select sess.session.Locations.GetLocationNameFromId(loc)).ToImmutableHashSet();
-                receivedItems = (from item in sess.session.Items.AllItemsReceived select item.ItemName).ToImmutableHashSet();
-                locationBacklog = [];
-            }
-            public void QueueLocation(string loc) => locationBacklog.Add(loc);
-            public bool Sent(string loc) => sentLocations.Contains(loc) || locationBacklog.Contains(loc);
-            public bool Received(string item) => receivedItems.Contains(item);
-            public TagCompound SerializeData()
-            {
-                return new TagCompound
-                {
-                    [nameof(slotData)] = slotData,
-                    [nameof(sentLocations)] = sentLocations.ToList(),
-                    [nameof(receivedItems)] = receivedItems.ToList(),
-                    [nameof(locationBacklog)] = locationBacklog,
-                };
-            }
-            public static readonly Func<TagCompound, OfflineCache> DESERIALIZER = (tag) =>
-            {
-                return new OfflineCache
-                {
-                    slotData = tag.Get<SlotData>(nameof(slotData)),
-                    sentLocations = tag.GetList<string>(nameof(sentLocations)).ToImmutableHashSet(),
-                    receivedItems = tag.GetList<string>(nameof(receivedItems)).ToImmutableHashSet(),
-                    locationBacklog = tag.Get<List<string>>(nameof(locationBacklog)),
-                };
-            };
-        }
-        // Data that's reset between Archipelago sessions
-        public class SessionState
-        {
-            public SlotData slotData;
-            // List of locations that are currently being sent
-            public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
-            public ArchipelagoSession session;
-            public DeathLinkService deathlink;
-            // Like `collectedItems`, but unique to this Archipelago session, and doesn't save, so
-            // it starts at 0 each session. While less than `collectedItems`, it discards items
-            // instead of collecting them. This is needed bc AP just gives us a list of items that
-            // we have, and it's up to us to keep track of which ones we've already applied.
-            public int currentItem;
-
-            public bool victory;
-            public void QueueLocation(string locationName)
-            {
-                var location = session.Locations.GetLocationIdFromName(APWorldName, locationName);
-                if (location == -1) return;
-
-                if (session.Locations.AllLocationsChecked.Contains(location))
-                {
-                    ModLoader.GetMod(nameof(SeldomDespArchipelago)).Logger.Info($"[AP] Location {locationName} already collected.");
-                    return;
-                }
-                locationQueue.Add(session.Locations.ScoutLocationsAsync(new[] { location }));
-                session.Locations.CompleteLocationChecks(new[] { location });
-            }
-
-            public void QueueLocationClient(string locationName)
-            {
-                if (Main.netMode != NetmodeID.MultiplayerClient)
-                {
-                    QueueLocation(locationName);
-                    return;
-                }
-
-                var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
-                packet.Write(locationName);
-                packet.Send();
-            }
-            public void RedeemCache(OfflineCache cache)
-            {
-                foreach (string loc in cache.locationBacklog)
-                {
-                    QueueLocation(loc);
-                }
-            }
-        }
 
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
         public ConnectStatus status = ConnectStatus.Unset;
-        public enum ConnectStatus
-        {
-            Unset,
-            Valid,
-            WrongSlot,
-            WrongPass,
-            WrongGame,
-            ClientOlder,
-            ClientNewer,
-            CalamityNeeded,
-            NoCalamityNeeded,
-            FargoNeeded,
-            NoFargoNeeded
-        }
         // Keeps track of the last APworld version the game tried to connect to for player convenience
-        public int[] desiredAPversion = null;
+        public static int[] desiredAPversion = null;
 
         // Contains ghosts that require special housing conditions to spawn.
         public readonly static ImmutableHashSet<int> specialSpawnGhosts =
@@ -359,101 +104,15 @@ namespace SeldomDespArchipelago.Systems
                 ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, myMessage, Vector2.Zero, Color.Wheat, 0, Vector2.Zero, new Vector2(1, 3));
                 Main.spriteBatch.End();
             };
-            session = ConnectSession(out var state);
+            session = SessionState.ConnectSession(out var state);
             myMessage = state.ToString();
             if (state != ConnectStatus.Valid) throw new Exception(state.ToString());
         }
         public override void Unload()
         {
-            Reset();
-        }
-        public SessionState ConnectSession(out ConnectStatus status)
-        {
-            status = ConnectStatus.Unset;
-            if (Main.netMode == NetmodeID.MultiplayerClient) return null;
-
-            var config = ModContent.GetInstance<Config.Config>();
-
-            LoginResult result;
-            ArchipelagoSession newSession;
-            try
-            {
-                newSession = ArchipelagoSessionFactory.CreateSession(config.address, config.port);
-
-                result = newSession.TryConnectAndLogin(APWorldName, config.name, ItemsHandlingFlags.AllItems, APversion, null, null, config.password == "" ? null : config.password);
-                if (result is LoginFailure failure)
-                {
-                    var error = failure.ErrorCodes.First();  // don't think it's important to get multiple
-                    status = error switch
-                    {
-                        ConnectionRefusedError.InvalidSlot => ConnectStatus.WrongSlot,
-                        ConnectionRefusedError.InvalidGame => ConnectStatus.WrongGame,
-                        ConnectionRefusedError.IncompatibleVersion => ConnectStatus.ClientOlder,
-                        ConnectionRefusedError.InvalidPassword => ConnectStatus.WrongPass,
-                        _ => ConnectStatus.Unset,
-                    };
-                    return null;
-                }
-            }
-            catch
-            {
-                return null;
-            }
-
-            SessionState sess = new()
-            {
-                session = newSession
-            };
-
-            var success = (LoginSuccessful)result;
-            sess.slotData = new SlotData(sess.session, success);
-
-            #region Validate
-            bool versionSlotData = success.SlotData.TryGetValue("version", out var versionObj);
-            bool newerVersion = false;
-            if (versionSlotData)
-            {
-                desiredAPversion = ((JArray)versionObj).ToObject<int[]>();
-                newerVersion = desiredAPversion[0] != APversion.Major || desiredAPversion[1] != APversion.Minor || desiredAPversion[2] != APversion.Build;
-            }
-
-            if (!versionSlotData || newerVersion)
-            {
-                status = ConnectStatus.ClientNewer;
-                Reset();
-                return null;
-            }
-
-            bool calamityActive = ModLoader.HasMod("CalamityMod");
-            if (calamityActive != sess.slotData.Calamity)
-            {
-                if (calamityActive) status = ConnectStatus.NoCalamityNeeded;
-                else status = ConnectStatus.CalamityNeeded;
-                return null;
-            }
-            bool fargoActive = ModLoader.HasMod("FargowiltasSouls");
-            if (fargoActive != sess.slotData.Fargo)
-            {
-                if (fargoActive) status = ConnectStatus.NoFargoNeeded;
-                else status = ConnectStatus.FargoNeeded;
-                return null;
-            }
-
-            #endregion
-
-            status = ConnectStatus.Valid;
-            // subscribe methods should be applied on world load instead
-            sess.session.MessageLog.OnMessageReceived += ApMessageToChat;
-
-            if ((bool)success.SlotData["deathlink"])
-            {
-                sess.deathlink = sess.session.CreateDeathLinkService();
-                sess.deathlink.EnableDeathLink();
-
-                sess.deathlink.OnDeathLinkReceived += ReceiveDeathlink;
-            }
-
-            return sess;
+            if (session is null) return;
+            session.Reset();
+            session = null;
         }
         public int WorldIsUnplayable(WorldFileData worldData)
         {
@@ -463,7 +122,7 @@ namespace SeldomDespArchipelago.Systems
             if (session.slotData.Name != name || session.slotData.Seed != seed) return 1;
             if (tag.GetBool("Calamity") != ModLoader.HasMod("CalamityMod")) return 2;
             if (tag.GetBool("Fargo") != ModLoader.HasMod("FargowiltasSouls")) return 3;
-            return 4;
+            return 0;
         }
         public override bool CanWorldBePlayed(PlayerFileData _, WorldFileData worldData) => WorldIsUnplayable(worldData) == 0;
         public override string WorldCanBePlayedRejectionMessage(PlayerFileData _, WorldFileData worldData)
@@ -516,50 +175,6 @@ namespace SeldomDespArchipelago.Systems
                     ghost.SetGhostType(NPCID.Guide);
                 }
             }
-        }
-
-        public void ApMessageToChat(LogMessage message)
-        {
-            var config = ModContent.GetInstance<Config.Config>();
-
-            string normalMsg() => string.Concat(from part in message.Parts select part.Text);
-            string colorMsg()
-            {
-                if (!config.colorText) return normalMsg();
-                StringBuilder builder = new StringBuilder();
-                foreach (var part in message.Parts)
-                {
-                    string msg = part.Text;
-                    var color = part.Color;
-                    string colorHex = color.R.ToString("X2") + color.G.ToString("X2") + color.B.ToString("X2");
-                    builder.Append($"[c/{colorHex}:{msg}]");
-                }
-                return builder.ToString();
-            }
-
-            if (config.chatSettings == Config.ChatSetting.Disable) return;
-
-            bool thisSlotMentioned = false;
-            bool playerPart = false;
-            foreach (var part in message.Parts)
-            {
-                if (part.Type == MessagePartType.Player)
-                {
-                    playerPart = true;
-                    if (part.Text == session.slotData.Name) thisSlotMentioned = true;
-                }
-            }
-            if (playerPart && !thisSlotMentioned)
-            {
-                switch (config.chatSettings)
-                {
-                    case Config.ChatSetting.All: Chat(colorMsg()); break;
-                    case Config.ChatSetting.Grey: Chat(normalMsg(), Color.Gray); break;
-                    case Config.ChatSetting.Filter: break;
-                    default: throw new Exception("Unhandled chat configuration");
-                }
-            }
-            else Chat(colorMsg());
         }
 
         public static string[] flags = { "Post-Trojan Squirrel", "Post-King Slime", "Post-Desert Scourge", "Post-Giant Clam", "Post-Eye of Cthulhu", "Post-Cursed Coffin", "Post-Acid Rain Tier 1", "Post-Crabulon", "Post-Evil Boss", "Post-Old One's Army Tier 1", "Post-Goblin Army", "Post-Queen Bee", "Post-The Hive Mind", "Post-The Perforators", "Post-Skeletron", "Post-Deerclops", "Post-The Slime God", "Post-Deviantt", "Hardmode", "Post-Dreadnautilus", "Post-Hardmode Giant Clam", "Post-Pirate Invasion", "Post-Queen Slime", "Post-Banished Baron", "Post-Aquatic Scourge", "Post-Cragmaw Mire", "Post-Acid Rain Tier 2", "Post-The Twins", "Post-Old One's Army Tier 2", "Post-Brimstone Elemental", "Post-The Destroyer", "Post-Cryogen", "Post-Skeletron Prime", "Post-Lifelight", "Post-Calamitas Clone", "Post-Plantera", "Post-Great Sand Shark", "Post-Leviathan and Anahita", "Post-Astrum Aureus", "Post-Golem", "Post-Old One's Army Tier 3", "Post-Martian Madness", "Post-The Plaguebringer Goliath", "Post-Duke Fishron", "Post-Mourning Wood", "Post-Pumpking", "Post-Everscream", "Post-Santa-NK1", "Post-Ice Queen", "Post-Frost Legion", "Post-Ravager", "Post-Empress of Light", "Post-Betsy", "Post-Lunatic Cultist", "Post-Astrum Deus", "Post-Lunar Events", "Post-Moon Lord", "Post-Profaned Guardians", "Post-Dragonfolly", "Post-Providence, the Profaned Goddess", "Post-Champion of Timber", "Post-Champion of Terra", "Post-Champion of Earth", "Post-Champion of Nature", "Post-Champion of Life", "Post-Champion of Death", "Post-Champion of Spirit", "Post-Champion of Will", "Post-Storm Weaver", "Post-Ceaseless Void", "Post-Signus, Envoy of the Devourer", "Post-Polterghast", "Post-Mauler", "Post-Nuclear Terror", "Post-The Old Duke", "Post-The Devourer of Gods", "Post-Eridanus, Champion of Cosmos", "Post-Yharon, Dragon of Rebirth", "Post-Abominationn", "Post-Exo Mechs", "Post-Supreme Witch, Calamitas", "Post-Primordial Wyrm", "Post-Mutant", "Post-Boss Rush" };
@@ -959,26 +574,10 @@ namespace SeldomDespArchipelago.Systems
             }
         }
 
-        public void Reset()
-        {
-            typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.Steam);
-
-            if (session != null)
-            {
-                session.session.Socket.DisconnectAsync();
-            }
-            session = null;
-        }
-
         public override void ClearWorld()
         {
             world = new();
             offline = null;
-        }
-
-        public override void OnWorldUnload()
-        {
-            session.session.MessageLog.OnMessageReceived -= ApMessageToChat;
         }
 
         public string[] Status()
@@ -1148,7 +747,7 @@ namespace SeldomDespArchipelago.Systems
             return info.ToArray();
         }
 
-        public void Chat(string message, Color color, int player = -1)
+        public static void Chat(string message, Color color, int player = -1)
         {
             if (player == -1)
             {
@@ -1162,11 +761,11 @@ namespace SeldomDespArchipelago.Systems
             else ChatHelper.SendChatMessageToClient(NetworkText.FromLiteral(message), color, player);
         }
 
-        public void Chat(string[] messages, int player = -1)
+        public static void Chat(string[] messages, int player = -1)
         {
             foreach (var message in messages) Chat(message, player);
         }
-        public void Chat(string message, int player = -1) => Chat(message, Color.White, player);
+        public static void Chat(string message, int player = -1) => Chat(message, Color.White, player);
 
         public void Achieved(string achievement)
         {

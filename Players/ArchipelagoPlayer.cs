@@ -69,7 +69,7 @@ namespace SeldomDespArchipelago.Players
                 return;
             }
 
-            archipelagoSystem.Chat(archipelagoSystem.Status(), Player.whoAmI);
+            ArchipelagoSystem.Chat(archipelagoSystem.Status(), Player.whoAmI);
         }
 
         public override void SaveData(TagCompound tag)
