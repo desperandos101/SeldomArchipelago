@@ -481,8 +481,8 @@ namespace SeldomDespArchipelago
                         case NPCID.Wizard: boundNPCtype = NPCID.BoundWizard; locName = "Wizard"; break;
                         default: throw new Exception($"NPC type {npcType} unaccounted for in TransformBoundNPC. Also, {npcType} somehow changed value mid-exec. Dial 911 as fast as you can");
                     }
-                    var slot = archipelagoSystem.AssertActiveSlot();
-                    if (!slot.RandomizedNPCs.Contains(npcType)) return npcType;
+                    var s = archipelagoSystem.ActiveSlot();
+                    if (s is not SlotData slot || slot.RandomizedNPCs.Contains(npcType)) return npcType;
                     archipelagoSystem.QueueLocationClient(locName);
                     if (slot.ItemsByNPC is not null && slot.ItemsByNPC.TryGetValue(npcType, out int newNpcType) && !NPC.AnyNPCs(newNpcType))
                         return newNpcType;

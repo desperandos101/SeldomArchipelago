@@ -71,6 +71,7 @@ namespace SeldomDespArchipelago.Systems.Data
             }
             catch
             {
+                status = ConnectStatus.Unset;
                 return null;
             }
 
@@ -139,6 +140,7 @@ namespace SeldomDespArchipelago.Systems.Data
         }
         private void OnClose(string _)
         {
+            Console.WriteLine("HELLO???");
             Chat("The server connection has been interrupted.", Microsoft.Xna.Framework.Color.Orange);
             ConnectionClosed?.Invoke(this, EventArgs.Empty);
         }
@@ -230,6 +232,8 @@ namespace SeldomDespArchipelago.Systems.Data
     public enum ConnectStatus
         {
             Unset,
+            Connecting,
+            Disconnecting,
             Valid,
             WrongSlot,
             WrongPass,
@@ -239,6 +243,7 @@ namespace SeldomDespArchipelago.Systems.Data
             CalamityNeeded,
             NoCalamityNeeded,
             FargoNeeded,
-            NoFargoNeeded
+            NoFargoNeeded,
+            MultiplayerClient,
         }
 }

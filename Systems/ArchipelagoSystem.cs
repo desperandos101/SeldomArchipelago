@@ -51,13 +51,15 @@ namespace SeldomDespArchipelago.Systems
     {
         public static readonly Version APversion = new Version(0, 6, 200);
         public const string APWorldName = "Terraria Beta";
+        // Keeps track of the last APworld version the game tried to connect to for player convenience
+        public static int[] desiredAPversion = null;
 
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
-        public ConnectStatus status = ConnectStatus.Unset;
-        // Keeps track of the last APworld version the game tried to connect to for player convenience
-        public static int[] desiredAPversion = null;
+        // State of connection
+        static ConnectStatus status = ConnectStatus.Unset;
+        bool SafeStatus => status != ConnectStatus.Connecting && status != ConnectStatus.Disconnecting;
 
         // Contains ghosts that require special housing conditions to spawn.
         public readonly static ImmutableHashSet<int> specialSpawnGhosts =
@@ -65,8 +67,11 @@ namespace SeldomDespArchipelago.Systems
             NPCID.Truffle
         ];
         # region Helper Methods
-        public SlotData? ActiveSlot() => session?.slotData ?? offline?.slotData;
-        public SlotData AssertActiveSlot() => ActiveSlot() ?? throw new Exception("AssertActiveSlot failed to find an active slot.");
+        public SlotData? ActiveSlot()
+        {
+            if (!SafeStatus) return null;
+            return status == ConnectStatus.Valid ? session.slotData : offline?.slotData;
+        }
         public bool Sent(string loc)
         {
             if (session is null) return offline.Sent(loc);
@@ -78,7 +83,7 @@ namespace SeldomDespArchipelago.Systems
         public int[] ReceivedNPCs() => (from id in ActiveSlot()?.RandomizedNPCs ?? [] where ReceivedNPC(id) select id).ToArray();
         public void QueueLocation(string loc)
         {
-            if (session is not null)
+            if (status == ConnectStatus.Valid)
             {
                 session.QueueLocation(loc);
             }
@@ -89,7 +94,7 @@ namespace SeldomDespArchipelago.Systems
         }
         public void QueueLocationClient(string loc)
         {
-            if (session is not null)
+            if (status == ConnectStatus.Valid)
             {
                 session.QueueLocationClient(loc);
             }
@@ -99,7 +104,6 @@ namespace SeldomDespArchipelago.Systems
             }
         }
         # endregion
-        static string myMessage = "Idle";
         static ConnectButton btn;
         public override void Load()
         {
@@ -109,28 +113,52 @@ namespace SeldomDespArchipelago.Systems
             {
                 if (Main.menuMode == MenuID.Title)
                 {
-                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650), "I'M COMPARABLY SMALLassgkgs9o-gu9g90u890gf890gf9090g");
-                    if (hover && btn.TryClicking()) session = SessionState.InitializeSession(out var _);
+                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650), status);
+                    if (hover && btn.TryClicking())
+                    {
+                        Task t = Task.Delay(0);
+                        if (status == ConnectStatus.Valid)
+                        {
+                            t = new Task(DisconnectSession);
+                        }
+                        else if (SafeStatus)
+                        {
+                            t = new Task(ConnectSession);
+                        }
+                        else
+                        {
+                            SoundEngine.PlaySound(SoundID.Zombie1);
+                        }
+                        t.Start();
+                    }
                 }
                 orig(m, gt);
             };
-            if (session is null) return;
-            session.ConnectionClosed += GoOffline;
         }
-        public override void Unload()
+        public void ConnectSession()
         {
+            status = ConnectStatus.Connecting;
+            session = SessionState.InitializeSession(out var s);
+            status = s;
             if (session is null) return;
-            session.Reset();
-            session = null;
+            session.ConnectionClosed += (_, _) => {status = ConnectStatus.Unset;};
         }
-        public void GoOffline(object _, EventArgs b)
+        public void DisconnectSession()
         {
+            status = ConnectStatus.Disconnecting;
             if (!Main.gameMenu)
             {
                 Chat("Beginning offline play.", Color.Blue);
                 offline = new OfflineCache(session);
             }
+            session.Reset();
             session = null;
+            status = ConnectStatus.Unset;
+        }
+        public override void Unload()
+        {
+            if (session is null) return;
+            DisconnectSession();
         }
         public int WorldIsUnplayable(WorldFileData worldData)
         {
