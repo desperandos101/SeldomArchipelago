@@ -109,8 +109,7 @@ namespace SeldomDespArchipelago.Systems
             {
                 if (Main.menuMode == MenuID.Title)
                 {
-                    ChatManager.DrawColorCodedString(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, $"{(session is null ? "Not connected" : "Connected")}", new Vector2(3, 3), Color.Red, 0, Vector2.Zero, new Vector2(1, 1));
-                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(100, 100));
+                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650), "I'M COMPARABLY SMALLassgkgs9o-gu9g90u890gf890gf9090g");
                     if (hover && btn.TryClicking()) session = SessionState.InitializeSession(out var _);
                 }
                 orig(m, gt);
