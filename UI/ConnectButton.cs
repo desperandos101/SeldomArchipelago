@@ -27,6 +27,7 @@ public class ConnectButton
 		{
 			Unset => ("Disconnected. Click the icon to connect!", Color.AntiqueWhite),
 			Connecting => ("Connecting...", Color.Yellow),
+			Disconnecting => ("Disconnecting...", Color.Yellow),
 			Valid => ($"Connected to slot {ArchSystem.ActiveSlot()?.Name ?? "NULL"}. Press the button again to disconnect.", Color.GreenYellow),
 			WrongSlot => ($"Could not find slot {ModContent.GetInstance<Config.Config>().name} in room", Color.OrangeRed),
 			WrongPass => ($"The room password is incorrect.", Color.OrangeRed),
