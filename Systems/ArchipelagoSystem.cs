@@ -26,6 +26,7 @@ using SeldomDespArchipelago.FlagItem;
 using System.Linq;
 using SeldomDespArchipelago.Systems.Data;
 using SeldomDespArchipelago.NPCs;
+using static SeldomDespArchipelago.Systems.Data.ConnectionData;
 using System.Formats.Tar;
 using Archipelago.MultiClient.Net.MessageLog.Messages;
 using System.Diagnostics.Metrics;
@@ -57,9 +58,6 @@ namespace SeldomDespArchipelago.Systems
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
-        // State of connection
-        static ConnectStatus status = ConnectStatus.Unset;
-        bool SafeStatus => status != ConnectStatus.Connecting && status != ConnectStatus.Disconnecting;
 
         // Contains ghosts that require special housing conditions to spawn.
         public readonly static ImmutableHashSet<int> specialSpawnGhosts =
@@ -70,7 +68,7 @@ namespace SeldomDespArchipelago.Systems
         public SlotData? ActiveSlot()
         {
             if (!SafeStatus) return null;
-            return status == ConnectStatus.Valid ? session.slotData : offline?.slotData;
+            return Status == ConnectStatus.Valid ? session.slotData : offline?.slotData;
         }
         public bool Sent(string loc)
         {
@@ -83,7 +81,7 @@ namespace SeldomDespArchipelago.Systems
         public int[] ReceivedNPCs() => (from id in ActiveSlot()?.RandomizedNPCs ?? [] where ReceivedNPC(id) select id).ToArray();
         public void QueueLocation(string loc)
         {
-            if (status == ConnectStatus.Valid)
+            if (Status == ConnectStatus.Valid)
             {
                 session.QueueLocation(loc);
             }
@@ -94,7 +92,7 @@ namespace SeldomDespArchipelago.Systems
         }
         public void QueueLocationClient(string loc)
         {
-            if (status == ConnectStatus.Valid)
+            if (Status == ConnectStatus.Valid)
             {
                 session.QueueLocationClient(loc);
             }
@@ -113,11 +111,11 @@ namespace SeldomDespArchipelago.Systems
             {
                 if (Main.menuMode == MenuID.Title)
                 {
-                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650), status);
+                    bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650));
                     if (hover && btn.TryClicking())
                     {
                         Task t = Task.Delay(0);
-                        if (status == ConnectStatus.Valid)
+                        if (Status == ConnectStatus.Valid)
                         {
                             t = new Task(DisconnectSession);
                         }
@@ -137,15 +135,15 @@ namespace SeldomDespArchipelago.Systems
         }
         public void ConnectSession()
         {
-            status = ConnectStatus.Connecting;
+            Status = ConnectStatus.Connecting;
             session = SessionState.InitializeSession(out var s);
-            status = s;
+            Status = s;
             if (session is null) return;
-            session.ConnectionClosed += (_, _) => {status = ConnectStatus.Unset;};
+            session.ConnectionClosed += (_, _) => {Status = ConnectStatus.Unset;};
         }
         public void DisconnectSession()
         {
-            status = ConnectStatus.Disconnecting;
+            Status = ConnectStatus.Disconnecting;
             if (!Main.gameMenu)
             {
                 Chat("Beginning offline play.", Color.Blue);
@@ -153,7 +151,7 @@ namespace SeldomDespArchipelago.Systems
             }
             session.Reset();
             session = null;
-            status = ConnectStatus.Unset;
+            Status = ConnectStatus.Unset;
         }
         public override void Unload()
         {
@@ -628,9 +626,9 @@ namespace SeldomDespArchipelago.Systems
             offline = null;
         }
 
-        public string[] Status()
+        public string[] TextStatus()
         {
-            if (status == ConnectStatus.Valid)
+            if (Status == ConnectStatus.Valid)
             {
                 List<string> msg = ["Archipelago is active!"];
                 if (ModLoader.HasMod("CalamityMod"))
@@ -642,7 +640,7 @@ namespace SeldomDespArchipelago.Systems
                 return msg.ToArray();
 
             }
-            return status switch
+            return Status switch
             {
                 ConnectStatus.Unset => new[] {
                     @"The world is not connected to Archipelago! Reload the world to try again.",

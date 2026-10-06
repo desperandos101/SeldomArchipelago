@@ -998,7 +998,7 @@ namespace SeldomDespArchipelago
 
             // The way we handle packets kind of sucks. It's using string IDs with some special
             // cases.
-            if (message == "") ArchipelagoSystem.Chat(archipelagoSystem.Status(), whoAmI);
+            if (message == "") ArchipelagoSystem.Chat(archipelagoSystem.TextStatus(), whoAmI);
             else if (message.StartsWith("deathlink")) archipelagoSystem.TriggerDeathlink(message.Substring(9), whoAmI);
             else if (message.StartsWith("[DeathLink]"))
             {

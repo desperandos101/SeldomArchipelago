@@ -57,21 +57,21 @@ namespace SeldomDespArchipelago.Systems.Data
                 result = newSession.TryConnectAndLogin(APWorldName, config.name, ItemsHandlingFlags.AllItems, APversion, null, null, config.password == "" ? null : config.password);
                 if (result is LoginFailure failure)
                 {
-                    var error = failure.ErrorCodes.First();  // don't think it's important to get multiple
+                    var error = failure.ErrorCodes.FirstOrDefault();  // don't think it's important to get multiple
                     status = error switch
                     {
                         ConnectionRefusedError.InvalidSlot => ConnectStatus.WrongSlot,
                         ConnectionRefusedError.InvalidGame => ConnectStatus.WrongGame,
                         ConnectionRefusedError.IncompatibleVersion => ConnectStatus.ClientOlder,
                         ConnectionRefusedError.InvalidPassword => ConnectStatus.WrongPass,
-                        _ => ConnectStatus.Unset,
+                        _ => ConnectStatus.Failed,
                     };
                     return null;
                 }
             }
-            catch
+            catch (Exception e)
             {
-                status = ConnectStatus.Unset;
+                status = e is System.UriFormatException ? ConnectStatus.BadURL : ConnectStatus.Failed;
                 return null;
             }
 
@@ -140,8 +140,7 @@ namespace SeldomDespArchipelago.Systems.Data
         }
         private void OnClose(string _)
         {
-            Console.WriteLine("HELLO???");
-            Chat("The server connection has been interrupted.", Microsoft.Xna.Framework.Color.Orange);
+            Chat("The server connection has been closed.", Microsoft.Xna.Framework.Color.Orange);
             ConnectionClosed?.Invoke(this, EventArgs.Empty);
         }
         public event EventHandler ConnectionClosed;
@@ -229,21 +228,4 @@ namespace SeldomDespArchipelago.Systems.Data
             }
         }
     }
-    public enum ConnectStatus
-        {
-            Unset,
-            Connecting,
-            Disconnecting,
-            Valid,
-            WrongSlot,
-            WrongPass,
-            WrongGame,
-            ClientOlder,
-            ClientNewer,
-            CalamityNeeded,
-            NoCalamityNeeded,
-            FargoNeeded,
-            NoFargoNeeded,
-            MultiplayerClient,
-        }
 }
