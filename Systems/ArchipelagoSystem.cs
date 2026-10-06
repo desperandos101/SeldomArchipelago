@@ -114,20 +114,19 @@ namespace SeldomDespArchipelago.Systems
                     bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650));
                     if (hover && btn.TryClicking())
                     {
-                        Task t = Task.Delay(0);
                         if (Status == ConnectStatus.Valid)
                         {
-                            t = new Task(DisconnectSession);
+                            DisconnectSession();
                         }
                         else if (SafeStatus)
                         {
-                            t = new Task(ConnectSession);
+                            var t = new Task(ConnectSession);
+                            t.Start();
                         }
                         else
                         {
                             SoundEngine.PlaySound(SoundID.Zombie1);
                         }
-                        t.Start();
                     }
                 }
                 orig(m, gt);
@@ -139,7 +138,7 @@ namespace SeldomDespArchipelago.Systems
             session = SessionState.InitializeSession(out var s);
             Status = s;
             if (session is null) return;
-            session.ConnectionClosed += (_, _) => {Status = ConnectStatus.Unset;};
+            session.ConnectionClosed += (_, _) => DisconnectSession();
         }
         public void DisconnectSession()
         {
@@ -149,7 +148,6 @@ namespace SeldomDespArchipelago.Systems
                 Chat("Beginning offline play.", Color.Blue);
                 offline = new OfflineCache(session);
             }
-            session.Reset();
             session = null;
             Status = ConnectStatus.Unset;
         }

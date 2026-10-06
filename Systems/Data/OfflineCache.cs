@@ -14,8 +14,8 @@ namespace SeldomDespArchipelago.Systems.Data
     public class OfflineCache : TagSerializable
     {
         public SlotData slotData;
-        ImmutableHashSet<string> sentLocations;
-        ImmutableHashSet<string> receivedItems;
+        public ImmutableHashSet<string> sentLocations;
+        public ImmutableHashSet<string> receivedItems;
         public List<string> locationBacklog;
         OfflineCache() {}
         public OfflineCache(SessionState sess)

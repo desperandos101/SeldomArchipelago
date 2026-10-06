@@ -136,7 +136,7 @@ namespace SeldomDespArchipelago.Systems.Data
         private void HandleError(Exception e, string msg)
         {
             Chat($"EXCEPTION {nameof(e.GetType)}: {msg}", Microsoft.Xna.Framework.Color.Red);
-            OnClose(msg);
+            OnClose("");
         }
         private void OnClose(string _)
         {
@@ -177,7 +177,7 @@ namespace SeldomDespArchipelago.Systems.Data
             packet.Write(locationName);
             packet.Send();
         }
-        public void ApMessageToChat(LogMessage message)
+        void ApMessageToChat(LogMessage message)
         {
             var config = ModContent.GetInstance<Config.Config>();
 
