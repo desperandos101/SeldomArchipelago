@@ -110,6 +110,7 @@ namespace SeldomDespArchipelago.Systems.Data
             {
                 if (calamityActive) status = ConnectStatus.NoCalamityNeeded;
                 else status = ConnectStatus.CalamityNeeded;
+                sess.Reset();
                 return null;
             }
             bool fargoActive = ModLoader.HasMod("FargowiltasSouls");
@@ -117,6 +118,7 @@ namespace SeldomDespArchipelago.Systems.Data
             {
                 if (fargoActive) status = ConnectStatus.NoFargoNeeded;
                 else status = ConnectStatus.FargoNeeded;
+                sess.Reset();
                 return null;
             }
 
@@ -232,6 +234,7 @@ namespace SeldomDespArchipelago.Systems.Data
             {
                 QueueLocation(loc);
             }
+            Chat("Offline data processed.", Microsoft.Xna.Framework.Color.Blue);
         }
     }
 }

@@ -45,6 +45,7 @@ using SeldomDespArchipelago.UI;
 using ReLogic.Content.Sources;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.Audio;
+using Archipelago.MultiClient.Net.Helpers;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -105,6 +106,7 @@ namespace SeldomDespArchipelago.Systems
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
+        Task connectingSession = null;
 
         // Contains ghosts that require special housing conditions to spawn.
         public readonly static ImmutableHashSet<int> specialSpawnGhosts =
@@ -169,7 +171,7 @@ namespace SeldomDespArchipelago.Systems
                     {
                         if (ConnectionData.Status == ConnectStatus.Valid)
                         {
-                            DisconnectSession();
+                            session.Reset();
                         }
                         else if (ConnectionData.SafeStatus)
                         {
@@ -188,10 +190,25 @@ namespace SeldomDespArchipelago.Systems
         public void ConnectSession()
         {
             ConnectionData.Status = ConnectStatus.Connecting;
+            var config = ModContent.GetInstance<Config.Config>();
+            Chat($"Connecting to {config.address}:{config.port}...");
             session = InitializeSession(out var s);
             ConnectionData.Status = s;
-            if (session is null) return;
+            if (session is null) {
+                Chat($"Connection failed!", Color.Red);
+                Chat(ConnectionData.StatusText.Item1, ConnectionData.StatusText.Item2);
+                return;
+            }
+            if (offline is not null && (session.slotData.Name != offline.slotData.Name || session.slotData.Seed != offline.slotData.Seed))
+            {
+                Chat($"You have connected to a different slot/room than the one this world was initialized on. Check your config and try again.");
+                session.Reset();
+                session = null;
+                ConnectionData.Status = ConnectStatus.Unset;
+                return;
+            }
             session.ConnectionClosed += (_, _) => DisconnectSession();
+            Chat("Connection successful!");
         }
         public void DisconnectSession()
         {
@@ -207,7 +224,7 @@ namespace SeldomDespArchipelago.Systems
         public override void Unload()
         {
             if (session is null) return;
-            DisconnectSession();
+            session.Reset();
         }
         public int WorldIsUnplayable(WorldFileData worldData)
         {
@@ -252,8 +269,11 @@ namespace SeldomDespArchipelago.Systems
             if (session is null) return;
 
             // Clear Backlog
-            session.RedeemCache(offline);
-            offline = null;
+            if (offline is not null)
+            {
+                session.RedeemCache(offline);
+                offline = null;
+            }
 
             // Refresh suspended flags
             HashSet<string> collectedItems = (from item in session.session.Items.AllItemsReceived select item.ItemName).ToHashSet();
@@ -596,7 +616,13 @@ namespace SeldomDespArchipelago.Systems
         }
         public override void PostUpdateWorld()
         {
-            if (session == null) return;
+            if (session == null || !ConnectionData.SafeStatus) return;
+
+            if (offline is not null)
+            {
+                session.RedeemCache(offline);
+                offline = null;
+            }
 
             var unqueue = new List<int>();
             for (var i = 0; i < session.locationQueue.Count; i++)
@@ -689,64 +715,10 @@ namespace SeldomDespArchipelago.Systems
                     msg.Add("[c/FF5757:NOTICE:] You have forced off NPC Ghosting. Please verify that your slot has NPC Randomization disabled.");
                 }
                 return msg.ToArray();
-
             }
-            return ConnectionData.Status switch
-            {
-                ConnectStatus.Unset => new[] {
-                    @"The world is not connected to Archipelago! Reload the world to try again.",
-                    "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config",
-                },
-                ConnectStatus.WrongSlot => new[]
-                {
-                    $"Could not find a slot named \"{ModContent.GetInstance<Config.Config>().name}\" registered in the multiworld.",
-                    "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config, then reload the world."
-                },
-                ConnectStatus.WrongPass => new[]
-                {
-                    $"The password for the Archipelago server is incorrect.",
-                    "If you are the host, check your config in the main menu at Workshop > Manage Mods > Config, then reload the world."
-                },
-                ConnectStatus.WrongGame => new[]
-                {
-                    $"The slot \"{ModContent.GetInstance<Config.Config>().name}\" is set to a different game on the server, not \"{APWorldName}\".",
-                    "If this is the correct slot, make sure that you did not use the website to generate your YAML.",
-                    "See this page for more information: https://github.com/desperandos101/SeldomArchipelago/tree/release",
-                    "You have been disconnected from the server.",
-                },
-                // For the next messages, we instruct the player to reload the current world since it passed the mismatch test
-                ConnectStatus.CalamityNeeded => new[]
-                {
-                    "The multiworld slot you connected to has Calamity integration enabled, but you do not have the mod enabled in your modlist.",
-                    "You have been disconnected from the server. Please enable Calamity, then reload this world."
-                },
-                ConnectStatus.NoCalamityNeeded => new[]
-                {
-                    "The multiworld slot you connected to has Calamity integration disabled, but you have the mod enabled in your modlist.",
-                    "You have been disconnected from the server. Please disable Calamity, then reload this world."
-                },
-                ConnectStatus.FargoNeeded => new[]
-                {
-                    "The multiworld slot you connected to has Fargo Souls integration enabled, but you do not have the mod enabled in your modlist.",
-                    "You have been disconnected from the server. Please enable Fargo Souls, then reload this world."
-                },
-                ConnectStatus.NoFargoNeeded => new[]
-                {
-                    "The multiworld slot you connected to has Fargo Souls integration disabled, but you have the mod enabled in your modlist.",
-                    "You have been disconnected from the server. Please disable Fargo Souls, then reload this world."
-                },
-                ConnectStatus.ClientOlder => new[]
-                {
-                    "The multiworld slot you connected to requires a newer version of the client.",
-                    "You have been disconnected from the server. Please upgrade your client, then reload this world."
-                },
-                ConnectStatus.ClientNewer => new[]
-                {
-                    "The multiworld slot you connected to requires an older version of the client.",
-                    $"Look on the releases page for the latest client compatible with APWorld version {(desiredAPversion is null ? "0.6.61, then if that fails to connect, 0.6.62." : $"{desiredAPversion[0]}.{desiredAPversion[1]}.{desiredAPversion[2]}.")}",
-                    "You have been disconnected from the server. Please downpatch your client, then reload this world."
-                },
-            };
+            if (offline is not null) return ["You are in offline play. Data from your last room connection has been loaded.\nType '/apconnect' or navigate back to the config to connect."];
+            return ["No Archipelago data is initialized. Please navigate back to the config to connect."];
+            
         }
 
         public bool SendCommand(string command)
@@ -828,7 +800,7 @@ namespace SeldomDespArchipelago.Systems
             Locations sent to server: {string.Join("; ", from id in session.session.Locations.AllLocationsChecked select session.session.Locations.GetLocationNameFromId(id))}
             Items received from server: {string.Join("; ", from item in session.session.Items.AllItemsReceived select item.ItemName)}");
 
-            if (session.locationQueue.Count > 0)
+            if (session?.locationQueue.Count > 0)
             {
                 info.Add($"You have locations queued for sending. In normal circumstances, these locations will be sent ASAP.");
                 var statuses = new List<string>();

@@ -1,5 +1,6 @@
 using System;
 using SeldomDespArchipelago.Systems;
+using SeldomDespArchipelago.Systems.Data;
 using Terraria;
 using Terraria.GameContent.Events;
 using Terraria.ModLoader;
@@ -14,7 +15,7 @@ namespace SeldomDespArchipelago.Command
 
         public override void Action(CommandCaller caller, string input, string[] args)
         {
-            string version = ArchipelagoSystem.APversion.ToString();
+            string version = SessionState.APversion.ToString();
             caller.Reply($"APWORLD VERSION: {version}");
         }
     }
