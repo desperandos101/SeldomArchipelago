@@ -50,7 +50,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 var locNamesByID = new Dictionary<long, string>();
                 foreach (string loc in allNPCnames)
                 {
-                    locNamesByID[session.Locations.GetLocationIdFromName(APWorldName, loc)] = loc;
+                    locNamesByID[session.Locations.GetLocationIdFromName(SessionState.APWorldName, loc)] = loc;
                 }
                 if (locNamesByID.ContainsKey(-1))
                 {

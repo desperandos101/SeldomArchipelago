@@ -4,7 +4,7 @@ using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using ReLogic.OS;
 using SeldomDespArchipelago.Systems;
-using SeldomDespArchipelago.Systems.Data;
+using static SeldomDespArchipelago.Systems.ArchipelagoSystem;
 using Terraria;
 using Terraria.Audio;
 using Terraria.GameInput;
@@ -12,7 +12,6 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.UI.Chat;
-using static SeldomDespArchipelago.Systems.Data.ConnectStatus;
 namespace SeldomDespArchipelago.UI;
 public class ConnectButton
 {
@@ -37,7 +36,7 @@ public class ConnectButton
 		Vector2 vector2 = iconPos - vector / 2f;
 		if (Main.MouseScreen.Between(vector2, vector2 + vector)) {
 			Main.LocalPlayer.mouseInterface = true;
-			DrawTooltip(ConnectionData.Status == Valid);
+			DrawTooltip(ConnectionData.Status == ConnectStatus.Valid);
 			hover = true;
 		}
 

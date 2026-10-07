@@ -26,7 +26,7 @@ using SeldomDespArchipelago.FlagItem;
 using System.Linq;
 using SeldomDespArchipelago.Systems.Data;
 using SeldomDespArchipelago.NPCs;
-using static SeldomDespArchipelago.Systems.Data.ConnectionData;
+using static SeldomDespArchipelago.Systems.Data.SessionState;
 using System.Formats.Tar;
 using Archipelago.MultiClient.Net.MessageLog.Messages;
 using System.Diagnostics.Metrics;
@@ -48,13 +48,60 @@ using Terraria.Audio;
 
 namespace SeldomDespArchipelago.Systems
 {
-    class ArchipelagoSystem : ModSystem
+    public class ArchipelagoSystem : ModSystem
     {
-        public static readonly Version APversion = new Version(0, 6, 200);
-        public const string APWorldName = "Terraria Beta";
-        // Keeps track of the last APworld version the game tried to connect to for player convenience
-        public static int[] desiredAPversion = null;
-
+        public enum ConnectStatus
+        {
+            Unset,
+            Connecting,
+            Disconnecting,
+            Valid,
+            BadURL,
+            Failed,
+            WrongSlot,
+            WrongPass,
+            WrongGame,
+            ClientOlder,
+            ClientNewer,
+            CalamityNeeded,
+            NoCalamityNeeded,
+            FargoNeeded,
+            NoFargoNeeded,
+        }
+        public static class ConnectionData
+        {
+            static ConnectStatus status = ConnectStatus.Unset;
+            static (string, Color) statusText = ("Disconnected. Click the icon to connect!", Color.White);
+            public static ConnectStatus Status {
+                get => status;
+                internal set
+                {
+                    SlotData? Slot() => ModContent.GetInstance<ArchipelagoSystem>().ActiveSlot();
+                    status = value;
+                    statusText = value switch
+                    {
+                        ConnectStatus.Unset => ("Disconnected. Click the icon to connect!", Color.AntiqueWhite),
+                        ConnectStatus.Connecting => ("Connecting...", Color.Yellow),
+                        ConnectStatus.Disconnecting => ("Disconnecting...", Color.Yellow),
+                        ConnectStatus.Valid => ($"Connected to slot {Slot()?.Name ?? "NULL"}. Press the button again to disconnect.", Color.GreenYellow),
+                        ConnectStatus.BadURL => ($"The provided address + port is invalid.", Color.Orange),
+                        ConnectStatus.Failed => ($"Failed to connect to multiworld at {ModContent.GetInstance<Config.Config>().address}:{ModContent.GetInstance<Config.Config>().port}.", Color.Orange),
+                        ConnectStatus.WrongSlot => ($"Could not find slot {ModContent.GetInstance<Config.Config>().name} in room", Color.OrangeRed),
+                        ConnectStatus.WrongPass => ($"The room password is incorrect.", Color.OrangeRed),
+                        ConnectStatus.WrongGame => ($"The slot {Slot()?.Name} does not have \"{APWorldName}\" registered to it.", Color.OrangeRed),
+                        ConnectStatus.ClientOlder => ($"The connected slot requires a newer version of the client mod.\nPlease update your client.", Color.SkyBlue),
+                        ConnectStatus.ClientNewer => ($"The connected slot requires an older version of the client.\nLook on the releases page for the latest client compatible with {(desiredAPversion is null ? "0.6.61 or 0.6.62." : $"{desiredAPversion[0]}.{desiredAPversion[1]}.{desiredAPversion[2]}")} and downpatch.", Color.SkyBlue),
+                        ConnectStatus.CalamityNeeded => ("The connected slot requires Calamity. Please reload with it enabled.", Color.SkyBlue),
+                        ConnectStatus.NoCalamityNeeded => ("The connected slot does not have Calamity enabled. Please reload with it disabled.", Color.SkyBlue),
+                        ConnectStatus.FargoNeeded => ("The connected slot requires Fargo's Souls. Please reload with it enabled.", Color.SkyBlue),
+                        ConnectStatus.NoFargoNeeded => ("The connected slot does not have Fargo's Souls enabled. Please reload with it disabled.", Color.SkyBlue),
+                        _ => throw new System.Exception("Invalid ConnectionStatus " + value)
+                    };
+                }
+            }
+            public static bool SafeStatus => status != ConnectStatus.Connecting && status != ConnectStatus.Disconnecting;
+            public static (string, Color) StatusText => statusText;
+        }
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
@@ -67,8 +114,14 @@ namespace SeldomDespArchipelago.Systems
         # region Helper Methods
         public SlotData? ActiveSlot()
         {
-            if (!SafeStatus) return null;
-            return Status == ConnectStatus.Valid ? session.slotData : offline?.slotData;
+            if (!ConnectionData.SafeStatus)
+            {
+                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status ==  ConnectStatus.Disconnecting ? "dis" : "")}connection.");
+                return null;
+            }
+            if (Main.netMode == NetmodeID.MultiplayerClient) throw new Exception("Attemped to access SlotData in multiplayer client mode.");
+            if (ConnectionData.Status == ConnectStatus.Valid) return session.slotData;
+            return offline?.slotData;
         }
         public bool Sent(string loc)
         {
@@ -81,7 +134,7 @@ namespace SeldomDespArchipelago.Systems
         public int[] ReceivedNPCs() => (from id in ActiveSlot()?.RandomizedNPCs ?? [] where ReceivedNPC(id) select id).ToArray();
         public void QueueLocation(string loc)
         {
-            if (Status == ConnectStatus.Valid)
+            if (ConnectionData.Status == ConnectStatus.Valid)
             {
                 session.QueueLocation(loc);
             }
@@ -92,7 +145,7 @@ namespace SeldomDespArchipelago.Systems
         }
         public void QueueLocationClient(string loc)
         {
-            if (Status == ConnectStatus.Valid)
+            if (ConnectionData.Status == ConnectStatus.Valid)
             {
                 session.QueueLocationClient(loc);
             }
@@ -114,11 +167,11 @@ namespace SeldomDespArchipelago.Systems
                     bool hover = btn.Draw(Main.spriteBatch, new Vector2(Main.screenWidth / 2, 650));
                     if (hover && btn.TryClicking())
                     {
-                        if (Status == ConnectStatus.Valid)
+                        if (ConnectionData.Status == ConnectStatus.Valid)
                         {
                             DisconnectSession();
                         }
-                        else if (SafeStatus)
+                        else if (ConnectionData.SafeStatus)
                         {
                             var t = new Task(ConnectSession);
                             t.Start();
@@ -134,22 +187,22 @@ namespace SeldomDespArchipelago.Systems
         }
         public void ConnectSession()
         {
-            Status = ConnectStatus.Connecting;
-            session = SessionState.InitializeSession(out var s);
-            Status = s;
+            ConnectionData.Status = ConnectStatus.Connecting;
+            session = InitializeSession(out var s);
+            ConnectionData.Status = s;
             if (session is null) return;
             session.ConnectionClosed += (_, _) => DisconnectSession();
         }
         public void DisconnectSession()
         {
-            Status = ConnectStatus.Disconnecting;
+            ConnectionData.Status = ConnectStatus.Disconnecting;
             if (!Main.gameMenu)
             {
                 Chat("Beginning offline play.", Color.Blue);
                 offline = new OfflineCache(session);
             }
             session = null;
-            Status = ConnectStatus.Unset;
+            ConnectionData.Status = ConnectStatus.Unset;
         }
         public override void Unload()
         {
@@ -582,7 +635,7 @@ namespace SeldomDespArchipelago.Systems
 
             if (session.victory) return;
 
-            foreach (var goal in session.slotData.Goals) if (!session.session.Locations.AllLocationsChecked.Contains(session.session.Locations.GetLocationIdFromName(APWorldName, goal))) return;
+            foreach (var goal in session.slotData.Goals) if (!session.session.Locations.AllLocationsChecked.Contains(session.session.Locations.GetLocationIdFromName(SessionState.APWorldName, goal))) return;
 
             var victoryPacket = new StatusUpdatePacket()
             {
@@ -626,7 +679,7 @@ namespace SeldomDespArchipelago.Systems
 
         public string[] TextStatus()
         {
-            if (Status == ConnectStatus.Valid)
+            if (ConnectionData.Status == ConnectStatus.Valid)
             {
                 List<string> msg = ["Archipelago is active!"];
                 if (ModLoader.HasMod("CalamityMod"))
@@ -638,7 +691,7 @@ namespace SeldomDespArchipelago.Systems
                 return msg.ToArray();
 
             }
-            return Status switch
+            return ConnectionData.Status switch
             {
                 ConnectStatus.Unset => new[] {
                     @"The world is not connected to Archipelago! Reload the world to try again.",
@@ -716,82 +769,82 @@ namespace SeldomDespArchipelago.Systems
             info.Add("GENERAL INFORMATION:");
             info.Add(world is null ? "The mod thinks you're not in a world, which should never happen" : "You are in a world");
             
-            switch (Status) {
-                case ConnectStatus.Unset: info.Add("")
+            switch (ConnectionData.Status) {
+                case ConnectStatus.Unset: info.Add("You are not connected to a room."); break;
+                case ConnectStatus.Connecting: info.Add("You are actively connecting to a room."); return info.ToArray();
+                case ConnectStatus.Disconnecting: info.Add("You are actively disconnecting from a room."); return info.ToArray();
+                case ConnectStatus.Valid: info.Add("You are connected to a room."); break;
+                default: info.Add($"Your last attempt to connect failed: ERROR {ConnectionData.Status}"); break;
             }
 
-            if (world == null)
+            if (Main.netMode == NetmodeID.MultiplayerClient)
             {
-                info.Add("The mod thinks you're not in a world, which should never happen");
-            }
-            else if (slot is null)
-            {
-                info.Add("You are in a world. No Archipelago data has been initialized.");
-            }
-            else if (slot is SlotData activeSlot)
-            {
-                info.Add("You are in a world");
-                if (offline is not null && offline.locationBacklog.Count > 0)
-                {
-                    info.Add("You have locations in the backlog, which should only be the case if Archipelago is inactive");
-                    info.Add($"Location backlog: [{string.Join("; ", offline.locationBacklog)}]");
-                }
-                else
-                {
-                    info.Add("No locations in the backlog, which is usually normal");
-                }
-
-                info.Add($"You've collected {world.collectedItems} items");
-                info.Add($"NPC randomization is {(activeSlot.NpcRando ? "en" : "dis")}abled");
-                info.Add($"NPCs randomized: [{(activeSlot.NpcRando ? string.Join(", ", from npc in activeSlot.RandomizedNPCs select npcIDtoName[npc]) : "None")}]");
-                info.Add($"Received NPC IDs: [{string.Join(", ", from npc in ReceivedNPCs() select npcIDtoName[npc])}]");
+                info.Add("You are playing Multiplayer."); // ask the server for debug info?
+                return info.ToArray();
             }
 
-            if (session == null)
+            if (ActiveSlot() is not SlotData slot)
             {
-                info.Add("You're not connected to Archipelago");
+                info.Add("Data about the slot could not be accessed. This should only happen if this world has never been connected to a room.");
+                return info.ToArray();
             }
-            else
+
+            if (session is not null && offline is not null)
             {
-                if (session.session.Socket.Connected)
-                {
-                    info.Add("You're connected to Archipelago");
-                }
-                else
-                {
-                    info.Add("You're not connected to Archipelago, but the mod thinks you are");
-                }
+                info.Add("Both online and offline data is active, which is abnormal.");
+            }
 
-                if (session.locationQueue.Count > 0)
+            string EnabledOrDisabled(bool b) => b ? "enabled" : "disabled";
+
+            info.Add($@"
+            SLOT INFORMATION
+            NO.: {slot.Slot}
+            NAME: {slot.Name}
+            MULTIWORLD SEED: {slot.Seed}
+            GOALS: {string.Join(", ", slot.Goals)}
+            Deathlink is {EnabledOrDisabled(slot.Deathlink)}
+            NPC Randomization is {(
+                slot.NpcRando ? $@"enabled, with randomization applied to the following NPCs: {string.Join("; ", from id in slot.RandomizedNPCs select npcIDtoName[id])}
+                The NPC to Item dictionary is {(slot.ItemsByNPC is not null ? "active" : "empty")}" : "disabled"
+            )}
+            Calamity is {EnabledOrDisabled(slot.Calamity)}
+            Fargos is {EnabledOrDisabled(slot.Fargo)}
+            ");
+
+            if (world is not null) info.Add($@"WORLD INFORMATION
+            You have collected {world.collectedItems} items
+            You have received the following rewards: {string.Join("; ", world.collectedItems)}
+            The following flags are suspended: {string.Join("; ", world.suspendedFlags)}
+            The following ghosts are awaiting spawn: {string.Join("; ", from id in world.ghostNPCqueue select npcIDtoName[id])}
+            ");
+
+            if (offline is not null) info.Add($@"OFFLINE INFORMATION
+            Locations sent to server: {string.Join("; ", offline.sentLocations)}
+            Items received from server: {string.Join("; ", offline.receivedItems)}
+            Locations queued for send on next connection: {string.Join("; ", offline.locationBacklog)}
+            ");
+
+            if (session is not null) info.Add(@$"ROOM INFORMATION
+            Locations sent to server: {string.Join("; ", from id in session.session.Locations.AllLocationsChecked select session.session.Locations.GetLocationNameFromId(id))}
+            Items received from server: {string.Join("; ", from item in session.session.Items.AllItemsReceived select item.ItemName)}");
+
+            if (session.locationQueue.Count > 0)
+            {
+                info.Add($"You have locations queued for sending. In normal circumstances, these locations will be sent ASAP.");
+                var statuses = new List<string>();
+                foreach (var location in session.locationQueue) statuses.Add(location.Status switch
                 {
-                    info.Add($"You have locations queued for sending. In normal circumstances, these locations will be sent ASAP.");
-
-                    var statuses = new List<string>();
-                    foreach (var location in session.locationQueue) statuses.Add(location.Status switch
-                    {
-                        TaskStatus.Created => "Created",
-                        TaskStatus.WaitingForActivation => "Waiting for activation",
-                        TaskStatus.WaitingToRun => "Waiting to run",
-                        TaskStatus.Running => "Running",
-                        TaskStatus.WaitingForChildrenToComplete => "Waiting for children to complete",
-                        TaskStatus.RanToCompletion => "Completed",
-                        TaskStatus.Canceled => "Canceled",
-                        TaskStatus.Faulted => "Faulted",
-                        _ => "Has a status that was added to C# after this code was written",
-                    });
-
-                    info.Add($"Location queue statuses: [{string.Join("; ", statuses)}]");
-                }
-                else
-                {
-                    info.Add("No locations in the queue, which is usually normal");
-                }
-
-                info.Add($"DeathLink is {(session.deathlink == null ? "dis" : "en")}abled");
-                info.Add($"{session.currentItem} items have been applied");
-                info.Add($"Goals: [{string.Join("; ", session.slotData.Goals)}]");
-                info.Add($"Victory has {(session.victory ? "been achieved! Hooray!" : "not been achieved. Alas.")}");
-                info.Add($"You are slot {session.slotData.Slot}");
+                    TaskStatus.Created => "Created",
+                    TaskStatus.WaitingForActivation => "Waiting for activation",
+                    TaskStatus.WaitingToRun => "Waiting to run",
+                    TaskStatus.Running => "Running",
+                    TaskStatus.WaitingForChildrenToComplete => "Waiting for children to complete",
+                    TaskStatus.RanToCompletion => "Completed",
+                    TaskStatus.Canceled => "Canceled",
+                    TaskStatus.Faulted => "Faulted",
+                    _ => "Has a status that was added to C# after this code was written",
+                });
+                info.Add($"Location queue statuses: [{string.Join("; ", statuses)}]");
             }
 
             return info.ToArray();
@@ -935,4 +988,5 @@ namespace SeldomDespArchipelago.Systems
             }));
         }
     }
+    
 }

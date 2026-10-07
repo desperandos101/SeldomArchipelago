@@ -22,6 +22,8 @@ using System.Net.WebSockets;
 using System.Net.Sockets;
 using FargowiltasSouls.Content.Projectiles.Souls;
 using System.Threading;
+using Microsoft;
+using ReLogic.Content.Sources;
 
 namespace SeldomDespArchipelago.Systems.Data
 {
@@ -30,6 +32,10 @@ namespace SeldomDespArchipelago.Systems.Data
     /// </summary>
     public class SessionState
     {
+        public static readonly Version APversion = new Version(0, 6, 200);
+        public const string APWorldName = "Terraria Beta";
+        // Keeps track of the last APworld version the game tried to connect to for player convenience
+        public static int[] desiredAPversion = null;
         public SlotData slotData;
         // List of locations that are currently being sent
         public List<Task<Dictionary<long, ScoutedItemInfo>>> locationQueue = new List<Task<Dictionary<long, ScoutedItemInfo>>>();
