@@ -48,7 +48,7 @@ using Terraria.Audio;
 
 namespace SeldomDespArchipelago.Systems
 {
-    partial class ArchipelagoSystem : ModSystem
+    class ArchipelagoSystem : ModSystem
     {
         public static readonly Version APversion = new Version(0, 6, 200);
         public const string APWorldName = "Terraria Beta";
