@@ -712,7 +712,13 @@ namespace SeldomDespArchipelago.Systems
         public string[] DebugInfo()
         {
             var info = new List<string>();
-            var slot = ActiveSlot();
+
+            info.Add("GENERAL INFORMATION:");
+            info.Add(world is null ? "The mod thinks you're not in a world, which should never happen" : "You are in a world");
+            
+            switch (Status) {
+                case ConnectStatus.Unset: info.Add("")
+            }
 
             if (world == null)
             {
