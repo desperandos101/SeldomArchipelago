@@ -16,7 +16,7 @@ namespace SeldomDespArchipelago.Systems.Data
         public SlotData slotData;
         public ImmutableHashSet<string> sentLocations;
         public ImmutableHashSet<string> receivedItems;
-        public List<string> locationBacklog;
+        public ImmutableHashSet<string> locationBacklog;
         OfflineCache() {}
         public OfflineCache(SessionState sess)
         {
@@ -25,7 +25,10 @@ namespace SeldomDespArchipelago.Systems.Data
             receivedItems = (from item in sess.session.Items.AllItemsReceived select item.ItemName).ToImmutableHashSet();
             locationBacklog = [];
         }
-        public void QueueLocation(string loc) => locationBacklog.Add(loc);
+        public void QueueLocation(string loc)
+        {
+            if (!receivedItems.Contains(loc)) locationBacklog.Add(loc);
+        }
         public bool Sent(string loc) => sentLocations.Contains(loc) || locationBacklog.Contains(loc);
         public bool Received(string item) => receivedItems.Contains(item);
         public TagCompound SerializeData()
@@ -35,7 +38,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 [nameof(slotData)] = slotData,
                 [nameof(sentLocations)] = sentLocations.ToList(),
                 [nameof(receivedItems)] = receivedItems.ToList(),
-                [nameof(locationBacklog)] = locationBacklog,
+                [nameof(locationBacklog)] = locationBacklog.ToList(),
             };
         }
         public static readonly Func<TagCompound, OfflineCache> DESERIALIZER = (tag) =>
@@ -45,7 +48,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 slotData = tag.Get<SlotData>(nameof(slotData)),
                 sentLocations = tag.GetList<string>(nameof(sentLocations)).ToImmutableHashSet(),
                 receivedItems = tag.GetList<string>(nameof(receivedItems)).ToImmutableHashSet(),
-                locationBacklog = tag.Get<List<string>>(nameof(locationBacklog)),
+                locationBacklog = tag.Get<List<string>>(nameof(locationBacklog)).ToImmutableHashSet(),
             };
         };
     }

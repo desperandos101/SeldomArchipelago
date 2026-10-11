@@ -153,7 +153,7 @@ namespace SeldomDespArchipelago.Systems
             }
             else if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                offline.QueueLocation(loc);
+                offline?.QueueLocation(loc);
             }
         }
         # endregion
