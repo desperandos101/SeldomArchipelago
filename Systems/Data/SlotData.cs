@@ -26,6 +26,7 @@ namespace SeldomDespArchipelago.Systems.Data
         // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
         // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
         public ImmutableDictionary<int, int> ItemsByNPC {get; init; }
+        public bool DepthRando {get; init; }
         public bool Calamity {get; init; }
         public bool Fargo {get; init; }
         public SlotData() {}
@@ -38,6 +39,7 @@ namespace SeldomDespArchipelago.Systems.Data
             bool isEnabled(string key) => (long)login.SlotData[key] == 1;
             Deathlink = (bool)login.SlotData["deathlink"];
             NpcRando = isEnabled("npc_rando");
+            DepthRando = isEnabled("depth_rando");
             Calamity = isEnabled("calamity");
             Fargo = isEnabled("fargo");
             RandomizedNPCs = null;
@@ -87,6 +89,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 [nameof(Goals)] = Goals.ToList(),
                 [nameof(Deathlink)] = Deathlink,
                 [nameof(NpcRando)] = NpcRando,
+                [nameof(DepthRando)] = DepthRando,
                 [nameof(Calamity)] = Calamity,
                 [nameof(Fargo)] = Fargo,
             };
@@ -114,6 +117,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 NpcRando = npcRando,
                 RandomizedNPCs = npcRando ? tag.GetList<int>(nameof(RandomizedNPCs)).ToImmutableHashSet() : null,
                 ItemsByNPC = npcRando ? npcs.Zip(items, (k, v) => new { Key = k, Value = v}).ToImmutableDictionary(x => x.Key, x => x.Value) : null,
+                DepthRando = tag.GetBool(nameof(DepthRando)),
                 Calamity = tag.GetBool(nameof(Calamity)),
                 Fargo = tag.GetBool(nameof(Fargo)),
             };

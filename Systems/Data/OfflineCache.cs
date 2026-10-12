@@ -15,14 +15,14 @@ namespace SeldomDespArchipelago.Systems.Data
     {
         public SlotData slotData;
         public ImmutableHashSet<string> sentLocations;
-        public ImmutableHashSet<string> receivedItems;
+        public List<string> receivedItems;
         public ImmutableHashSet<string> locationBacklog;
         OfflineCache() {}
         public OfflineCache(SessionState sess)
         {
             slotData = sess.slotData;
             sentLocations = (from loc in sess.session.Locations.AllLocationsChecked select sess.session.Locations.GetLocationNameFromId(loc)).ToImmutableHashSet();
-            receivedItems = (from item in sess.session.Items.AllItemsReceived select item.ItemName).ToImmutableHashSet();
+            receivedItems = (from item in sess.session.Items.AllItemsReceived select item.ItemName).ToList();
             locationBacklog = [];
         }
         public void QueueLocation(string loc)
@@ -30,6 +30,7 @@ namespace SeldomDespArchipelago.Systems.Data
             if (!receivedItems.Contains(loc)) locationBacklog.Add(loc);
         }
         public bool Sent(string loc) => sentLocations.Contains(loc) || locationBacklog.Contains(loc);
+        public int ReceivedAmount(string item) => receivedItems.Count(i => i == item);
         public bool Received(string item) => receivedItems.Contains(item);
         public TagCompound SerializeData()
         {
@@ -47,7 +48,7 @@ namespace SeldomDespArchipelago.Systems.Data
             {
                 slotData = tag.Get<SlotData>(nameof(slotData)),
                 sentLocations = tag.GetList<string>(nameof(sentLocations)).ToImmutableHashSet(),
-                receivedItems = tag.GetList<string>(nameof(receivedItems)).ToImmutableHashSet(),
+                receivedItems = tag.GetList<string>(nameof(receivedItems)).ToList(),
                 locationBacklog = tag.Get<List<string>>(nameof(locationBacklog)).ToImmutableHashSet(),
             };
         };

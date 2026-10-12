@@ -131,9 +131,11 @@ namespace SeldomDespArchipelago.Systems
             long id = session.session.Locations.GetLocationIdFromName(APWorldName, loc);
             return session.session.Locations.AllLocationsChecked.Contains(id);
         }
+        public int ReceivedAmount(string item) => session?.session.Items.AllItemsReceived.Count(i => i.ItemName == item) ?? offline.ReceivedAmount(item);
         public bool Received(string item) => session?.session.Items.AllItemsReceived.Any(i => i.ItemName == item) ?? offline.Received(item);
         public bool ReceivedNPC(int npc) => Received(npcIDtoName[npc]);
         public int[] ReceivedNPCs() => (from id in ActiveSlot()?.RandomizedNPCs ?? [] where ReceivedNPC(id) select id).ToArray();
+        public int AllowedDepth() => ReceivedAmount("Progressive Depth");
         public void QueueLocation(string loc)
         {
             if (ConnectionData.Status == ConnectStatus.Valid)
@@ -779,6 +781,7 @@ namespace SeldomDespArchipelago.Systems
                 slot.NpcRando ? $@"enabled, with randomization applied to the following NPCs: {string.Join("; ", from id in slot.RandomizedNPCs select npcIDtoName[id])}
                 The NPC to Item dictionary is {(slot.ItemsByNPC is not null ? "active" : "empty")}" : "disabled"
             )}
+            Depth Randomization is {EnabledOrDisabled(slot.DepthRando)}
             Calamity is {EnabledOrDisabled(slot.Calamity)}
             Fargos is {EnabledOrDisabled(slot.Fargo)}
             ");
