@@ -46,12 +46,14 @@ namespace SeldomDespArchipelago.Config
         public ChatSetting chatSettings;
 
         [Header("Miscellaneous")]
+        [Label("Correct Depth Meter")]
+        [DefaultValue(true)]
+        public bool fixDepthMeter;
 
         [Label("Receive Flag As Item")]
         [DefaultListValue("Hardmode")]
         public List<string> manualFlags = [];
         [Header("Debug")]
-        [Label("Force NPC Randomization Off")]
         [DefaultValue(false)]
         public bool forceOffNPC;
 
