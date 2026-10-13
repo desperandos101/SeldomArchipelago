@@ -404,6 +404,11 @@ namespace SeldomDespArchipelago.Systems
             {
                 return;
             }
+            if (item == "Progressive Depth")
+            {
+                Chat("Heard");
+                return;
+            }
             if (!bypassStarterConfigCheck && ModContent.GetInstance<Config.Config>().manualFlags.Contains(item))
             {
                 GiveItem(null, (Player player) =>
