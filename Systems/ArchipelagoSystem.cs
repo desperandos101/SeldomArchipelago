@@ -22,7 +22,7 @@ using Terraria.ModLoader.IO;
 using Terraria.Social;
 using Terraria.WorldBuilding;
 using Terraria.UI.Chat;
-using SeldomDespArchipelago.FlagItem;
+using SeldomDespArchipelago.Items;
 using System.Linq;
 using SeldomDespArchipelago.Systems.Data;
 using SeldomDespArchipelago.NPCs;
