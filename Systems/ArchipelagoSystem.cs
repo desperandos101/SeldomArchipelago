@@ -131,8 +131,17 @@ namespace SeldomDespArchipelago.Systems
             long id = session.session.Locations.GetLocationIdFromName(APWorldName, loc);
             return session.session.Locations.AllLocationsChecked.Contains(id);
         }
-        public int ReceivedAmount(string item) => session?.session.Items.AllItemsReceived.Count(i => i.ItemName == item) ?? offline.ReceivedAmount(item);
-        public bool Received(string item) => session?.session.Items.AllItemsReceived.Any(i => i.ItemName == item) ?? offline.Received(item);
+        public int ReceivedAmount(string item)
+        {
+            int itemCount = world.cheatedItems.Count(i => i == item);
+            itemCount += session?.session.Items.AllItemsReceived.Count(i => i.ItemName == item) ?? offline.ReceivedAmount(item);
+            return itemCount;
+        }
+        public bool Received(string item)
+        {
+            if (world.cheatedItems.Contains(item)) return true;
+            return session?.session.Items.AllItemsReceived.Any(i => i.ItemName == item) ?? offline.Received(item);
+        }
         public bool ReceivedNPC(int npc) => Received(npcIDtoName[npc]);
         public int[] ReceivedNPCs() => (from id in ActiveSlot()?.RandomizedNPCs ?? [] where ReceivedNPC(id) select id).ToArray();
         public int AllowedDepth() => ReceivedAmount("Progressive Depth");
@@ -795,6 +804,7 @@ namespace SeldomDespArchipelago.Systems
             You have collected {world.collectedItems} items
             You have received the following rewards: {string.Join("; ", world.collectedItems)}
             The following flags are suspended: {string.Join("; ", world.suspendedFlags)}
+            The following items have been cheated in via /apcollect: {string.Join("; ", world.cheatedItems)}
             The following ghosts are awaiting spawn: {string.Join("; ", from id in world.ghostNPCqueue select npcIDtoName[id])}
             ");
 

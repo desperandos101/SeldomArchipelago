@@ -25,6 +25,8 @@ namespace SeldomDespArchipelago.Systems.Data
         public List<int> receivedRewards = new List<int>();
         // List of flags that have been received but not triggered
         public HashSet<string> suspendedFlags = new HashSet<string>();
+        // List of flags collected via apcollect
+        public List<string> cheatedItems = new List<string>();
         // Contains all ghosts that are available to spawn.
         public Queue<int> ghostNPCqueue = new();
         public TagCompound SerializeData()
@@ -34,6 +36,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 [nameof(collectedItems)] = collectedItems,
                 [nameof(receivedRewards)] = receivedRewards,
                 [nameof(suspendedFlags)] = suspendedFlags.ToList(),
+                [nameof(cheatedItems)] = cheatedItems,
             };
             return tag;
         }
@@ -43,6 +46,7 @@ namespace SeldomDespArchipelago.Systems.Data
             world.collectedItems = tag.GetInt(nameof(collectedItems));
             world.receivedRewards = tag.Get<List<int>>(nameof(receivedRewards));
             world.suspendedFlags = tag.Get<List<string>>(nameof(suspendedFlags)).ToHashSet();
+            world.cheatedItems = tag.Get<List<string>>(nameof(cheatedItems));
             return world;
         }
     }
