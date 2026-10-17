@@ -57,7 +57,14 @@ namespace SeldomDespArchipelago.Depth
                 Vector2 circlePos = NPC.Center - screenPos;
                 circlePos.X += (float)Math.Cos(PiTime(3,i/6f)) * 35;
                 circlePos.Y += (float)Math.Sin(PiTime(3,i/6f)) * 35;
-                spriteBatch.Draw(texture.Value, circlePos, null, colors[i].MultiplyRGB(drawColor), 0, new Vector2(42, 48)/2, Vector2.One, SpriteEffects.None, 1);
+                Color color = colors[i].MultiplyRGB(drawColor);
+                float opacity = target.GetModPlayer<DepthPlayer>().DepthToScary;
+                byte Mult(byte b) => (byte)(b*opacity);
+                color.R = Mult(color.R);
+                color.G = Mult(color.G);
+                color.B = Mult(color.B);
+                color.A = Mult(color.A);
+                spriteBatch.Draw(texture.Value, circlePos, null, color, 0, new Vector2(42, 48)/2, Vector2.One, SpriteEffects.None, 1);
             }
             return false;
         }

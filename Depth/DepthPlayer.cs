@@ -1,6 +1,7 @@
 using ReLogic.Utilities;
 using SeldomDespArchipelago.NPCs;
 using SeldomDespArchipelago.Systems;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
@@ -17,6 +18,8 @@ namespace SeldomDespArchipelago.Depth
     public class DepthPlayer : ModPlayer
     {
         public static float DangerousDepth = (float)Main.worldSurface * 16 - 300;
+        public float Threshold = 200;
+        public float DepthToScary => Math.Clamp(Player.position.Y-DangerousDepth, 0, Threshold)/Threshold;
         public int? activeGuard = null;
         public override void PostUpdate()
         {
