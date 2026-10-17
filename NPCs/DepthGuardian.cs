@@ -36,7 +36,7 @@ namespace SeldomDespArchipelago.NPCs
         public override void AI()
         {
             NPC.position.X = target.Center.X - NPC.width/2;
-            NPC.position.Y = target.Center.Y - NPC.height/2 - 100;
+            NPC.position.Y = (float)Main.worldSurface * 16;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
