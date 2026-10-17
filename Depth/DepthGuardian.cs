@@ -13,6 +13,15 @@ namespace SeldomDespArchipelago.Depth
     public class DepthGuardian : ModNPC
     {
         static Asset<Texture2D> texture;
+        int frames = 120;
+        Color[] colors = [
+            new Color(232, 88, 88),
+            new Color(88, 232, 117),
+            new Color(242, 126, 219),
+            new Color(255, 216, 138),
+            new Color(138, 146, 255),
+            new Color(252, 255, 138),
+        ];
         Player target;
         public override void SetStaticDefaults()
         {
@@ -41,11 +50,14 @@ namespace SeldomDespArchipelago.Depth
         public override bool? CanBeHitByProjectile(Projectile projectile) => false;
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
-            float piTime = (int)Main.timeForVisualEffects%60 * (MathHelper.TwoPi/60);
-            Vector2 circlePos = NPC.Center - screenPos;
-            circlePos.X += (float)Math.Cos(piTime) * 35;
-            circlePos.Y += (float)Math.Sin(piTime) * 35;
-            spriteBatch.Draw(texture.Value, circlePos, null, drawColor, piTime*2, new Vector2(42, 48)/2, Vector2.One, SpriteEffects.None, 1);
+            for (int i = 0; i < 6; i++)
+            {
+                float piTime = (int)(Main.timeForVisualEffects + i*frames/6) % frames * (MathHelper.TwoPi/frames);
+                Vector2 circlePos = NPC.Center - screenPos;
+                circlePos.X += (float)Math.Cos(piTime) * 35;
+                circlePos.Y += (float)Math.Sin(piTime) * 35;
+                spriteBatch.Draw(texture.Value, circlePos, null, colors[i].MultiplyRGB(drawColor), piTime*-3, new Vector2(42, 48)/2, Vector2.One, SpriteEffects.None, 1);
+            }
             return false;
         }
     }
