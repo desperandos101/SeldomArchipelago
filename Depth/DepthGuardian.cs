@@ -16,7 +16,7 @@ namespace SeldomDespArchipelago.Depth
         Player target;
         public override void SetStaticDefaults()
         {
-            texture = ModContent.Request<Texture2D>($"Terraria/Images/NPC_{NPCID.DungeonGuardian}");
+            texture = ModContent.Request<Texture2D>($"Terraria/Images/Projectile_{ProjectileID.BabySkeletronHead}");
         }
         public override void SetDefaults()
         {
@@ -41,7 +41,11 @@ namespace SeldomDespArchipelago.Depth
         public override bool? CanBeHitByProjectile(Projectile projectile) => false;
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
-            spriteBatch.Draw(texture.Value, NPC.Center - screenPos, null, drawColor, (int)Main.timeForVisualEffects%60 * (MathHelper.TwoPi/60), NPC.Size/2, Vector2.One, SpriteEffects.None, 1);
+            float piTime = (int)Main.timeForVisualEffects%60 * (MathHelper.TwoPi/60);
+            Vector2 circlePos = NPC.Center - screenPos;
+            circlePos.X += (float)Math.Cos(piTime) * 35;
+            circlePos.Y += (float)Math.Sin(piTime) * 35;
+            spriteBatch.Draw(texture.Value, circlePos, null, drawColor, piTime*2, new Vector2(42, 48)/2, Vector2.One, SpriteEffects.None, 1);
             return false;
         }
     }
