@@ -278,8 +278,6 @@ namespace SeldomDespArchipelago.Systems
         }
         public override void PostWorldLoad()
         {
-            NPC.NewNPC(new EntitySource_Parent(Main.LocalPlayer), 1, 2, ModContent.NPCType<DepthGuardian>(), 0, 0);
-
             if (session is null) return;
 
             // Clear Backlog

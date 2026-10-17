@@ -8,7 +8,7 @@ using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 
-namespace SeldomDespArchipelago.NPCs
+namespace SeldomDespArchipelago.Depth
 {
     // For a shop to open, there must be an NPC for the character to talk to, so for the collection
     // shop, we spawn a tiny, invisible NPC that follows the player.
