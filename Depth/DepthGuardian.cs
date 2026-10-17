@@ -1,4 +1,4 @@
-using System.Numerics;
+using System;
 using FargowiltasSouls.Content.Bosses.VanillaEternity;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -39,7 +39,7 @@ namespace SeldomDespArchipelago.Depth
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
         public override bool? CanBeHitByProjectile(Projectile projectile) => false;
-        public override bool PreDraw(SpriteBatch spriteBatch, Microsoft.Xna.Framework.Vector2 screenPos, Color drawColor)
+        public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
             spriteBatch.Draw(texture.Value, NPC.position - screenPos, drawColor);
             return false;
