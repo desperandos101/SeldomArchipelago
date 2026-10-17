@@ -46,6 +46,7 @@ using ReLogic.Content.Sources;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria.Audio;
 using Archipelago.MultiClient.Net.Helpers;
+using Microsoft.Build.Evaluation;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -277,6 +278,8 @@ namespace SeldomDespArchipelago.Systems
         }
         public override void PostWorldLoad()
         {
+            NPC.NewNPC(new EntitySource_Parent(Main.LocalPlayer), 1, 2, ModContent.NPCType<DepthGuardian>(), 0, 0);
+
             if (session is null) return;
 
             // Clear Backlog
