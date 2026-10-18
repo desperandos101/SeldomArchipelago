@@ -47,7 +47,7 @@ namespace SeldomDespArchipelago.Depth
         public override void AI()
         {
             NPC.position.X = target.Center.X - NPC.width/2;
-            NPC.position.Y = (float)Main.worldSurface * 16;
+            NPC.position.Y = Math.Max((float)Main.worldSurface * 16, target.Center.Y - NPC.height/2);
             Lighting.AddLight(NPC.Center, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.5f, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.3f, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.1f);
             if (spawnAnim < 60) spawnAnim++;
         }
