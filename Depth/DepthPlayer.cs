@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using ReLogic.Utilities;
 using SeldomDespArchipelago.NPCs;
 using SeldomDespArchipelago.Systems;
@@ -43,5 +44,6 @@ namespace SeldomDespArchipelago.Depth
             }
             return true;
         }
+        public override bool CanBeTeleportedTo(Vector2 teleportPosition, string context) => teleportPosition.Y < Main.worldSurface * 16;
     }
 }
