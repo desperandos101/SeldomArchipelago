@@ -38,7 +38,7 @@ namespace SeldomDespArchipelago.Systems.Data
             Name = session.Players.GetPlayerName(Slot);
             Seed = session.RoomState.Seed;
             Goals = ((JArray)login.SlotData["goal"]).ToObject<string[]>().ToImmutableArray();
-            bool isEnabled(string key) => (long)login.SlotData[key] == 1;
+            bool isEnabled(string key) => (long)login.SlotData[key] > 0;
             Deathlink = (bool)login.SlotData["deathlink"];
             NpcRando = isEnabled("npc_rando");
             DepthRando = isEnabled("depth_rando");
