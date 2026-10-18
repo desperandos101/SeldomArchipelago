@@ -6,6 +6,7 @@ using ReLogic.Content;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
+using Terraria.Localization;
 using Terraria.ModLoader;
 
 namespace SeldomDespArchipelago.Depth
@@ -33,7 +34,8 @@ namespace SeldomDespArchipelago.Depth
 			NPC.width = 80;
 			NPC.height = 102;
 			NPC.aiStyle = -1;
-			NPC.lifeMax = 2050;
+			NPC.lifeMax = 9999;
+            NPC.damage = 99999;
             NPC.noTileCollide = true;
             NPC.chaseable = false;
         }
@@ -71,6 +73,11 @@ namespace SeldomDespArchipelago.Depth
                 spriteBatch.Draw(texture.Value, circlePos, null, color, 0, new Vector2(42, 48)/2, Vector2.One, SpriteEffects.None, 1);
             }
             return false;
+        }
+        public override bool ModifyDeathMessage(ref NetworkText customText, ref Color color)
+        {
+            customText = NetworkText.FromLiteral("");
+            return true;
         }
     }
 }

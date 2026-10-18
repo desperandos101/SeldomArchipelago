@@ -10,6 +10,7 @@ using Terraria.Audio;
 using Terraria.DataStructures;
 using Terraria.GameContent.Achievements;
 using Terraria.ID;
+using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -33,6 +34,14 @@ namespace SeldomDespArchipelago.Depth
                 Main.npc[activeGuardID].StrikeInstantKill();
                 activeGuard = null;
             }
+        }
+        public override bool PreKill(double damage, int hitDirection, bool pvp, ref bool playSound, ref bool genDust, ref PlayerDeathReason damageSource)
+        {
+            if (Main.npc[damageSource.SourceNPCIndex].ModNPC is DepthGuardian)
+            {
+                damageSource.CustomReason = NetworkText.FromLiteral($"{Player.name} went in too deep.");
+            }
+            return true;
         }
     }
 }
