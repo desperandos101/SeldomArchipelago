@@ -14,6 +14,7 @@ namespace SeldomDespArchipelago.Depth
     {
         static Asset<Texture2D> texture;
         readonly int frames = 360;
+        int spawnAnim = 0;
         readonly Color[] colors = [
             new Color(232, 88, 88),
             new Color(88, 232, 117),
@@ -44,6 +45,8 @@ namespace SeldomDespArchipelago.Depth
         {
             NPC.position.X = target.Center.X - NPC.width/2;
             NPC.position.Y = (float)Main.worldSurface * 16;
+            Lighting.AddLight(NPC.Center, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.5f, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.3f, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.1f);
+            if (spawnAnim < 60) spawnAnim++;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
@@ -55,9 +58,9 @@ namespace SeldomDespArchipelago.Depth
             for (int i = 0; i < 6; i++)
             {
                 Vector2 circlePos = NPC.Center - screenPos;
-                circlePos.X += (float)Math.Cos(PiTime(3,i/6f)) * 35;
-                circlePos.Y += (float)Math.Sin(PiTime(3,i/6f)) * 35;
-                Color color = colors[i].MultiplyRGB(drawColor);
+                circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * (1-Math.Pow(1-(float)spawnAnim/60, 3)));
+                circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * (1-Math.Pow(1-(float)spawnAnim/60, 3)));
+                Color color = colors[i];
                 float opacity = target.GetModPlayer<DepthPlayer>().DepthToScary;
                 byte Mult(byte b) => (byte)(b*opacity);
                 color.R = Mult(color.R);
