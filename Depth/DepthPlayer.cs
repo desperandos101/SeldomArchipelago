@@ -24,10 +24,10 @@ namespace SeldomDespArchipelago.Depth
         public int? activeGuard = null;
         public override void PostUpdate()
         {
+            if (Main.netMode == NetmodeID.MultiplayerClient) return;
             if (ForbiddenDepth() is not double forbiddenDepth) return;
             float dangerousDepth = (float)forbiddenDepth * 16 - thresholdBeforeAppearance;
 
-            if (Main.netMode == NetmodeID.MultiplayerClient) return;
             if (Player.position.Y > dangerousDepth && activeGuard is null)
             {
                 activeGuard = NPC.NewNPC(new EntitySource_Parent(Player), 1, 2, ModContent.NPCType<DepthGuardian>(), 0, 0);

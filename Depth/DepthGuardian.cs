@@ -10,6 +10,7 @@ using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace SeldomDespArchipelago.Depth
 {
@@ -59,11 +60,15 @@ namespace SeldomDespArchipelago.Depth
             float guardedDepth = (float)GuardedDepth;
             NPC.position.X = Target.Center.X - NPC.width/2;
             NPC.position.Y = Math.Max(guardedDepth, Target.Center.Y - NPC.height/2);
+            if (Released) NPC.position.Y += (float)Math.Pow(deathTime, 2)/30f;
             Lighting.AddLight(NPC.Center, Opacity * 0.5f, Opacity * 0.3f, Opacity * 0.1f);
-            if (spawnAnim < 60) spawnAnim+=2;
+            if (spawnAnim < 60) spawnAnim += 2;
             if (Main.netMode != NetmodeID.MultiplayerClient && deathTime > 99) NPC.StrikeInstantKill();
             if (Target.dead || Released || Target.Center.Y < guardedDepth - thresholdBeforeAppearance) deathTime++;
-            else if (deathTime > 0) deathTime-=2;
+            else if (deathTime > 0) deathTime -= 2;
+
+            if (spawnAnim > 60) spawnAnim = 60;
+            if (deathTime < 0) deathTime = 0;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
@@ -76,8 +81,8 @@ namespace SeldomDespArchipelago.Depth
             for (int i = 0; i < 6; i++)
             {
                 Vector2 circlePos = NPC.Center - screenPos;
-                circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * (Math.Pow(1.5-spawnAnim/120f, 3) * Math.Pow(1+deathTime/200f, 3)));
-                circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * (Math.Pow(1.5-spawnAnim/120f, 3) * Math.Pow(1+deathTime/200f, 3)));
+                circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * (Math.Pow(spawnAnim/60f - 1, 2) + 1) * Math.Pow(1+deathTime/200f, 3));
+                circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * (Math.Pow(spawnAnim/60f - 1, 2) + 1) * Math.Pow(1+deathTime/200f, 3));
                 Color color = colors[i];
                 byte Mult(byte b) => (byte)(b*Opacity);
                 color.R = Mult(color.R);
