@@ -24,7 +24,7 @@ namespace SeldomDespArchipelago.Depth
             new Color(138, 146, 255),
             new Color(252, 255, 138),
         ];
-        Player target;
+        Player Target => Main.player[(int)NPC.ai[0]];
         public override void SetStaticDefaults()
         {
             texture = ModContent.Request<Texture2D>($"Terraria/Images/Projectile_{ProjectileID.BabySkeletronHead}");
@@ -42,13 +42,13 @@ namespace SeldomDespArchipelago.Depth
         public override void OnSpawn(IEntitySource source)
         {
             if (source is not EntitySource_Parent pSource || pSource.Entity is not Player p) return;
-            target = p;
+            NPC.ai[0] = p.whoAmI;
         }
         public override void AI()
         {
-            NPC.position.X = target.Center.X - NPC.width/2;
-            NPC.position.Y = Math.Max((float)Main.worldSurface * 16, target.Center.Y - NPC.height/2);
-            Lighting.AddLight(NPC.Center, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.5f, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.3f, target.GetModPlayer<DepthPlayer>().DepthToScary * 0.1f);
+            NPC.position.X = Target.Center.X - NPC.width/2;
+            NPC.position.Y = Math.Max((float)Main.worldSurface * 16, Target.Center.Y - NPC.height/2);
+            Lighting.AddLight(NPC.Center, Target.GetModPlayer<DepthPlayer>().DepthToScary * 0.5f, Target.GetModPlayer<DepthPlayer>().DepthToScary * 0.3f, Target.GetModPlayer<DepthPlayer>().DepthToScary * 0.1f);
             if (spawnAnim < 60) spawnAnim++;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
@@ -64,7 +64,7 @@ namespace SeldomDespArchipelago.Depth
                 circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * (1-Math.Pow(1-(float)spawnAnim/60, 3)));
                 circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * (1-Math.Pow(1-(float)spawnAnim/60, 3)));
                 Color color = colors[i];
-                float opacity = target.GetModPlayer<DepthPlayer>().DepthToScary;
+                float opacity = Target.GetModPlayer<DepthPlayer>().DepthToScary;
                 byte Mult(byte b) => (byte)(b*opacity);
                 color.R = Mult(color.R);
                 color.G = Mult(color.G);
