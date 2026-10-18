@@ -47,6 +47,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Terraria.Audio;
 using Archipelago.MultiClient.Net.Helpers;
 using Microsoft.Build.Evaluation;
+using System.IO;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -107,6 +108,7 @@ namespace SeldomDespArchipelago.Systems
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
+        SlotData? clientSlot = null;
 
         // Contains ghosts that require special housing conditions to spawn.
         public readonly static ImmutableHashSet<int> specialSpawnGhosts =
@@ -121,7 +123,7 @@ namespace SeldomDespArchipelago.Systems
                 Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status ==  ConnectStatus.Disconnecting ? "dis" : "")}connection.");
                 return null;
             }
-            if (Main.netMode == NetmodeID.MultiplayerClient) throw new Exception("Attemped to access SlotData in multiplayer client mode.");
+            if (Main.netMode == NetmodeID.MultiplayerClient) return clientSlot;
             if (ConnectionData.Status == ConnectStatus.Valid) return session.slotData;
             return offline?.slotData;
         }
@@ -266,6 +268,7 @@ namespace SeldomDespArchipelago.Systems
             typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
 
             if (Main.netMode == NetmodeID.MultiplayerClient) Unload();
+            else if (Main.netMode == NetmodeID.Server) ConnectSession();
         }
         public override void LoadWorldData(TagCompound tag)
         {
@@ -304,7 +307,17 @@ namespace SeldomDespArchipelago.Systems
                 }
             }
         }
-
+        public override void NetSend(BinaryWriter writer)
+        {
+            var s = ActiveSlot();
+            if (s is not SlotData slot) return;
+            slot.Write(writer);
+        }
+        public override void NetReceive(BinaryReader reader)
+        {
+            clientSlot = SlotData.ReadSlotData(reader);
+        }
+        
         public static string[] flags = { "Post-Trojan Squirrel", "Post-King Slime", "Post-Desert Scourge", "Post-Giant Clam", "Post-Eye of Cthulhu", "Post-Cursed Coffin", "Post-Acid Rain Tier 1", "Post-Crabulon", "Post-Evil Boss", "Post-Old One's Army Tier 1", "Post-Goblin Army", "Post-Queen Bee", "Post-The Hive Mind", "Post-The Perforators", "Post-Skeletron", "Post-Deerclops", "Post-The Slime God", "Post-Deviantt", "Hardmode", "Post-Dreadnautilus", "Post-Hardmode Giant Clam", "Post-Pirate Invasion", "Post-Queen Slime", "Post-Banished Baron", "Post-Aquatic Scourge", "Post-Cragmaw Mire", "Post-Acid Rain Tier 2", "Post-The Twins", "Post-Old One's Army Tier 2", "Post-Brimstone Elemental", "Post-The Destroyer", "Post-Cryogen", "Post-Skeletron Prime", "Post-Lifelight", "Post-Calamitas Clone", "Post-Plantera", "Post-Great Sand Shark", "Post-Leviathan and Anahita", "Post-Astrum Aureus", "Post-Golem", "Post-Old One's Army Tier 3", "Post-Martian Madness", "Post-The Plaguebringer Goliath", "Post-Duke Fishron", "Post-Mourning Wood", "Post-Pumpking", "Post-Everscream", "Post-Santa-NK1", "Post-Ice Queen", "Post-Frost Legion", "Post-Ravager", "Post-Empress of Light", "Post-Betsy", "Post-Lunatic Cultist", "Post-Astrum Deus", "Post-Lunar Events", "Post-Moon Lord", "Post-Profaned Guardians", "Post-Dragonfolly", "Post-Providence, the Profaned Goddess", "Post-Champion of Timber", "Post-Champion of Terra", "Post-Champion of Earth", "Post-Champion of Nature", "Post-Champion of Life", "Post-Champion of Death", "Post-Champion of Spirit", "Post-Champion of Will", "Post-Storm Weaver", "Post-Ceaseless Void", "Post-Signus, Envoy of the Devourer", "Post-Polterghast", "Post-Mauler", "Post-Nuclear Terror", "Post-The Old Duke", "Post-The Devourer of Gods", "Post-Eridanus, Champion of Cosmos", "Post-Yharon, Dragon of Rebirth", "Post-Abominationn", "Post-Exo Mechs", "Post-Supreme Witch, Calamitas", "Post-Primordial Wyrm", "Post-Mutant", "Post-Boss Rush" };
 
         public static bool FindFlag(string flag, out string fuzzy)
@@ -717,6 +730,7 @@ namespace SeldomDespArchipelago.Systems
         {
             world = new();
             offline = null;
+            clientSlot = null;
         }
 
         public string[] TextStatus()
@@ -767,7 +781,7 @@ namespace SeldomDespArchipelago.Systems
 
             if (Main.netMode == NetmodeID.MultiplayerClient)
             {
-                info.Add("You are playing Multiplayer."); // ask the server for debug info?
+                info.Add("You are playing Multiplayer.");
                 return info.ToArray();
             }
 
@@ -799,6 +813,8 @@ namespace SeldomDespArchipelago.Systems
             Calamity is {EnabledOrDisabled(slot.Calamity)}
             Fargos is {EnabledOrDisabled(slot.Fargo)}
             ");
+
+            if (Main.netMode == NetmodeID.MultiplayerClient) return info.ToArray();
 
             if (world is not null) info.Add($@"WORLD INFORMATION
             You have collected {world.collectedItems} items

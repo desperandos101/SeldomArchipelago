@@ -8,6 +8,8 @@ using Terraria.ModLoader.IO;
 using System.Linq;
 using System.Data;
 using static SeldomDespArchipelago.Systems.ArchipelagoSystem;
+using System.IO;
+using System.Configuration;
 
 namespace SeldomDespArchipelago.Systems.Data
 {
@@ -122,5 +124,57 @@ namespace SeldomDespArchipelago.Systems.Data
                 Fargo = tag.GetBool(nameof(Fargo)),
             };
         };
+        public void Write(BinaryWriter writer)
+        {
+            writer.Write(Slot);
+            writer.Write(Name);
+            writer.Write(Seed);
+            writer.Write(string.Join(';', Goals));
+            writer.Write(Deathlink);
+            writer.Write(NpcRando);
+            writer.Write(string.Join(';', RandomizedNPCs));
+            writer.Write(string.Join(';', ItemsByNPC.Keys));
+            writer.Write(string.Join(';', ItemsByNPC.Values));
+            writer.Write(DepthRando);
+            writer.Write(Calamity);
+            writer.Write(Fargo);
+        }
+        public static SlotData? ReadSlotData(BinaryReader reader)
+        {
+            try
+            {
+                int slot = reader.ReadInt32();
+                string name = reader.ReadString();
+                string seed = reader.ReadString();
+                ImmutableArray<string> goals = reader.ReadString().Split(';').ToImmutableArray();
+                bool deathlink = reader.ReadBoolean();
+                bool npcRando = reader.ReadBoolean();
+                ImmutableHashSet<int> randomizedNPCs = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToImmutableHashSet();
+                var itemsByNPCKeys = from i in reader.ReadString().Split(';') select int.Parse(i);
+                var itemsByNPCValues = from i in reader.ReadString().Split(';') select int.Parse(i);
+                bool depthRando = reader.ReadBoolean();
+                bool calamity = reader.ReadBoolean();
+                bool fargo = reader.ReadBoolean();
+                return new SlotData
+            {
+                Slot = slot,
+                Name = name,
+                Seed = seed,
+                Goals = goals,
+                Deathlink = deathlink,
+                NpcRando = npcRando,
+                RandomizedNPCs = randomizedNPCs,
+                ItemsByNPC = itemsByNPCKeys.Zip(itemsByNPCValues, (k, v) => KeyValuePair.Create(k, v)).ToImmutableDictionary(),
+                DepthRando = depthRando,
+                Calamity = calamity,
+                Fargo = fargo,
+            };
+            }
+            catch (Exception e)
+            {
+                ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Failed to receive slotdata: {e}");
+                return null;
+            }
+        }
     }
 }
