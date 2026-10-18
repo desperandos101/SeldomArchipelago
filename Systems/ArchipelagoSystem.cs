@@ -146,7 +146,12 @@ namespace SeldomDespArchipelago.Systems
         }
         public bool ReceivedNPC(int npc) => Received(npcIDtoName[npc]);
         public int[] ReceivedNPCs() => (from id in ActiveSlot()?.RandomizedNPCs ?? [] where ReceivedNPC(id) select id).ToArray();
-        public int AllowedDepth() => ReceivedAmount("Progressive Depth");
+        public int AllowedDepth()
+        {
+            if (ActiveSlot() is not SlotData slot) return 0;
+            if (!slot.DepthRando) return 3;
+            return ReceivedAmount("Progressive Depth");
+        }
         public void QueueLocation(string loc)
         {
             if (ConnectionData.Status == ConnectStatus.Valid)

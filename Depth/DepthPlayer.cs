@@ -2,6 +2,8 @@ using Microsoft.Xna.Framework;
 using ReLogic.Utilities;
 using SeldomDespArchipelago.NPCs;
 using SeldomDespArchipelago.Systems;
+using SeldomDespArchipelago.Systems.Data;
+using static SeldomDespArchipelago.Depth.DepthSystem;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -19,20 +21,19 @@ namespace SeldomDespArchipelago.Depth
 {
     public class DepthPlayer : ModPlayer
     {
-        public static float DangerousDepth = (float)Main.worldSurface * 16 - 300;
-        public float Threshold = 200;
-        public float DepthToScary => Math.Clamp(Player.position.Y-DangerousDepth, 0, Threshold)/Threshold;
         public int? activeGuard = null;
         public override void PostUpdate()
         {
+            if (ForbiddenDepth() is not double forbiddenDepth) return;
+            float dangerousDepth = (float)forbiddenDepth * 16 - thresholdBeforeAppearance;
+
             if (Main.netMode == NetmodeID.MultiplayerClient) return;
-            if (Player.position.Y > DangerousDepth && activeGuard is null)
+            if (Player.position.Y > dangerousDepth && activeGuard is null)
             {
                 activeGuard = NPC.NewNPC(new EntitySource_Parent(Player), 1, 2, ModContent.NPCType<DepthGuardian>(), 0, 0);
             }
-            else if (Player.position.Y < DangerousDepth && activeGuard is int activeGuardID)
+            else if (activeGuard is int activeGuardID && !Main.npc[activeGuardID].active)
             {
-                Main.npc[activeGuardID].StrikeInstantKill();
                 activeGuard = null;
             }
         }

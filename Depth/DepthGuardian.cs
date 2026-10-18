@@ -3,6 +3,8 @@ using FargowiltasSouls.Content.Bosses.VanillaEternity;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
+using SeldomDespArchipelago.Systems;
+using static SeldomDespArchipelago.Depth.DepthSystem;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -26,7 +28,11 @@ namespace SeldomDespArchipelago.Depth
             new Color(252, 255, 138),
         ];
         Player Target => Main.player[(int)NPC.ai[0]];
-        float Opacity => Target.GetModPlayer<DepthPlayer>().DepthToScary * Math.Max(0, 1f - deathTime/100f);
+        double? GuardedDepth => ForbiddenDepth((int)NPC.ai[1]) * 16;
+        bool Released { get => NPC.ai[2] == 1; set => NPC.ai[2] = value ? 1 : 0; }
+        public float Threshold = 200;
+        public float ApproachPercent => GuardedDepth is not null ? Math.Clamp(Target.position.Y-(float)GuardedDepth+thresholdBeforeAppearance, 0, Threshold)/Threshold : 0f;
+        float Opacity => ApproachPercent * Math.Max(0, 1f - deathTime/100f);
         public override void SetStaticDefaults()
         {
             texture = ModContent.Request<Texture2D>($"Terraria/Images/Projectile_{ProjectileID.BabySkeletronHead}");
@@ -45,15 +51,19 @@ namespace SeldomDespArchipelago.Depth
         {
             if (source is not EntitySource_Parent pSource || pSource.Entity is not Player p) return;
             NPC.ai[0] = p.whoAmI;
+            NPC.ai[1] = ModContent.GetInstance<ArchipelagoSystem>().AllowedDepth();
+            NPC.ai[2] = 0f;
         }
         public override void AI()
         {
+            float guardedDepth = (float)GuardedDepth;
             NPC.position.X = Target.Center.X - NPC.width/2;
-            NPC.position.Y = Math.Max((float)Main.worldSurface * 16, Target.Center.Y - NPC.height/2);
+            NPC.position.Y = Math.Max(guardedDepth, Target.Center.Y - NPC.height/2);
             Lighting.AddLight(NPC.Center, Opacity * 0.5f, Opacity * 0.3f, Opacity * 0.1f);
             if (spawnAnim < 60) spawnAnim++;
             if (Main.netMode != NetmodeID.MultiplayerClient && deathTime > 99) NPC.StrikeInstantKill();
-            if (Target.dead) deathTime++;
+            if (Target.dead || Target.Center.Y < guardedDepth - thresholdBeforeAppearance) deathTime++;
+            else if (deathTime > 0) deathTime--;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
