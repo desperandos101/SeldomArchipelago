@@ -77,10 +77,5 @@ namespace SeldomDespArchipelago.Depth
             }
             return false;
         }
-        public override bool ModifyDeathMessage(ref NetworkText customText, ref Color color)
-        {
-            customText = NetworkText.FromLiteral("");
-            return true;
-        }
     }
 }
