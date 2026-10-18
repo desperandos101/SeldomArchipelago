@@ -122,12 +122,5 @@ namespace SeldomDespArchipelago.Systems.Data
                 Fargo = tag.GetBool(nameof(Fargo)),
             };
         };
-        /*
-        public override bool Equals(object obj)
-        {
-            if (obj is not SlotData otherSlot) return false;
-            return Name == otherSlot.Name && Seed == otherSlot.Seed;
-        }
-        */
     }
 }
