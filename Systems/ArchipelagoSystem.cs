@@ -107,7 +107,6 @@ namespace SeldomDespArchipelago.Systems
         public WorldState world = new();
         OfflineCache offline = null;
         SessionState session = null;
-        Task connectingSession = null;
 
         // Contains ghosts that require special housing conditions to spawn.
         public readonly static ImmutableHashSet<int> specialSpawnGhosts =
