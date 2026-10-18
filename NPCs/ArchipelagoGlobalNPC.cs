@@ -14,24 +14,6 @@ namespace SeldomDespArchipelago.NPCs
             if (ModLoader.HasMod("FargowiltasSouls")) FargoOnKill(npc.type);
         }
 
-        public override void EditSpawnPool(IDictionary<int, float> pool, NPCSpawnInfo spawnInfo)
-        {
-            var seldomArchipelago = ModContent.GetInstance<ArchipelagoSystem>();
-            if (seldomArchipelago.ActiveSlot() is null) return;
-            var player = spawnInfo.Player;
-            bool spawnDepthGuardian = seldomArchipelago.AllowedDepth() switch {
-                0 => player.ZoneUnderworldHeight || player.ZoneRockLayerHeight || player.ZoneDirtLayerHeight,
-                1 => player.ZoneUnderworldHeight || player.ZoneRockLayerHeight,
-                2 => player.ZoneUnderworldHeight,
-                3 => false,
-                _ => throw new System.Exception("Too many Progressive Depths!")
-            };
-            if (spawnDepthGuardian)
-            {
-                pool[NPCID.DungeonGuardian] = 9999f;
-            }
-        }
-
         [JITWhenModsEnabled("CalamityMod")]
         void CalamityOnKill(int npc)
         {
