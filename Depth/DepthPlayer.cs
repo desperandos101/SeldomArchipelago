@@ -45,6 +45,11 @@ namespace SeldomDespArchipelago.Depth
             }
             return true;
         }
-        public override bool CanBeTeleportedTo(Vector2 teleportPosition, string context) => teleportPosition.Y < Main.worldSurface * 16;
+        public void ReleaseGuard()
+        {
+            if (activeGuard is not int activeGuardID) return;
+            ((DepthGuardian)Main.npc[activeGuardID].ModNPC).Released = true;
+        }
+        public override bool CanBeTeleportedTo(Vector2 teleportPosition, string context) => ForbiddenDepth() is double depth ? teleportPosition.Y < depth * 16 : true;
     }
 }

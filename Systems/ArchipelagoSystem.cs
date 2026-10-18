@@ -48,6 +48,7 @@ using Terraria.Audio;
 using Archipelago.MultiClient.Net.Helpers;
 using Microsoft.Build.Evaluation;
 using System.IO;
+using SeldomDespArchipelago.Depth;
 
 namespace SeldomDespArchipelago.Systems
 {
@@ -433,7 +434,8 @@ namespace SeldomDespArchipelago.Systems
             }
             if (item == "Progressive Depth")
             {
-                Chat(Depth.DepthSystem.DepthUnlockText(ReceivedAmount("Progressive Depth")));
+                Chat(Depth.DepthSystem.DepthUnlockText(ReceivedAmount("Progressive Depth")), Color.Cyan);
+                foreach (Player p in Main.ActivePlayers) p.GetModPlayer<DepthPlayer>().ReleaseGuard();
                 return;
             }
             if (!bypassStarterConfigCheck && ModContent.GetInstance<Config.Config>().manualFlags.Contains(item))

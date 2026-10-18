@@ -29,7 +29,7 @@ namespace SeldomDespArchipelago.Depth
         ];
         Player Target => Main.player[(int)NPC.ai[0]];
         double? GuardedDepth => ForbiddenDepth((int)NPC.ai[1]) * 16;
-        bool Released { get => NPC.ai[2] == 1; set => NPC.ai[2] = value ? 1 : 0; }
+        public bool Released { get => NPC.ai[2] == 1; set => NPC.ai[2] = value ? 1 : 0; }
         public float Threshold = 200;
         public float ApproachPercent => GuardedDepth is not null ? Math.Clamp(Target.position.Y-(float)GuardedDepth+thresholdBeforeAppearance, 0, Threshold)/Threshold : 0f;
         float Opacity => ApproachPercent * Math.Max(0, 1f - deathTime/100f);
@@ -60,14 +60,15 @@ namespace SeldomDespArchipelago.Depth
             NPC.position.X = Target.Center.X - NPC.width/2;
             NPC.position.Y = Math.Max(guardedDepth, Target.Center.Y - NPC.height/2);
             Lighting.AddLight(NPC.Center, Opacity * 0.5f, Opacity * 0.3f, Opacity * 0.1f);
-            if (spawnAnim < 60) spawnAnim++;
+            if (spawnAnim < 60) spawnAnim+=2;
             if (Main.netMode != NetmodeID.MultiplayerClient && deathTime > 99) NPC.StrikeInstantKill();
-            if (Target.dead || Target.Center.Y < guardedDepth - thresholdBeforeAppearance) deathTime++;
-            else if (deathTime > 0) deathTime--;
+            if (Target.dead || Released || Target.Center.Y < guardedDepth - thresholdBeforeAppearance) deathTime++;
+            else if (deathTime > 0) deathTime-=2;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
         public override bool? CanBeHitByProjectile(Projectile projectile) => false;
+        public override bool CanHitPlayer(Player target, ref int cooldownSlot) => !Released;
         public override bool PreDraw(SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor)
         {
             double PiTime(int phasePerSecond, float advance = 0) => (Main.timeForVisualEffects * phasePerSecond + frames*advance) % frames / frames * MathHelper.TwoPi;
