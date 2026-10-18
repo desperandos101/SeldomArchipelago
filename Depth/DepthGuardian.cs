@@ -35,6 +35,7 @@ namespace SeldomDespArchipelago.Depth
 			NPC.aiStyle = -1;
 			NPC.lifeMax = 2050;
             NPC.noTileCollide = true;
+            NPC.chaseable = false;
         }
         public override void OnSpawn(IEntitySource source)
         {
