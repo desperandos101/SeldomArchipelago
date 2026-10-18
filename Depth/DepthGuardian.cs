@@ -16,6 +16,7 @@ namespace SeldomDespArchipelago.Depth
         static Asset<Texture2D> texture;
         readonly int frames = 360;
         int spawnAnim = 0;
+        int deathTime = 0;
         readonly Color[] colors = [
             new Color(232, 88, 88),
             new Color(88, 232, 117),
@@ -25,6 +26,7 @@ namespace SeldomDespArchipelago.Depth
             new Color(252, 255, 138),
         ];
         Player Target => Main.player[(int)NPC.ai[0]];
+        float Opacity => Target.GetModPlayer<DepthPlayer>().DepthToScary * Math.Max(0, 1f - deathTime/100f);
         public override void SetStaticDefaults()
         {
             texture = ModContent.Request<Texture2D>($"Terraria/Images/Projectile_{ProjectileID.BabySkeletronHead}");
@@ -48,8 +50,10 @@ namespace SeldomDespArchipelago.Depth
         {
             NPC.position.X = Target.Center.X - NPC.width/2;
             NPC.position.Y = Math.Max((float)Main.worldSurface * 16, Target.Center.Y - NPC.height/2);
-            Lighting.AddLight(NPC.Center, Target.GetModPlayer<DepthPlayer>().DepthToScary * 0.5f, Target.GetModPlayer<DepthPlayer>().DepthToScary * 0.3f, Target.GetModPlayer<DepthPlayer>().DepthToScary * 0.1f);
+            Lighting.AddLight(NPC.Center, Opacity * 0.5f, Opacity * 0.3f, Opacity * 0.1f);
             if (spawnAnim < 60) spawnAnim++;
+            if (Main.netMode != NetmodeID.MultiplayerClient && deathTime > 99) NPC.StrikeInstantKill();
+            if (Target.dead) deathTime++;
         }
         public override bool CanBeHitByNPC(NPC attacker) => false;
         public override bool? CanBeHitByItem(Player player, Item item) => false;
@@ -64,8 +68,7 @@ namespace SeldomDespArchipelago.Depth
                 circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * (1-Math.Pow(1-(float)spawnAnim/60, 3)));
                 circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * (1-Math.Pow(1-(float)spawnAnim/60, 3)));
                 Color color = colors[i];
-                float opacity = Target.GetModPlayer<DepthPlayer>().DepthToScary;
-                byte Mult(byte b) => (byte)(b*opacity);
+                byte Mult(byte b) => (byte)(b*Opacity);
                 color.R = Mult(color.R);
                 color.G = Mult(color.G);
                 color.B = Mult(color.B);
