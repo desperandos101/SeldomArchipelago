@@ -433,7 +433,7 @@ namespace SeldomDespArchipelago.Systems
             }
             if (item == "Progressive Depth")
             {
-                Chat("Heard");
+                Chat(Depth.DepthSystem.DepthUnlockText(ReceivedAmount("Progressive Depth")));
                 return;
             }
             if (!bypassStarterConfigCheck && ModContent.GetInstance<Config.Config>().manualFlags.Contains(item))
