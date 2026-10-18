@@ -75,8 +75,8 @@ namespace SeldomDespArchipelago.Depth
             for (int i = 0; i < 6; i++)
             {
                 Vector2 circlePos = NPC.Center - screenPos;
-                circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * ((1-Math.Pow(1-(float)spawnAnim/60, 3)) * Math.Pow(1+deathTime/100f, 3)));
-                circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * ((1-Math.Pow(1-(float)spawnAnim/60, 3)) * Math.Pow(1+deathTime/100f, 2)));
+                circlePos.X += (float)(Math.Cos(PiTime(3,i/6f)) * 35 * (Math.Pow(1.5-spawnAnim/120f, 3) * Math.Pow(1+deathTime/200f, 3)));
+                circlePos.Y += (float)(Math.Sin(PiTime(3,i/6f)) * 35 * (Math.Pow(1.5-spawnAnim/120f, 3) * Math.Pow(1+deathTime/200f, 3)));
                 Color color = colors[i];
                 byte Mult(byte b) => (byte)(b*Opacity);
                 color.R = Mult(color.R);
