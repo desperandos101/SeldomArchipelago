@@ -45,11 +45,6 @@ Mods: {
 					Label: Name
 				}
 
-				fixDepthMeter: {
-					Label: Correct Depth Meter
-					Tooltip: Annotates the Depth Meter display with true depth.
-				}
-
 				forceOffNPC: {
 					Label: Force NPC Ghosting Off
 					Tooltip: Force this mod to use vanilla behavior for NPCs. If your slot has NPC Randomization enabled, leave this setting off.
