@@ -747,10 +747,6 @@ namespace SeldomDespArchipelago.Systems
                 List<string> msg = ["Archipelago is active!"];
                 if (ModLoader.HasMod("CalamityMod"))
                     msg.Add("Calamity Archipelago detected. If you beat a Calamity boss and it doesn't give you a check, restart your game and beat it again. It is a rare, unsolved bug.");
-                if (ModContent.GetInstance<Config.Config>().forceOffNPC)
-                {
-                    msg.Add("[c/FF5757:NOTICE:] You have forced off NPC Ghosting. Please verify that your slot has NPC Randomization disabled.");
-                }
                 return msg.ToArray();
             }
             if (offline is not null) return ["You are in offline play. Data from your last room connection has been loaded.\nType '/apconnect' or navigate back to the config to connect."];
