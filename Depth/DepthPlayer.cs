@@ -51,5 +51,9 @@ namespace SeldomDespArchipelago.Depth
             ((DepthGuardian)Main.npc[activeGuardID].ModNPC).Released = true;
         }
         public override bool CanBeTeleportedTo(Vector2 teleportPosition, string context) => ForbiddenDepth() is double depth ? teleportPosition.Y < depth * 16 : true;
+        public override IEnumerable<Item> AddStartingItems(bool mediumCoreDeath) {
+            if (mediumCoreDeath || Player.difficulty != PlayerDifficultyID.Creative) return [];
+            return [new Item(ItemID.CopperShortsword)];
+        }
     }
 }
