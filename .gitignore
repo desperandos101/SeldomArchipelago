@@ -7,3 +7,7 @@
 /.idea
 /Properties
 /.vscode
+
+# Mod Libraries
+/lib/CalamityMod.dll
+/lib/FargowiltasSouls.dll

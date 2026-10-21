@@ -1,7 +1,8 @@
-using SeldomArchipelagoBeta.Systems;
+using System.Threading.Tasks;
+using SeldomDespArchipelago.Systems;
 using Terraria.ModLoader;
 
-namespace SeldomArchipelagoBeta.Command
+namespace SeldomDespArchipelago.Command
 {
     public class ApConnectCommand : ModCommand
     {
@@ -18,10 +19,8 @@ namespace SeldomArchipelagoBeta.Command
             }
 
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-            archipelagoSystem.Reset();
-            archipelagoSystem.OnWorldLoad();
-
-            archipelagoSystem.Chat(archipelagoSystem.Status());
+            var t = new Task(archipelagoSystem.ConnectSession);
+            t.Start();
         }
     }
 }

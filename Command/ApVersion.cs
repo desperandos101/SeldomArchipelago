@@ -1,10 +1,11 @@
 using System;
-using SeldomArchipelagoBeta.Systems;
+using SeldomDespArchipelago.Systems;
+using SeldomDespArchipelago.Systems.Data;
 using Terraria;
 using Terraria.GameContent.Events;
 using Terraria.ModLoader;
 
-namespace SeldomArchipelagoBeta.Command
+namespace SeldomDespArchipelago.Command
 {
     public class ApVersion : ModCommand
     {
@@ -14,7 +15,7 @@ namespace SeldomArchipelagoBeta.Command
 
         public override void Action(CommandCaller caller, string input, string[] args)
         {
-            string version = ModContent.GetInstance<ArchipelagoSystem>().APversion.ToString();
+            string version = SessionState.APversion.ToString();
             caller.Reply($"APWORLD VERSION: {version}");
         }
     }

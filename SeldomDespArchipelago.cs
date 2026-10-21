@@ -6,10 +6,11 @@ using Microsoft.CodeAnalysis.Operations;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using SeldomArchipelagoBeta.NPCs;
-using SeldomArchipelagoBeta.Players;
-using SeldomArchipelagoBeta.Systems;
-using SeldomArchipelagoBeta.UI;
+using SeldomDespArchipelago.NPCs;
+using SeldomDespArchipelago.Players;
+using SeldomDespArchipelago.Systems;
+using SeldomDespArchipelago.Systems.Data;
+using SeldomDespArchipelago.UI;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -29,7 +30,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 
 // Note: When pulling commits from here to main, this namespace needs to be refactored.
-namespace SeldomArchipelagoBeta
+namespace SeldomDespArchipelago
 {
     // TODO Use a data-oriented approach to get rid of all this repetition
 
@@ -199,25 +200,23 @@ namespace SeldomArchipelagoBeta
                             Main.townNPCCanSpawn[NPCID.Princess] = true;
                         }
                     }
-                    if (archipelagoSystem.world.NPCRandoActive())
+                    if (archipelagoSystem.ActiveSlot() is SlotData slot && slot.NpcRando)
                     {
                         // Evaluate and Build
                         HashSet<int> validGhostTypes = new();
-                        foreach (int type in archipelagoSystem.world.randomizedNPCs)
+                        foreach (int type in slot.RandomizedNPCs)
                         {
                             if (Main.townNPCCanSpawn[type] && GhostNPC.GhostableType(type) && !existingGhostTypes.Contains(type))
                                 validGhostTypes.Add(type);
-                            Main.townNPCCanSpawn[type] = archipelagoSystem.world.receivedNPCs.Contains(type);
+                            Main.townNPCCanSpawn[type] = archipelagoSystem.ReceivedNPC(type);
                         }
 
                         // Enqueue Ghosts
-                        if (archipelagoSystem.session is not null)
-                            foreach (int type in validGhostTypes)
-                            {
-                                long npcAsLoc = archipelagoSystem.session.session.Locations.GetLocationIdFromName(ArchipelagoSystem.APWorldName, ArchipelagoSystem.npcIDtoName[type]);
-                                if (!archipelagoSystem.world.ghostNPCqueue.Contains(type) && !archipelagoSystem.session.session.Locations.AllLocationsChecked.Contains(npcAsLoc))
-                                    archipelagoSystem.world.ghostNPCqueue.Enqueue(type);
-                            }
+                        foreach (int type in validGhostTypes)
+                        {
+                            if (!archipelagoSystem.world.ghostNPCqueue.Contains(type) && !archipelagoSystem.Sent(ArchipelagoSystem.npcIDtoName[type]))
+                                archipelagoSystem.world.ghostNPCqueue.Enqueue(type);
+                        }
                     }
                     // Block Duplicate Normal NPCs
                     foreach (int type in existingTownTypes)
@@ -347,7 +346,7 @@ namespace SeldomArchipelagoBeta
                             Main.NewText(Language.GetTextValue("Announcement.HasArrived", fullName), 50, 125);
                         else if (Main.netMode == NetmodeID.Server)
                             ChatHelper.BroadcastChatMessage(NetworkText.FromKey("Announcement.HasArrived", npc.GetFullNetName()), new Color(50, 125, 255));
-                        if (archipelagoSystem.session.goals.Contains(npc.TypeName)) archipelagoSystem.QueueLocation(npc.TypeName);  // For Princess + Future Single NPC Goals W/O NPC Randomization
+                        if (archipelagoSystem.ActiveSlot()?.Goals.Contains(npc.TypeName) ?? false) archipelagoSystem.QueueLocation(npc.TypeName);  // For Princess + Future Single NPC Goals W/O NPC Randomization
                         return 1;
                     }
                 });
@@ -461,7 +460,7 @@ namespace SeldomArchipelagoBeta
 
                 cursor.EmitDelegate(() =>
                 {
-                    return archipelagoSystem.world.NPCRandoActive();
+                    return archipelagoSystem.ActiveSlot()?.NpcRando ?? false;
                 });
                 cursor.EmitLdcI4(1);
                 cursor.EmitBlt(skipRando);
@@ -482,9 +481,10 @@ namespace SeldomArchipelagoBeta
                         case NPCID.Wizard: boundNPCtype = NPCID.BoundWizard; locName = "Wizard"; break;
                         default: throw new Exception($"NPC type {npcType} unaccounted for in TransformBoundNPC. Also, {npcType} somehow changed value mid-exec. Dial 911 as fast as you can");
                     }
-                    if (!archipelagoSystem.world.randomizedNPCs.Contains(npcType)) return npcType;
+                    var s = archipelagoSystem.ActiveSlot();
+                    if (s is not SlotData slot || !slot.RandomizedNPCs.Contains(npcType)) return npcType;
                     archipelagoSystem.QueueLocationClient(locName);
-                    if (archipelagoSystem.world.npcLocTypeToNpcItemType is not null && archipelagoSystem.world.npcLocTypeToNpcItemType.TryGetValue(npcType, out int newNpcType) && !NPC.AnyNPCs(newNpcType))
+                    if (slot.ItemsByNPC is not null && slot.ItemsByNPC.TryGetValue(npcType, out int newNpcType) && !NPC.AnyNPCs(newNpcType))
                         return newNpcType;
                     NPC npc = Main.npc[NPC.FindFirstNPC(boundNPCtype)];
                     if (Main.netMode == NetmodeID.MultiplayerClient)
@@ -521,10 +521,10 @@ namespace SeldomArchipelagoBeta
                 cursor.EmitDelegate<Func<NPC, bool>>((NPC npc) =>
                 {
                     NPC.savedTaxCollector = true;
-                    if (!archipelagoSystem.world.NPCRandoActive()) return false;
+                    if (!(archipelagoSystem.ActiveSlot() is SlotData slot) || !slot.NpcRando) return false;
                     archipelagoSystem.QueueLocationClient("Tax Collector");
 
-                    if (archipelagoSystem.world.npcLocTypeToNpcItemType.TryGetValue(NPCID.TaxCollector, out int type))
+                    if (slot.ItemsByNPC.TryGetValue(NPCID.TaxCollector, out int type))
                     {
                         npc.Transform(type);
                         return true;
@@ -919,7 +919,7 @@ namespace SeldomArchipelagoBeta
                                 {
                                     Logger.Info($"Trasher hook triggered. Temp is {Temp}.");
                                     var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-                                    if (archipelagoSystem.world.NPCRandoActive())
+                                    if (archipelagoSystem.ActiveSlot()?.NpcRando ?? false)
                                     {
                                         if (!NPC.savedAngler && Main.netMode != NetmodeID.MultiplayerClient && !NPC.AnyNPCs(NPCID.SleepingAngler))
                                         {
@@ -998,7 +998,7 @@ namespace SeldomArchipelagoBeta
 
             // The way we handle packets kind of sucks. It's using string IDs with some special
             // cases.
-            if (message == "") archipelagoSystem.Chat(archipelagoSystem.Status(), whoAmI);
+            if (message == "") ArchipelagoSystem.Chat(archipelagoSystem.TextStatus(), whoAmI);
             else if (message.StartsWith("deathlink")) archipelagoSystem.TriggerDeathlink(message.Substring(9), whoAmI);
             else if (message.StartsWith("[DeathLink]"))
             {

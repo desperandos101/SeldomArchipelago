@@ -1,5 +1,5 @@
 Mods: {
-	SeldomArchipelagoBeta: {
+	SeldomDespArchipelago: {
 		Configs: {
 			Config: {
 				manualFlags: {
@@ -96,6 +96,7 @@ Mods: {
 			}
 
 			CollectionNPC.DisplayName: Collection N P C
+			DepthGuardian.DisplayName: Depth Guardian
 		}
 
 		Items: {

@@ -1,7 +1,7 @@
-using SeldomArchipelagoBeta.Systems;
+using SeldomDespArchipelago.Systems;
 using Terraria.ModLoader;
 
-namespace SeldomArchipelagoBeta.Command
+namespace SeldomDespArchipelago.Command
 {
     public class ApSetFlagCommand : ModCommand
     {
@@ -21,6 +21,7 @@ namespace SeldomArchipelagoBeta.Command
             var item = args[0];
             for (var i = 1; i < args.Length; i++) item += " " + args[i];
 
+            ModContent.GetInstance<ArchipelagoSystem>().world.cheatedItems.Add(item);
             ModContent.GetInstance<ArchipelagoSystem>().Collect(item);
         }
     }

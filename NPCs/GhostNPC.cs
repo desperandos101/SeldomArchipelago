@@ -24,9 +24,9 @@ using System.Collections.Immutable;
 using Newtonsoft.Json.Linq;
 using System.IO;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using SeldomArchipelagoBeta.Systems;
+using SeldomDespArchipelago.Systems;
 
-namespace SeldomArchipelagoBeta.NPCs
+namespace SeldomDespArchipelago.NPCs
 {
     [AutoloadHead]
     public class GhostNPC : ModNPC
@@ -45,7 +45,8 @@ namespace SeldomArchipelagoBeta.NPCs
                 throw new Exception($"Attempted to set ghostType to value {type}.");
             }
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
-            if (archipelagoSystem.world.npcLocTypeToNpcItemType is not null && archipelagoSystem.world.npcLocTypeToNpcItemType.TryGetValue(ghostType, out int newNpcType))
+            var itemsByNPC = archipelagoSystem.ActiveSlot()?.ItemsByNPC;
+            if (itemsByNPC is not null && itemsByNPC.TryGetValue(ghostType, out int newNpcType))
             {
                 transformType = newNpcType;
             }
