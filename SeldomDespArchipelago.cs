@@ -346,7 +346,8 @@ namespace SeldomDespArchipelago
                             Main.NewText(Language.GetTextValue("Announcement.HasArrived", fullName), 50, 125);
                         else if (Main.netMode == NetmodeID.Server)
                             ChatHelper.BroadcastChatMessage(NetworkText.FromKey("Announcement.HasArrived", npc.GetFullNetName()), new Color(50, 125, 255));
-                        if (archipelagoSystem.ActiveSlot()?.Goals.Contains(npc.TypeName) ?? false) archipelagoSystem.QueueLocation(npc.TypeName);  // For Princess + Future Single NPC Goals W/O NPC Randomization
+                        if (ArchipelagoSystem.npcIDtoName.TryGetValue(npc.type, out string location) && (archipelagoSystem.ActiveSlot()?.Goals.Contains(location) ?? false))
+                            archipelagoSystem.QueueLocation(location);
                         return 1;
                     }
                 });
