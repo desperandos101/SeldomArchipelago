@@ -76,7 +76,8 @@ namespace SeldomDespArchipelago.Systems
         {
             static ConnectStatus status = ConnectStatus.Unset;
             static (string, Color) statusText = ("Disconnected. Click the icon to connect!", Color.White);
-            public static ConnectStatus Status {
+            public static ConnectStatus Status
+            {
                 get => status;
                 internal set
                 {
@@ -121,7 +122,7 @@ namespace SeldomDespArchipelago.Systems
         {
             if (!ConnectionData.SafeStatus)
             {
-                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status ==  ConnectStatus.Disconnecting ? "dis" : "")}connection.");
+                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status == ConnectStatus.Disconnecting ? "dis" : "")}connection.");
                 return null;
             }
             if (Main.netMode == NetmodeID.MultiplayerClient) return clientSlot;
@@ -213,7 +214,8 @@ namespace SeldomDespArchipelago.Systems
             Chat($"Connecting to {config.address}:{config.port}...");
             session = InitializeSession(out var s);
             ConnectionData.Status = s;
-            if (session is null) {
+            if (session is null)
+            {
                 Chat($"Connection failed!", Color.Red);
                 Chat(ConnectionData.StatusText.Item1, ConnectionData.StatusText.Item2);
                 return;
@@ -247,7 +249,7 @@ namespace SeldomDespArchipelago.Systems
         }
         public int WorldIsUnplayable(WorldFileData worldData)
         {
-            if (session is null || !worldData.TryGetHeaderData(this, out TagCompound tag)) return  0;
+            if (session is null || !worldData.TryGetHeaderData(this, out TagCompound tag)) return 0;
             string name = tag.GetString("Name");
             string seed = tag.GetString("Seed");
             if (session.slotData.Name != name || session.slotData.Seed != seed) return 1;
@@ -297,7 +299,7 @@ namespace SeldomDespArchipelago.Systems
 
             // Refresh suspended flags
             HashSet<string> collectedItems = (from item in session.session.Items.AllItemsReceived select item.ItemName).ToHashSet();
-            world.suspendedFlags = (from flag in flags where collectedItems.Contains(flag) && !CheckFlag(flag) select flag).ToHashSet();
+            world.suspendedFlags = (from flag in AvailableFlags where collectedItems.Contains(flag) && !CheckFlag(flag) select flag).ToHashSet();
 
             // Change Guide to Ghost
             bool worldHasGuide = !ActiveSlot()?.NpcRando ?? false || Received("Guide");
@@ -323,23 +325,60 @@ namespace SeldomDespArchipelago.Systems
         {
             clientSlot = SlotData.ReadSlotData(reader);
         }
-        
-        public static string[] flags = { "Post-Trojan Squirrel", "Post-King Slime", "Post-Desert Scourge", "Post-Giant Clam", "Post-Eye of Cthulhu", "Post-Cursed Coffin", "Post-Acid Rain Tier 1", "Post-Crabulon", "Post-Evil Boss", "Post-Old One's Army Tier 1", "Post-Goblin Army", "Post-Queen Bee", "Post-The Hive Mind", "Post-The Perforators", "Post-Skeletron", "Post-Deerclops", "Post-The Slime God", "Post-Deviantt", "Hardmode", "Post-Dreadnautilus", "Post-Hardmode Giant Clam", "Post-Pirate Invasion", "Post-Queen Slime", "Post-Banished Baron", "Post-Aquatic Scourge", "Post-Cragmaw Mire", "Post-Acid Rain Tier 2", "Post-The Twins", "Post-Old One's Army Tier 2", "Post-Brimstone Elemental", "Post-The Destroyer", "Post-Cryogen", "Post-Skeletron Prime", "Post-Lifelight", "Post-Calamitas Clone", "Post-Plantera", "Post-Great Sand Shark", "Post-Leviathan and Anahita", "Post-Astrum Aureus", "Post-Golem", "Post-Old One's Army Tier 3", "Post-Martian Madness", "Post-The Plaguebringer Goliath", "Post-Duke Fishron", "Post-Mourning Wood", "Post-Pumpking", "Post-Everscream", "Post-Santa-NK1", "Post-Ice Queen", "Post-Frost Legion", "Post-Ravager", "Post-Empress of Light", "Post-Betsy", "Post-Lunatic Cultist", "Post-Astrum Deus", "Post-Lunar Events", "Post-Moon Lord", "Post-Profaned Guardians", "Post-Dragonfolly", "Post-Providence, the Profaned Goddess", "Post-Champion of Timber", "Post-Champion of Terra", "Post-Champion of Earth", "Post-Champion of Nature", "Post-Champion of Life", "Post-Champion of Death", "Post-Champion of Spirit", "Post-Champion of Will", "Post-Storm Weaver", "Post-Ceaseless Void", "Post-Signus, Envoy of the Devourer", "Post-Polterghast", "Post-Mauler", "Post-Nuclear Terror", "Post-The Old Duke", "Post-The Devourer of Gods", "Post-Eridanus, Champion of Cosmos", "Post-Yharon, Dragon of Rebirth", "Post-Abominationn", "Post-Exo Mechs", "Post-Supreme Witch, Calamitas", "Post-Primordial Wyrm", "Post-Mutant", "Post-Boss Rush" };
+
+        public static string[] flags =
+        [
+            "Post-King Slime", "Post-Eye of Cthulhu", "Post-Evil Boss", "Post-Old One's Army Tier 1",
+            "Post-Goblin Army", "Post-Queen Bee", "Post-Skeletron", "Post-Deerclops", "Hardmode",
+            "Post-Pirate Invasion", "Post-Queen Slime", "Post-The Twins", "Post-Old One's Army Tier 2",
+            "Post-The Destroyer", "Post-Skeletron Prime", "Post-Plantera", "Post-Golem",
+            "Post-Old One's Army Tier 3", "Post-Martian Madness", "Post-Duke Fishron", "Post-Mourning Wood",
+            "Post-Pumpking", "Post-Everscream", "Post-Santa-NK1", "Post-Ice Queen", "Post-Frost Legion",
+            "Post-Empress of Light", "Post-Lunatic Cultist", "Post-Lunar Events", "Post-Moon Lord"
+        ];
+
+        private static readonly string[] calamityFlags =
+        [
+            "Post-Desert Scourge", "Post-Giant Clam", "Post-Acid Rain Tier 1", "Post-Crabulon",
+            "Post-The Hive Mind", "Post-The Perforators", "Post-The Slime God", "Post-Dreadnautilus",
+            "Post-Hardmode Giant Clam", "Post-Aquatic Scourge", "Post-Cragmaw Mire", "Post-Acid Rain Tier 2",
+            "Post-Brimstone Elemental", "Post-Cryogen", "Post-Calamitas Clone", "Post-Great Sand Shark",
+            "Post-Leviathan and Anahita", "Post-Astrum Aureus", "Post-The Plaguebringer Goliath",
+            "Post-Ravager", "Post-Astrum Deus", "Post-Profaned Guardians", "Post-Dragonfolly",
+            "Post-Providence, the Profaned Goddess", "Post-Storm Weaver", "Post-Ceaseless Void",
+            "Post-Signus, Envoy of the Devourer", "Post-Polterghast", "Post-Mauler", "Post-Nuclear Terror",
+            "Post-The Old Duke", "Post-The Devourer of Gods", "Post-Yharon, Dragon of Rebirth",
+            "Post-Exo Mechs", "Post-Supreme Witch, Calamitas", "Post-Primordial Wyrm", "Post-Boss Rush"
+        ];
+
+        private static readonly string[] fargoFlags =
+        [
+            "Post-Trojan Squirrel", "Post-Cursed Coffin", "Post-Deviantt", "Post-Banished Baron",
+            "Post-Lifelight", "Post-Betsy", "Post-Champion of Timber", "Post-Champion of Terra",
+            "Post-Champion of Earth", "Post-Champion of Nature", "Post-Champion of Life",
+            "Post-Champion of Death", "Post-Champion of Spirit", "Post-Champion of Will",
+            "Post-Eridanus, Champion of Cosmos", "Post-Abominationn", "Post-Mutant"
+        ];
+
+        public static IEnumerable<string> AvailableFlags =>
+            flags.Concat(ModLoader.HasMod("CalamityMod") ? calamityFlags : Array.Empty<string>())
+            .Concat(ModLoader.HasMod("FargowiltasSouls") ? fargoFlags : Array.Empty<string>());
 
         public static bool FindFlag(string flag, out string fuzzy)
         {
+            string[] availableFlags = AvailableFlags.ToArray();
             fuzzy = null;
-            if (flags.Contains(flag))
+            if (availableFlags.Contains(flag))
             {
                 return true;
             }
             else
             {
                 string lowerItem = flag.ToLower();
-                int assumedItemIndex = Array.FindIndex(flags, x => x.ToLower().Contains(lowerItem));
+                int assumedItemIndex = Array.FindIndex(availableFlags, x => x.ToLower().Contains(lowerItem));
                 if (assumedItemIndex > -1)
                 {
-                    fuzzy = flags[assumedItemIndex];
+                    fuzzy = availableFlags[assumedItemIndex];
                     return true;
                 }
                 return false;
@@ -390,7 +429,8 @@ namespace SeldomDespArchipelago.Systems
 
             if (result is null)
             {
-                Chat($"Unknown flag: {flag}");
+                if (!AvailableFlags.Contains(flag))
+                    Chat($"Unknown flag: {flag}");
                 return false;
             }
             return result.Value;
@@ -434,7 +474,7 @@ namespace SeldomDespArchipelago.Systems
             }
             if (item == "Progressive Depth")
             {
-                Chat(Depth.DepthSystem.DepthUnlockText(ReceivedAmount("Progressive Depth")), Color.Cyan);
+                Chat(DepthSystem.DepthUnlockText(ReceivedAmount("Progressive Depth")), Color.Cyan);
                 foreach (Player p in Main.ActivePlayers) p.GetModPlayer<DepthPlayer>().ReleaseGuard();
                 return;
             }
@@ -710,7 +750,8 @@ namespace SeldomDespArchipelago.Systems
 
         public override void SaveWorldData(TagCompound tag)
         {
-            if (ActiveSlot() is not null) {
+            if (ActiveSlot() is not null)
+            {
                 tag["ApWorldData"] = world;
             }
             if (session is not null)
@@ -751,7 +792,7 @@ namespace SeldomDespArchipelago.Systems
             }
             if (offline is not null) return ["You are in offline play. Data from your last room connection has been loaded.\nType '/apconnect' or navigate back to the config to connect."];
             return ["No Archipelago data is initialized. Please navigate back to the config to connect."];
-            
+
         }
 
         public bool SendCommand(string command)
@@ -773,8 +814,9 @@ namespace SeldomDespArchipelago.Systems
 
             info.Add("GENERAL INFORMATION:");
             info.Add(world is null ? "The mod thinks you're not in a world, which should never happen" : "You are in a world");
-            
-            switch (ConnectionData.Status) {
+
+            switch (ConnectionData.Status)
+            {
                 case ConnectStatus.Unset: info.Add("You are not connected to a room."); break;
                 case ConnectStatus.Connecting: info.Add("You are actively connecting to a room."); return info.ToArray();
                 case ConnectStatus.Disconnecting: info.Add("You are actively disconnecting from a room."); return info.ToArray();
@@ -905,7 +947,7 @@ namespace SeldomDespArchipelago.Systems
             for (var i = 0; i < Main.maxPlayers; i++)
             {
                 var player = Main.player[i];
-                if (player.active && !player.dead) player.Hurt(PlayerDeathReason.ByCustomReason(message), 999999, 1);
+                if (player.active && !player.dead) player.Hurt(PlayerDeathReason.ByCustomReason(NetworkText.FromLiteral(message)), 999999, 1);
             }
 
             if (Main.netMode == NetmodeID.SinglePlayer) return;
@@ -970,7 +1012,7 @@ namespace SeldomDespArchipelago.Systems
         void GiveCoins()
         {
             var flagCount = 0;
-            foreach (var flag in flags) if (CheckFlag(flag)) flagCount++;
+            foreach (var flag in AvailableFlags) if (CheckFlag(flag)) flagCount++;
             var count = baseCoins[flagCount % 8] * (int)Math.Pow(10, flagCount / 8);
 
             var platinum = count / 10000;
@@ -997,5 +1039,5 @@ namespace SeldomDespArchipelago.Systems
             }));
         }
     }
-    
+
 }

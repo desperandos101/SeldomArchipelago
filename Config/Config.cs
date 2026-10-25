@@ -58,11 +58,9 @@ namespace SeldomDespArchipelago.Config
             address = address.Trim(' ', '\n', '\t');
             password = password.Trim(' ', '\n', '\t');
 
-            string[] flags = ArchipelagoSystem.flags;
             if (manualFlags is null) return;
             int counter = 0;
             HashSet<string> registeredFlags = new();
-            string[] lowercaseFlags = (from x in flags select x.ToLower()).ToArray();
 
             while (counter < manualFlags.Count)
             {

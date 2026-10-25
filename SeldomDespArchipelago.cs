@@ -346,7 +346,8 @@ namespace SeldomDespArchipelago
                             Main.NewText(Language.GetTextValue("Announcement.HasArrived", fullName), 50, 125);
                         else if (Main.netMode == NetmodeID.Server)
                             ChatHelper.BroadcastChatMessage(NetworkText.FromKey("Announcement.HasArrived", npc.GetFullNetName()), new Color(50, 125, 255));
-                        if (archipelagoSystem.ActiveSlot()?.Goals.Contains(npc.TypeName) ?? false) archipelagoSystem.QueueLocation(npc.TypeName);  // For Princess + Future Single NPC Goals W/O NPC Randomization
+                        if (ArchipelagoSystem.npcIDtoName.TryGetValue(npc.type, out string location) && (archipelagoSystem.ActiveSlot()?.Goals.Contains(location) ?? false))
+                            archipelagoSystem.QueueLocation(location);
                         return 1;
                     }
                 });
@@ -568,11 +569,11 @@ namespace SeldomDespArchipelago
                     if (oldManIndex != -1 && clothierIndex != -1)
                     {
                         NPC trueSummoner = Main.player[onWho].killClothier ? Main.npc[clothierIndex] : Main.npc[oldManIndex];
-                        return NPC.NewNPC(NPC.GetBossSpawnSource(onWho), (int)trueSummoner.position.X + trueSummoner.width / 2, (int)trueSummoner.position.Y + trueSummoner.height / 2, 35);
+                        return NPC.NewNPC(NPC.GetBossSpawnSource(onWho), (int)trueSummoner.position.X + trueSummoner.width / 2, (int)trueSummoner.position.Y + trueSummoner.height / 2, NPCID.SkeletronHead);
                     }
                     else
                     {
-                        return NPC.NewNPC(NPC.GetBossSpawnSource(onWho), x, y, 35);
+                        return NPC.NewNPC(NPC.GetBossSpawnSource(onWho), x, y, NPCID.SkeletronHead);
                     }
                 });
             };
@@ -1003,7 +1004,7 @@ namespace SeldomDespArchipelago
             else if (message.StartsWith("[DeathLink]"))
             {
                 var player = Main.player[Main.myPlayer];
-                if (player.active && !player.dead) player.Hurt(PlayerDeathReason.ByCustomReason(message), 999999, 1);
+                if (player.active && !player.dead) player.Hurt(PlayerDeathReason.ByCustomReason(NetworkText.FromLiteral(message)), 999999, 1);
             }
             else if (message == "YouGotAnItem") Main.LocalPlayer.GetModPlayer<ArchipelagoPlayer>().ReceivedReward(reader.ReadInt32());
             else if (message == "RecievedRewardsForSetupShop")
