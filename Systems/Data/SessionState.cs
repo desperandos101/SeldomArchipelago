@@ -47,20 +47,18 @@ namespace SeldomDespArchipelago.Systems.Data
         // we have, and it's up to us to keep track of which ones we've already applied.
         public int currentItem;
         public bool victory;
-        public static SessionState InitializeSession(out ConnectStatus status)
+        public static SessionState InitializeSession(string address, int port, string name, string password, out ConnectStatus status)
         {
             status = ConnectStatus.Unset;
             if (Main.netMode == NetmodeID.MultiplayerClient) return null;
-
-            var config = ModContent.GetInstance<Config.Config>();
 
             LoginResult result;
             ArchipelagoSession newSession;
             try
             {
-                newSession = ArchipelagoSessionFactory.CreateSession(config.address, config.port);
+                newSession = ArchipelagoSessionFactory.CreateSession(address, port);
 
-                result = newSession.TryConnectAndLogin(APWorldName, config.name, ItemsHandlingFlags.AllItems, APversion, null, null, config.password == "" ? null : config.password);
+                result = newSession.TryConnectAndLogin(APWorldName, name, ItemsHandlingFlags.AllItems, APversion, null, null, password == "" ? null : password);
                 if (result is LoginFailure failure)
                 {
                     var error = failure.ErrorCodes.FirstOrDefault();  // don't think it's important to get multiple

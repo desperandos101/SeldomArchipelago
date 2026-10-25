@@ -212,7 +212,7 @@ namespace SeldomDespArchipelago.Systems
             ConnectionData.Status = ConnectStatus.Connecting;
             var config = ModContent.GetInstance<Config.Config>();
             Chat($"Connecting to {config.address}:{config.port}...");
-            session = InitializeSession(out var s);
+            session = InitializeSession(config.address, config.port, config.name, config.password, out var s);
             ConnectionData.Status = s;
             if (session is null)
             {
@@ -791,7 +791,7 @@ namespace SeldomDespArchipelago.Systems
                 return msg.ToArray();
             }
             if (offline is not null) return ["You are in offline play. Data from your last room connection has been loaded.\nType '/apconnect' or navigate back to the config to connect."];
-            return ["No Archipelago data is initialized. Please navigate back to the config to connect."];
+            return ["No Archipelago data is initialized. Please set your connection details in the config and run '/apconnect' to connect."];
 
         }
 
