@@ -25,7 +25,6 @@ using FargowiltasSouls.Content.Bosses.AbomBoss;
 using FargowiltasSouls.Content.Bosses.MutantBoss;
 using FargowiltasSouls.Content.Bosses.Champions.Spirit;
 using FargowiltasSouls.Content.Items.Accessories.Masomode;
-using FargowiltasSouls.Content.Projectiles.Minions;
 using FargowiltasSouls.Content.Patreon.ParadoxWolf;
 using FargowiltasSouls.Content.Patreon.Potato;
 using FargowiltasSouls.Content.Items.Accessories.Souls;
@@ -158,6 +157,13 @@ namespace SeldomDespArchipelago.Systems
             seldomArchipelago.Temp = true;
             betsy.OnKill(entity);
             seldomArchipelago.Temp = false;
+
+            var fargoWorld = ModLoader.GetMod("Fargowiltas")?.GetType().Assembly.GetType("Fargowiltas.FargoWorld");
+            var downedBools = fargoWorld.GetField("DownedBools", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) as IDictionary<string, bool>;
+
+            downedBools["betsy"] = true;
+            if (Main.netMode == NetmodeID.Server)
+                NetMessage.SendData(MessageID.WorldData);
         }
 
         public static void FargoOnKillTrojanSquirrel() => FargoOnKill<TrojanSquirrel>();
