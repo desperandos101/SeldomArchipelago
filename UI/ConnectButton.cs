@@ -22,20 +22,10 @@ public class ConnectButton
 	// Returns true if the cursor is hovering over the drawn sprite
 	public bool Draw(SpriteBatch spriteBatch, Vector2 anchorPosition)
 	{
-		(string msg, Color color) = ConnectionData.StatusText;
-		if (ConnectionData.Status == ConnectStatus.Unset)
-		{
-			msg += "\nPlease set your connection details in the config\nPlaying singleplayer? Click the icon to connect!\nOtherwise, type /apconnect once you load into a world.";
-		}
-		
-		var textSize = ChatManager.GetStringSize(Terraria.GameContent.FontAssets.MouseText.Value, msg, new Vector2(1, 1));
-		var textPos = new Vector2(anchorPosition.X - textSize.X / 2,  anchorPosition.Y - textSize.Y);
-		ChatManager.DrawColorCodedStringWithShadow(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, msg, textPos, color, 0, Vector2.Zero, new Vector2(1, 1));
-
 		bool hover = false;
 		Rectangle r = Image.Frame();
 
-		var iconPos = new Vector2(anchorPosition.X, anchorPosition.Y + 30f);
+		var iconPos = new Vector2(anchorPosition.X, anchorPosition.Y);
 		Vector2 vector = r.Size();
 		Vector2 vector2 = iconPos - vector / 2f;
 		if (Main.MouseScreen.Between(vector2, vector2 + vector)) {
@@ -48,6 +38,22 @@ public class ConnectButton
 
 		Texture2D value = Image.Value;
 		spriteBatch.Draw(value, iconPos, rectangle2, Color.White, 0f, rectangle2.Size() / 2f, 1f, SpriteEffects.None, 0f);
+
+		(string msg, Color color) = ConnectionData.StatusText;
+		if (ConnectionData.Status == ConnectStatus.Unset)
+		{
+			msg += "\nPlease set your connection details in the config\nPlaying singleplayer? Click the icon to connect!\nOtherwise, type /apconnect once you load into a world.";
+		}
+		
+		float nextLineY = anchorPosition.Y;
+		foreach (string m in msg.Split('\n'))
+		{
+			var textSize = ChatManager.GetStringSize(Terraria.GameContent.FontAssets.MouseText.Value, m, new Vector2(1, 1));
+			nextLineY += textSize.Y;
+			var textPos = new Vector2(anchorPosition.X - textSize.X / 2, nextLineY);
+			ChatManager.DrawColorCodedStringWithShadow(Main.spriteBatch, Terraria.GameContent.FontAssets.MouseText.Value, m, textPos, color, 0, Vector2.Zero, new Vector2(1, 1));
+		}
+
 		return hover;
 	}
 
