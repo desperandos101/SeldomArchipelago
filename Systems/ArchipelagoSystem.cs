@@ -75,7 +75,7 @@ namespace SeldomDespArchipelago.Systems
         public static class ConnectionData
         {
             static ConnectStatus status = ConnectStatus.Unset;
-            static (string, Color) statusText = ("Disconnected. Click the icon to connect!", Color.White);
+            static (string, Color) statusText = ("Disconnected.", Color.White);
             public static ConnectStatus Status
             {
                 get => status;
@@ -85,7 +85,7 @@ namespace SeldomDespArchipelago.Systems
                     status = value;
                     statusText = value switch
                     {
-                        ConnectStatus.Unset => ("Disconnected. Click the icon to connect!", Color.AntiqueWhite),
+                        ConnectStatus.Unset => ("Disconnected.", Color.AntiqueWhite),
                         ConnectStatus.Connecting => ("Connecting...", Color.Yellow),
                         ConnectStatus.Disconnecting => ("Disconnecting...", Color.Yellow),
                         ConnectStatus.Valid => ($"Connected to slot {Slot()?.Name ?? "NULL"}. Press the button again to disconnect.", Color.GreenYellow),

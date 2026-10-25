@@ -23,6 +23,10 @@ public class ConnectButton
 	public bool Draw(SpriteBatch spriteBatch, Vector2 anchorPosition)
 	{
 		(string msg, Color color) = ConnectionData.StatusText;
+		if (ConnectionData.Status == ConnectStatus.Unset)
+		{
+			msg += "\nPlease set your connection details in the config\nPlaying singleplayer? Click the icon to connect!\nOtherwise, type /apconnect once you load into a world.";
+		}
 		
 		var textSize = ChatManager.GetStringSize(Terraria.GameContent.FontAssets.MouseText.Value, msg, new Vector2(1, 1));
 		var textPos = new Vector2(anchorPosition.X - textSize.X / 2,  anchorPosition.Y - textSize.Y);
