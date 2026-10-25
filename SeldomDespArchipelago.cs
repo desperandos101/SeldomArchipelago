@@ -83,6 +83,22 @@ namespace SeldomDespArchipelago
 
             // Begin cursed IL editing
             #region Vanilla IL Edits
+            // Allow Tin Shortsword + Helmet to transform Copper Slime 
+            On_Item.GetPickedUpByMonsters_Special += (On_Item.orig_GetPickedUpByMonsters_Special orig, Item item, int i) =>
+            {
+                int savedType = 0;
+                if (item.type == ItemID.TinShortsword || item.type == ItemID.TinHelmet)
+                {
+                    savedType = item.type;
+                    item.type = ItemID.CopperShortsword;
+                }
+                orig(item, i);
+                if (savedType > 0)
+                {
+                    item.type = savedType;
+                }
+            };
+
             // Old Man helper method
             // Note that the two IL edits pertaining to the Old Man are currently redundant.
             // However they will be preserved in case of future changes to his spawn conditions
