@@ -167,14 +167,14 @@ namespace SeldomDespArchipelago.Systems
         }
         public void QueueLocationClient(string loc)
         {
-            if (ConnectionData.Status == ConnectStatus.Valid)
+            if (Main.netMode == NetmodeID.MultiplayerClient)
             {
-                session.QueueLocationClient(loc);
+                var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
+                packet.Write(loc);
+                packet.Send();
+                return;
             }
-            else if (Main.netMode != NetmodeID.MultiplayerClient)
-            {
-                offline?.QueueLocation(loc);
-            }
+            QueueLocation(loc);
         }
         # endregion
         static ConnectButton btn;

@@ -172,17 +172,6 @@ namespace SeldomDespArchipelago.Systems.Data
             locationQueue.Add(session.Locations.ScoutLocationsAsync(new[] { location }));
             session.Locations.CompleteLocationChecks(new[] { location });
         }
-        public void QueueLocationClient(string locationName)
-        {
-            if (Main.netMode != NetmodeID.MultiplayerClient)
-            {
-                QueueLocation(locationName);
-                return;
-            }
-            var packet = ModContent.GetInstance<SeldomArchipelago>().GetPacket();
-            packet.Write(locationName);
-            packet.Send();
-        }
         void ApMessageToChat(LogMessage message)
         {
             var config = ModContent.GetInstance<Config.Config>();
