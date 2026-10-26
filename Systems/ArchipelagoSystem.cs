@@ -276,7 +276,6 @@ namespace SeldomDespArchipelago.Systems
             typeof(SocialAPI).GetField("_mode", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, SocialMode.None);
 
             if (Main.netMode == NetmodeID.MultiplayerClient) Unload();
-            else if (Main.netMode == NetmodeID.Server) ConnectSession();
         }
         public override void LoadWorldData(TagCompound tag)
         {
