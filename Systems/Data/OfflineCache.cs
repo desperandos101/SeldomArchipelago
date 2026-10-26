@@ -16,7 +16,7 @@ namespace SeldomDespArchipelago.Systems.Data
         public SlotData slotData;
         public ImmutableHashSet<string> sentLocations;
         public List<string> receivedItems;
-        public ImmutableHashSet<string> locationBacklog;
+        public HashSet<string> locationBacklog;
         OfflineCache() {}
         public OfflineCache(SessionState sess)
         {
@@ -27,7 +27,7 @@ namespace SeldomDespArchipelago.Systems.Data
         }
         public void QueueLocation(string loc)
         {
-            if (!receivedItems.Contains(loc)) locationBacklog.Add(loc);
+            if (!sentLocations.Contains(loc)) locationBacklog.Add(loc);
         }
         public bool Sent(string loc) => sentLocations.Contains(loc) || locationBacklog.Contains(loc);
         public int ReceivedAmount(string item) => receivedItems.Count(i => i == item);
@@ -49,7 +49,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 slotData = tag.Get<SlotData>(nameof(slotData)),
                 sentLocations = tag.GetList<string>(nameof(sentLocations)).ToImmutableHashSet(),
                 receivedItems = tag.GetList<string>(nameof(receivedItems)).ToList(),
-                locationBacklog = tag.Get<List<string>>(nameof(locationBacklog)).ToImmutableHashSet(),
+                locationBacklog = tag.Get<List<string>>(nameof(locationBacklog)).ToHashSet(),
             };
         };
     }
