@@ -347,7 +347,7 @@ namespace SeldomDespArchipelago
                             Main.NewText(Language.GetTextValue("Announcement.HasArrived", fullName), 50, 125);
                         else if (Main.netMode == NetmodeID.Server)
                             ChatHelper.BroadcastChatMessage(NetworkText.FromKey("Announcement.HasArrived", npc.GetFullNetName()), new Color(50, 125, 255));
-                        if (ArchipelagoSystem.npcIDtoName.TryGetValue(npc.type, out string location) && (archipelagoSystem.ActiveSlot()?.Goals.Contains(location) ?? false))
+                        if (ArchipelagoSystem.npcIDtoName.TryGetValue(npc.type, out string location) && (archipelagoSystem.session?.goals.Contains(location) ?? false))
                             archipelagoSystem.QueueLocation(location);
                         return 1;
                     }
