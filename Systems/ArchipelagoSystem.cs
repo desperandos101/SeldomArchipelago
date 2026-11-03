@@ -837,6 +837,10 @@ namespace SeldomDespArchipelago.Systems
                 {
                     msg.Add("[c/FF5757:NOTICE:] You have forced off NPC Ghosting. Please verify that your slot has NPC Randomization disabled.");
                 }
+                if (world.NPCRandoActive() && world.npcLocTypeToNpcItemType is null)
+                {
+                    msg.Add("[c/FF5757:NOTICE:] Failed to fetch some crucial data from the server. Please reload the world.");
+                }
                 return msg.ToArray();
 
             }
