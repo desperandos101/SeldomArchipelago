@@ -351,6 +351,7 @@ namespace SeldomDespArchipelago.Systems
                 foreach (var part in message.Parts)
                 {
                     string msg = part.Text;
+                    msg = msg.Replace('[', '(').Replace(']',')');  // Brackets collide with chat tags and cannot be escaped
                     var color = part.Color;
                     string colorHex = color.R.ToString("X2") + color.G.ToString("X2") + color.B.ToString("X2");
                     builder.Append($"[c/{colorHex}:{msg}]");
