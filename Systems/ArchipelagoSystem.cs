@@ -285,6 +285,7 @@ namespace SeldomDespArchipelago.Systems
                 offline = tag.Get<OfflineCache>("ApOfflineCache");
             }
         }
+        public void PostWorldLoad(Task _) => PostWorldLoad();
         public override void PostWorldLoad()
         {
             if (session is null) return;

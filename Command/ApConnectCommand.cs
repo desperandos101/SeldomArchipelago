@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using SeldomDespArchipelago.Systems;
 using Terraria.ModLoader;
@@ -20,6 +21,7 @@ namespace SeldomDespArchipelago.Command
 
             var archipelagoSystem = ModContent.GetInstance<ArchipelagoSystem>();
             var t = new Task(archipelagoSystem.ConnectSession);
+            t.ContinueWith(new Action<Task>(archipelagoSystem.PostWorldLoad));
             t.Start();
         }
     }
