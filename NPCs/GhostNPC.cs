@@ -55,7 +55,7 @@ namespace SeldomDespArchipelago.NPCs
                 transformType = 0;
             }
         }
-        static readonly ImmutableHashSet<int> allGhostTypes =
+        static readonly HashSet<int> allGhostTypes =
         [
             NPCID.Guide,
             NPCID.Merchant,
@@ -76,6 +76,13 @@ namespace SeldomDespArchipelago.NPCs
             NPCID.SantaClaus,
             NPCID.Princess
         ];
+
+        public static void RegisterGhostType(int type, string texturePath)
+        {
+            allGhostTypes.Add(type);
+            typeToTexture[type] = ModContent.Request<Texture2D>(texturePath);
+        }
+
         public static bool GhostableType(int type) => allGhostTypes.Contains(type);
         static Dictionary<int, Asset<Texture2D>> typeToTexture = new();
         Asset<Texture2D> GetTexture() => typeToTexture[ghostType];
