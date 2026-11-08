@@ -721,6 +721,14 @@ namespace SeldomDespArchipelago.Systems
             unqueue.Reverse();
             foreach (var i in unqueue) session.locationQueue.RemoveAt(i);
 
+            // Re-collect items in case a pre-existing session joins a new world
+            if (world.collectedItems < session.currentItem)
+            {
+                List<string> collectedItems = (from item in session.session.Items.AllItemsReceived select item.ItemName).ToList();
+                while (world.collectedItems < session.currentItem)
+                    Collect(collectedItems[world.collectedItems++]);
+            }
+
             while (session.session.Items.Any())
             {
                 var itemName = session.session.Items.DequeueItem().ItemName;
