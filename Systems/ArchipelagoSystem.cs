@@ -863,7 +863,7 @@ namespace SeldomDespArchipelago.Systems
 
             if (world is not null) info.Add($@"WORLD INFORMATION
             You have collected {world.collectedItems} items
-            You have received the following rewards: {string.Join("; ", world.collectedItems)}
+            You have received the following rewards: {string.Join("; ", world.receivedRewards)}
             The following flags are suspended: {string.Join("; ", world.suspendedFlags)}
             The following items have been cheated in via /apcollect: {string.Join("; ", world.cheatedItems)}
             The following ghosts are awaiting spawn: {string.Join("; ", from id in world.ghostNPCqueue select npcIDtoName[id])}
