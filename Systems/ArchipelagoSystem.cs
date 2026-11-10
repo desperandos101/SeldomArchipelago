@@ -122,8 +122,8 @@ namespace SeldomDespArchipelago.Systems
         {
             if (!ConnectionData.SafeStatus)
             {
-                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status == ConnectStatus.Disconnecting ? "dis" : "")}connection.");
-                return null;
+                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status == ConnectStatus.Disconnecting ? "dis" : "")}connection. Offline is {(offline is not null ? "not " : "")}null.");
+                return offline?.slotData;
             }
             if (Main.netMode == NetmodeID.MultiplayerClient) return clientSlot;
             if (ConnectionData.Status == ConnectStatus.Valid) return session.slotData;
