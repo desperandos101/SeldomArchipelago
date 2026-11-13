@@ -1247,7 +1247,7 @@ namespace SeldomDespArchipelago
                     throw new Exception("You have both Calamity and Fargo's Souls enabled, but Fargo's Souls DLC is missing.\nPlease install it to use the Archipelago mod with both Calamity and Fargo's Souls.");
             }
 
-            if (ModLoader.TryGetMod("Fargowiltas", out Mod fargowiltas))
+            if (ModLoader.TryGetMod("Fargowiltas", out Mod fargowiltas) && ModLoader.HasMod("FargowiltasSouls"))
             {
                 var fargoContent = fargowiltas.GetType().Assembly;
                 var lumberJack = fargoContent.GetType("Fargowiltas.NPCs.LumberJack");
