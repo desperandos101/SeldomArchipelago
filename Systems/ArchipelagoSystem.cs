@@ -465,6 +465,54 @@ namespace SeldomDespArchipelago.Systems
                 {"Santa Claus", NPCID.SantaClaus },
                 {"Princess", NPCID.Princess },
             };
+
+        public override void PostSetupContent()
+        {
+            if (ModLoader.TryGetMod("CalamityMod", out Mod calamity))
+            {
+                calamity.TryFind<ModNPC>("SeaKing", out var seaKing);
+                calamity.TryFind<ModNPC>("ShadySalesman", out var salesman);
+                calamity.TryFind<ModNPC>("Bandit", out var bandit);
+                calamity.TryFind<ModNPC>("Archmage", out var archmage);
+                calamity.TryFind<ModNPC>("BrimstoneWitch", out var brimstoneWitch);
+
+                GhostNPC.RegisterGhostType(seaKing.Type, seaKing.Texture);
+                GhostNPC.RegisterGhostType(salesman.Type, salesman.Texture);
+                GhostNPC.RegisterGhostType(bandit.Type, bandit.Texture);
+                GhostNPC.RegisterGhostType(archmage.Type, archmage.Texture);
+                GhostNPC.RegisterGhostType(brimstoneWitch.Type, brimstoneWitch.Texture);
+
+                npcNameToID.Add("Sea King", seaKing.Type);
+                npcNameToID.Add("Shady Salesman", salesman.Type);
+                npcNameToID.Add("Bandit", bandit.Type);
+                npcNameToID.Add("Archmage", archmage.Type);
+                npcNameToID.Add("Brimstone Witch", brimstoneWitch.Type);
+            }
+
+            if (ModLoader.TryGetMod("Fargowiltas", out Mod fargo) && ModLoader.HasMod("FargowiltasSouls"))
+            {
+                fargo.TryFind<ModNPC>("Squirrel", out var squirrel);
+                fargo.TryFind<ModNPC>("LumberJack", out var lumberjack);
+                fargo.TryFind<ModNPC>("Deviantt", out var devi);
+                fargo.TryFind<ModNPC>("Abominationn", out var abom);
+                fargo.TryFind<ModNPC>("Mutant", out var mutant);
+
+                GhostNPC.RegisterGhostType(squirrel.Type, squirrel.Texture);
+                GhostNPC.RegisterGhostType(lumberjack.Type, lumberjack.Texture);
+                GhostNPC.RegisterGhostType(devi.Type, devi.Texture);
+                GhostNPC.RegisterGhostType(abom.Type, abom.Texture);
+                GhostNPC.RegisterGhostType(mutant.Type, mutant.Texture);
+
+                npcNameToID.Add("Squirrel", squirrel.Type);
+                npcNameToID.Add("Lumberjack", lumberjack.Type);
+                npcNameToID.Add("Deviantt NPC", devi.Type);
+                npcNameToID.Add("Abominationn NPC", abom.Type);
+                npcNameToID.Add("Mutant NPC", mutant.Type);
+
+                npcIDtoName = npcNameToID.ToDictionary(x => x.Value, x => x.Key);
+            }
+        }
+
         public static Dictionary<int, string> npcIDtoName = npcNameToID.ToDictionary(x => x.Value, x => x.Key);
         public void Collect(string item, bool bypassStarterConfigCheck = false)
         {
