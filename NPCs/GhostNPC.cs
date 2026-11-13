@@ -89,7 +89,8 @@ namespace SeldomDespArchipelago.NPCs
         public override void SetStaticDefaults()
         {
             typeToTexture[0] = ModContent.Request<Texture2D>($"Terraria/Images/NPC_{NPCID.GolferRescue}");
-            foreach (var npcType in allGhostTypes)
+            // Only load textures for vanilla NPCs, ModNPCs are registered separately via RegisterGhostType
+            foreach (var npcType in allGhostTypes.Where(t => t < NPCID.Count))
             {
                 typeToTexture[npcType] = ModContent.Request<Texture2D>($"Terraria/Images/NPC_{npcType}");
             }
@@ -111,14 +112,19 @@ namespace SeldomDespArchipelago.NPCs
             var texture = GetTexture();
             drawColor = NPC.GetNPCColorTintedByBuffs(drawColor);
             drawColor.A = 50;
-            float num35 = 0f;
-            float num36 = Main.NPCAddHeight(NPC);
-            Vector2 halfSize = new Vector2(texture.Width() / 2, texture.Height() / Main.npcFrameCount[ghostType] / 2);
-            SpriteEffects spriteEffects = SpriteEffects.None;
-            Rectangle frame6 = texture.Frame(1, 25, 0, 0);
-            float x = NPC.position.X - screenPos.X + (float)(NPC.width / 2) - (float)texture.Width() * NPC.scale / 2f + halfSize.X * NPC.scale;
-            float y = NPC.position.Y - screenPos.Y + (float)NPC.height - (float)texture.Height() * NPC.scale / (float)Main.npcFrameCount[ghostType] + 4f + halfSize.Y * NPC.scale + num36 + num35 + NPC.gfxOffY;
-            spriteBatch.Draw(texture.Value, new Vector2(x, y), frame6, NPC.GetAlpha(drawColor), NPC.rotation, halfSize, NPC.scale, spriteEffects, 0f);
+
+            // Get the frame dimensions
+            int frameCount = Main.npcFrameCount[ghostType];
+            int frameHeight = texture.Height() / frameCount;
+
+            // Use the first frame
+            Rectangle frame = new Rectangle(0, 0, texture.Width(), frameHeight);
+
+            // Calculate drawing position - centered on the NPC
+            Vector2 origin = new Vector2(texture.Width() / 2f, frameHeight / 2f);
+            Vector2 drawPos = NPC.Center - screenPos + new Vector2(0, NPC.gfxOffY);
+
+            spriteBatch.Draw(texture.Value, drawPos, frame, NPC.GetAlpha(drawColor), NPC.rotation, origin, NPC.scale, SpriteEffects.None, 0f);
 
             return false;
         }

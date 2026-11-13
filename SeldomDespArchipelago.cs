@@ -81,6 +81,33 @@ namespace SeldomDespArchipelago
                 throw new Exception("Multiple Archipelago mods detected! Make sure only one is enabled at a time.");
             }
 
+            // Deviantt and Mutant have special properties when moving in
+            On_NPC.Transform += (orig, npc, newType) =>
+            {
+                var slot = archipelagoSystem.ActiveSlot();
+                if (
+                    npc.ModNPC is not GhostNPC
+                    && slot is SlotData npcSlot
+                    && npcSlot.NpcRando
+                    && npcSlot.RandomizedNPCs.Contains(newType)
+                    && !archipelagoSystem.ReceivedNPC(newType)
+                    && ModContent.TryFind<ModNPC>("FargowiltasSouls", "UnconsciousDeviantt", out var unconsciousDeviantt)
+                    && ModContent.TryFind<ModNPC>("FargowiltasSouls", "ReleasedMutant", out var releasedMutant)
+                    && ArchipelagoSystem.npcNameToID.TryGetValue("Deviantt NPC", out int devianttType)
+                    && ArchipelagoSystem.npcNameToID.TryGetValue("Mutant NPC", out int mutantType)
+                    && ((npc.type == unconsciousDeviantt.Type && newType == devianttType) || (npc.type == releasedMutant.Type && newType == mutantType))
+                )
+                {
+                    orig(npc, ModContent.NPCType<GhostNPC>());
+                    if (npc.ModNPC is GhostNPC ghost)
+                        ghost.SetGhostType(newType);
+                    return;
+                }
+
+                orig(npc, newType);
+            };
+
+
             // Begin cursed IL editing
             #region Vanilla IL Edits
             // Allow Tin Shortsword + Helmet to transform Copper Slime 
@@ -222,9 +249,12 @@ namespace SeldomDespArchipelago
                         HashSet<int> validGhostTypes = new();
                         foreach (int type in slot.RandomizedNPCs)
                         {
-                            if (Main.townNPCCanSpawn[type] && GhostNPC.GhostableType(type) && !existingGhostTypes.Contains(type))
-                                validGhostTypes.Add(type);
-                            Main.townNPCCanSpawn[type] = archipelagoSystem.ReceivedNPC(type);
+                            if (type < NPCID.Count)
+                            {
+                                if (Main.townNPCCanSpawn[type] && GhostNPC.GhostableType(type) && !existingGhostTypes.Contains(type))
+                                    validGhostTypes.Add(type);
+                                Main.townNPCCanSpawn[type] = archipelagoSystem.ReceivedNPC(type);
+                            }
                         }
 
                         // Enqueue Ghosts
@@ -237,10 +267,53 @@ namespace SeldomDespArchipelago
                     // Block Duplicate Normal NPCs
                     foreach (int type in existingTownTypes)
                     {
-                        Main.townNPCCanSpawn[type] = false;
+                        if (type < NPCID.Count)
+                            Main.townNPCCanSpawn[type] = false;
                     }
-                    // Check Modded NPCs and set prioritizedNPC if Modded NPC can spawn
+                    // Check Modded NPCs
                     NPCLoader.CanTownNPCSpawn(npcCount);
+                    if (archipelagoSystem.ActiveSlot() is SlotData moddedNPCSlot && moddedNPCSlot.NpcRando)
+                    {
+                        // Evaluate and Build
+                        HashSet<int> validGhostTypes = new();
+
+                        foreach (int type in moddedNPCSlot.RandomizedNPCs)
+                        {
+                            if (type < NPCID.Count || !GhostNPC.GhostableType(type))
+                                continue;
+
+                            bool meetsNormalSpawnConditions = type < Main.townNPCCanSpawn.Length && Main.townNPCCanSpawn[type];
+                            bool bossKillOnlyGhost = ArchipelagoSystem.npcIDtoName.TryGetValue(type, out string npcName)
+                            && npcName is "Sea King" or "Archmage" or "Brimstone Witch" or "Squirrel";
+
+                            if (!bossKillOnlyGhost && !archipelagoSystem.ReceivedNPC(type) && meetsNormalSpawnConditions && !existingGhostTypes.Contains(type))
+                                validGhostTypes.Add(type);
+
+                            // Receiving Shady Salesman makes him try to move in during the day when he can only appear during night
+                            bool isShadySalesman = ArchipelagoSystem.npcNameToID.TryGetValue("Shady Salesman", out int shadySalesmanType) && type == shadySalesmanType;
+                            bool receivedNpcCanMoveIn = archipelagoSystem.ReceivedNPC(type) && !NPC.AnyNPCs(type) && (!isShadySalesman || !Main.dayTime);
+                            Main.townNPCCanSpawn[type] = receivedNpcCanMoveIn;
+                            if (receivedNpcCanMoveIn)
+                            {
+                                if (WorldGen.prioritizedTownNPCType == 0)
+                                    WorldGen.prioritizedTownNPCType = type;
+                            }
+                            else if (WorldGen.prioritizedTownNPCType == type)
+                                WorldGen.prioritizedTownNPCType = 0;
+                        }
+
+                        // Enqueue ghosts
+                        foreach (int type in validGhostTypes)
+                        {
+                            if (
+                                !archipelagoSystem.world.ghostNPCqueue.Contains(type)
+                                && ArchipelagoSystem.npcIDtoName.TryGetValue(type, out string npcName)
+                                && !archipelagoSystem.Sent(npcName)
+                            )
+                                archipelagoSystem.world.ghostNPCqueue.Enqueue(type);
+                        }
+                    }
+
                     if (WorldGen.prioritizedTownNPCType > 0) return;
                     // Set prioritizedNPC if Vanilla NPC can spawn
                     for (int i = 0; i < Main.townNPCCanSpawn.Length; i++)
@@ -264,7 +337,7 @@ namespace SeldomDespArchipelago
                         WorldGen.prioritizedTownNPCType = NPCID.BlueSlime;
                         return;
                     }
-                    ;
+                ;
                 });
                 cursor.EmitRet();
             };
@@ -289,6 +362,20 @@ namespace SeldomDespArchipelago
                     WorldGen.prioritizedTownNPCType = 0;
                     bool result = orig(x, y, ref canSpawn);
                     WorldGen.prioritizedTownNPCType = temp;
+                    return result;
+                }
+                else if (
+                    temp >= NPCID.Count
+                    && archipelagoSystem.ActiveSlot() is SlotData slot
+                    && slot.NpcRando
+                    && slot.RandomizedNPCs.Contains(temp)
+                    && GhostNPC.GhostableType(temp)
+                    && archipelagoSystem.ReceivedNPC(temp)
+                )
+                {
+                    bool result = orig(x, y, ref canSpawn);
+                    if (result && !canSpawn)
+                        canSpawn = true;
                     return result;
                 }
 
@@ -769,6 +856,27 @@ namespace SeldomDespArchipelago
             var calamity = CheckMod("CalamityMod", calVersionRange);
             if (calamity is null) return;
 
+            int SpawnCalamityGhost(IEntitySource source, int x, int y, int type, int start = 0, float ai0 = 0f, float ai1 = 0f, float ai2 = 0f, float ai3 = 0f, int target = 255)
+            {
+                var system = ModContent.GetInstance<ArchipelagoSystem>();
+                if (system.ActiveSlot() is not SlotData slot || !slot.NpcRando || !slot.RandomizedNPCs.Contains(type))
+                    return NPC.NewNPC(source, x, y, type, start, ai0, ai1, ai2, ai3, target);
+
+                if (system.Sent(ArchipelagoSystem.npcIDtoName[type]) || GhostNPC.AnyGhosts(type) || system.world.ghostNPCqueue.Contains(type))
+                    return system.ReceivedNPC(type) ? NPC.NewNPC(source, x, y, type, start, ai0, ai1, ai2, ai3, target) : Main.maxNPCs;
+
+                int ghostIndex = NPC.NewNPC(source, x, y, ModContent.NPCType<GhostNPC>(), start, ai0, ai1, ai2, ai3, target);
+                if (ghostIndex >= 0 && ghostIndex < Main.maxNPCs && Main.npc[ghostIndex].ModNPC is GhostNPC ghost)
+                {
+                    ghost.SetGhostType(type);
+                    ghost.NPC.netUpdate = true;
+                }
+                else
+                    Logger.Warn($"Could not spawn the {Lang.GetNPCName(type)} ghost.");
+
+                return ghostIndex;
+            }
+
             Dictionary<string, string> defaultCalamityOnKillChecks = new()
             {
                 {"DesertScourgeHead", "Desert Scourge"},
@@ -780,7 +888,6 @@ namespace SeldomDespArchipelago
                 {"AquaticScourgeHead", "Aquatic Scourge"},
                 {"Mauler", "Mauler"},
                 {"BrimstoneElemental", "Brimstone Elemental"},
-                {"Cryogen", "Cryogen"},
                 {"CalamitasClone", "Calamitas Clone"},
                 {"GreatSandShark", "Great Sand Shark"},
                 {"AstrumAureus", "Astrum Aureus"},
@@ -797,7 +904,6 @@ namespace SeldomDespArchipelago
                 {"OldDuke", "The Old Duke"},
                 {"DevourerofGodsHead", "The Devourer of Gods"},
                 {"Yharon", "Yharon, Dragon of Rebirth"},
-                {"SupremeCalamitas", "Supreme Witch, Calamitas"},
             };
             var calamityAssembly = calamity.GetType().Assembly;
             foreach (var type in calamityAssembly.GetTypes())
@@ -807,25 +913,150 @@ namespace SeldomDespArchipelago
                 {
                     MethodInfo onKill = GetOnKill();
                     if (onKill is null) continue;
-                    MonoModHooks.Add(GetOnKill(), DefaultSendLocOnKill(loc));
+
+                    MonoModHooks.Add(onKill, DefaultSendLocOnKill(loc));
                 }
                 else
                 {
                     switch (type.Name)
                     {
+                        case "Cryogen":
+                            {
+                                MethodInfo onKill = GetOnKill();
+                                if (onKill is null) continue;
+
+                                // Don't spawn the town NPC when receiving the boss flag.
+                                void ilHook(ILContext il)
+                                {
+                                    var cursor = new ILCursor(il);
+                                    cursor.GotoNext(i => i.MatchCall(out var method) && method.Name == "NewNPC");
+                                    cursor.Remove();
+                                    cursor.EmitDelegate((IEntitySource source, int x, int y, int npcType, int start, float ai0, float ai1, float ai2, float ai3, int target) =>
+                                    {
+                                        if (Temp)
+                                            return -1;
+
+                                        int archmageType = ModContent.NPCType<CalamityMod.NPCs.TownNPCs.Archmage>();
+                                        if (npcType != archmageType)
+                                            return NPC.NewNPC(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+
+                                        return SpawnCalamityGhost(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+                                    });
+                                }
+
+                                MonoModHooks.Modify(onKill, ilHook);
+
+                                // On a real kill, send the check and spawn the town NPC's ghost.
+                                void hook(OnKill orig, ModNPC self)
+                                {
+                                    Logger.Info($"Cryogen hook triggered. Temp is {Temp}.");
+                                    if (Temp)
+                                    {
+                                        orig(self);
+                                        return;
+                                    }
+
+                                    ModContent.GetInstance<ArchipelagoSystem>().QueueLocation("Cryogen");
+
+                                    if (CalamityMod.Events.BossRushEvent.BossRushActive)
+                                        return;
+
+                                    int sideNpcType = ModContent.NPCType<CalamityMod.NPCs.TownNPCs.Archmage>();
+                                    if (NPC.FindFirstNPC(sideNpcType) != -1)
+                                        return;
+
+                                    NPC boss = self.NPC;
+                                    SpawnCalamityGhost(boss.GetSource_FromAI(), (int)boss.Center.X, (int)boss.Center.Y, sideNpcType);
+                                }
+
+                                MonoModHooks.Add(onKill, hook);
+                                break;
+                            }
+                        case "SupremeCalamitas":
+                            {
+                                MethodInfo onKill = GetOnKill();
+                                if (onKill is null) continue;
+
+                                // Don't spawn the town NPC when receiving the boss flag.
+                                void ilHook(ILContext il)
+                                {
+                                    var cursor = new ILCursor(il);
+                                    cursor.GotoNext(i => i.MatchCall(out var method) && method.Name == "NewNPC");
+                                    cursor.Remove();
+                                    cursor.EmitDelegate((IEntitySource source, int x, int y, int npcType, int start, float ai0, float ai1, float ai2, float ai3, int target) =>
+                                    {
+                                        int archmageType = ModContent.NPCType<CalamityMod.NPCs.TownNPCs.Archmage>();
+                                        int brimstoneWitchType = ModContent.NPCType<CalamityMod.NPCs.TownNPCs.BrimstoneWitch>();
+                                        if (Temp)
+                                            return -1;
+
+                                        if (npcType != archmageType && npcType != brimstoneWitchType)
+                                            return NPC.NewNPC(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+
+                                        return SpawnCalamityGhost(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+                                    });
+                                }
+
+                                MonoModHooks.Modify(onKill, ilHook);
+
+                                // On a real kill, send the check and spawn the town NPC's ghost.
+                                void hook(OnKill orig, ModNPC self)
+                                {
+                                    Logger.Info($"Supreme Witch, Calamitas hook triggered. Temp is {Temp}.");
+                                    if (Temp)
+                                    {
+                                        orig(self);
+                                        return;
+                                    }
+
+                                    ModContent.GetInstance<ArchipelagoSystem>().QueueLocation("Supreme Witch, Calamitas");
+
+                                    if (CalamityMod.Events.BossRushEvent.BossRushActive)
+                                        return;
+
+                                    bool permafrost = self.GetType().GetField("permafrost", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(self) is true;
+                                    int sideNpcType = permafrost ? ModContent.NPCType<CalamityMod.NPCs.TownNPCs.Archmage>() : ModContent.NPCType<CalamityMod.NPCs.TownNPCs.BrimstoneWitch>();
+
+                                    NPC boss = self.NPC;
+                                    SpawnCalamityGhost(boss.GetSource_FromAI(), (int)boss.Center.X, (int)boss.Center.Y + 12, sideNpcType);
+                                }
+
+                                MonoModHooks.Add(onKill, hook);
+                                break;
+                            }
                         case "GiantClam":
                             {
+                                MethodInfo onKill = GetOnKill();
+                                // Don't spawn the Sea King when receiving the boss flag.
+                                void ilHook(ILContext il)
+                                {
+                                    var cursor = new ILCursor(il);
+                                    cursor.GotoNext(i => i.MatchCall(out var method) && method.Name == "NewNPC");
+                                    cursor.Remove();
+                                    cursor.EmitDelegate((IEntitySource source, int x, int y, int npcType, int start, float ai0, float ai1, float ai2, float ai3, int target) =>
+                                    {
+                                        int seaKingType = ModContent.NPCType<CalamityMod.NPCs.TownNPCs.SeaKing>();
+                                        if (npcType != seaKingType)
+                                            return NPC.NewNPC(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+                                        if (Temp)
+                                            return -1;
+
+                                        return SpawnCalamityGhost(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+                                    });
+                                }
+
+                                // On a real kill, send the check and spawn the Sea King's ghost.
                                 void hook(OnKill orig, ModNPC self)
                                 {
                                     Logger.Info($"Giant Clam hook triggered. Temp is {Temp}.");
-                                    if (Temp) orig(self);
-                                    else
-                                    {
-                                        ModContent.GetInstance<ArchipelagoSystem>().QueueLocation("Giant Clam");
-                                        if (Main.hardMode) ModContent.GetInstance<ArchipelagoSystem>().QueueLocation("Hardmode Giant Clam");
-                                    }
+                                    orig(self);
+                                    if (Temp) return;
+
+                                    ModContent.GetInstance<ArchipelagoSystem>().QueueLocation("Giant Clam");
+                                    if (Main.hardMode) ModContent.GetInstance<ArchipelagoSystem>().QueueLocation("Hardmode Giant Clam");
                                 }
-                                MonoModHooks.Add(GetOnKill(), hook);
+                                MonoModHooks.Modify(onKill, ilHook);
+                                MonoModHooks.Add(onKill, hook);
                                 break;
                             }
                         case "AcidRainEvent":
@@ -949,6 +1180,40 @@ namespace SeldomDespArchipelago
                                 MonoModHooks.Add(GetOnKill(), hook);
                                 break;
                             }
+                        case "HorribleHog":
+                            {
+                                MethodInfo onKill = GetOnKill();
+                                if (onKill is null) break;
+
+                                void hook(OnKill orig, ModNPC self)
+                                {
+                                    if (Temp)
+                                    {
+                                        orig(self);
+                                        return;
+                                    }
+
+                                    var system = ModContent.GetInstance<ArchipelagoSystem>();
+
+                                    // Check if we should spawn a ghost Shady Salesman instead of the normal one
+                                    if (Main.netMode != NetmodeID.MultiplayerClient && ArchipelagoSystem.npcNameToID.TryGetValue("Shady Salesman", out int salesmanType))
+                                    {
+                                        var slot = system.ActiveSlot();
+                                        if (slot is SlotData activeSlot && activeSlot.NpcRando && activeSlot.RandomizedNPCs.Contains(salesmanType))
+                                        {
+                                            if (!system.Sent("Shady Salesman") && !GhostNPC.AnyGhosts(salesmanType) && !system.world.ghostNPCqueue.Contains(salesmanType))
+                                            {
+                                                NPC boss = self.NPC;
+                                                system.world.ghostNPCqueue.Enqueue(salesmanType);
+                                            }
+                                        }
+                                    }
+                                    orig(self);
+                                }
+
+                                MonoModHooks.Add(onKill, hook);
+                                break;
+                            }
                     }
                 }
             }
@@ -961,6 +1226,20 @@ namespace SeldomDespArchipelago
             var fargo = CheckMod("FargowiltasSouls", fargoVersionRange);
             if (fargo is null) return;
 
+            int SpawnFargoGhost(IEntitySource source, int x, int y, int type, int start = 0, float ai0 = 0f, float ai1 = 0f, float ai2 = 0f, float ai3 = 0f, int target = 255)
+            {
+                int ghostIndex = NPC.NewNPC(source, x, y, ModContent.NPCType<GhostNPC>(), start, ai0, ai1, ai2, ai3, target);
+                if (ghostIndex >= 0 && ghostIndex < Main.maxNPCs && Main.npc[ghostIndex].ModNPC is GhostNPC ghost)
+                {
+                    ghost.SetGhostType(type);
+                    ghost.NPC.netUpdate = true;
+                }
+                else
+                    Logger.Warn($"Could not spawn the {Lang.GetNPCName(type)} ghost.");
+
+                return ghostIndex;
+            }
+
             if (ModLoader.HasMod("CalamityMod"))
             {
                 var fargoCal = CheckMod("FargowiltasCrossmod", fargoCalVersionRange);
@@ -968,9 +1247,44 @@ namespace SeldomDespArchipelago
                     throw new Exception("You have both Calamity and Fargo's Souls enabled, but Fargo's Souls DLC is missing.\nPlease install it to use the Archipelago mod with both Calamity and Fargo's Souls.");
             }
 
+            if (ModLoader.TryGetMod("Fargowiltas", out Mod fargowiltas))
+            {
+                var fargoContent = fargowiltas.GetType().Assembly;
+                var lumberJack = fargoContent.GetType("Fargowiltas.NPCs.LumberJack");
+                var onTreeShake = lumberJack.GetMethod("OnTreeShake", BindingFlags.Static | BindingFlags.Public);
+
+                // Replace the lumberjack with the ghost once you spawn him in
+                void lumberJackSpawnHook(ILContext il)
+                {
+                    var cursor = new ILCursor(il);
+                    cursor.GotoNext(i => i.MatchCall(out var method) && method.Name == "NewNPC");
+                    cursor.Remove();
+                    cursor.EmitDelegate((
+                        IEntitySource source, int x, int y, int type, int start,
+                        float ai0, float ai1, float ai2, float ai3, int target
+                    ) =>
+                    {
+                        var system = ModContent.GetInstance<ArchipelagoSystem>();
+                        if (
+                            system.ActiveSlot() is not SlotData slot
+                            || !slot.NpcRando
+                            || !ArchipelagoSystem.npcNameToID.TryGetValue("Lumberjack", out int lumberJackType)
+                            || type != lumberJackType
+                            || !slot.RandomizedNPCs.Contains(type)
+                        )
+                            return NPC.NewNPC(source, x, y, type, start, ai0, ai1, ai2, ai3, target);
+
+                        if (system.Sent("Lumberjack") || GhostNPC.AnyGhosts(type) || system.world.ghostNPCqueue.Contains(type))
+                            return system.ReceivedNPC(type) ? NPC.NewNPC(source, x, y, type, start, ai0, ai1, ai2, ai3, target) : Main.maxNPCs;
+
+                        return SpawnFargoGhost(source, x, y, type, start, ai0, ai1, ai2, ai3, target);
+                    });
+                }
+                MonoModHooks.Modify(onTreeShake, lumberJackSpawnHook);
+            }
+
             Dictionary<string, string> defaultFargoOnKillChecks = new()
             {
-                {"TrojanSquirrel", "Trojan Squirrel"},
                 {"CursedCoffin", "Cursed Coffin"},
                 {"DeviBoss", "Deviantt"},
                 {"BanishedBaron", "Banished Baron"},
@@ -992,18 +1306,107 @@ namespace SeldomDespArchipelago
             {
                 MethodInfo GetOnKill() => type.GetMethod("OnKill", BindingFlags.Instance | BindingFlags.Public);
 
-                if (!defaultFargoOnKillChecks.TryGetValue(type.Name, out string loc))
-                    continue;
-
-                MethodInfo onKill = GetOnKill();
-
-                if (onKill is null)
+                if (type.Name is "DeviBoss" or "AbomBoss" or "MutantBoss")
                 {
-                    Logger.Warn($"Could not find OnKill for Fargo type {type.FullName}");
-                    continue;
+                    // When dying to any of these bosses, the normal npc will spawn so we change them to the ghost
+                    string methodName = type.Name == "MutantBoss" ? "DyingAnimationAndHandling" : "AliveCheck";
+                    MethodInfo despawnMethod = type.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+                    if (despawnMethod is null)
+                    {
+                        Logger.Warn($"Could not find {type.FullName}.{methodName} for Fargo NPC randomization.");
+                    }
+                    else
+                    {
+                        void despawnSpawnHook(ILContext il)
+                        {
+                            var cursor = new ILCursor(il);
+                            cursor.GotoNext(i => i.MatchCall(out var calledMethod) && calledMethod.Name == "NewNPC");
+                            cursor.Remove();
+                            cursor.EmitDelegate((IEntitySource source, int x, int y, int npcType, int start, float ai0, float ai1, float ai2, float ai3, int target) =>
+                            {
+                                var system = ModContent.GetInstance<ArchipelagoSystem>();
+                                if (
+                                    system.ActiveSlot() is SlotData slot
+                                    && slot.NpcRando
+                                    && ArchipelagoSystem.npcIDtoName.TryGetValue(npcType, out string npcName)
+                                    && slot.RandomizedNPCs.Contains(npcType)
+                                )
+                                {
+                                    if (system.Sent(npcName) || GhostNPC.AnyGhosts(npcType) || system.world.ghostNPCqueue.Contains(npcType))
+                                        return Main.maxNPCs;
+
+                                    return SpawnFargoGhost(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+                                }
+
+                                return NPC.NewNPC(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target);
+                            });
+                        }
+
+                        MonoModHooks.Modify(despawnMethod, despawnSpawnHook);
+                    }
                 }
 
-                MonoModHooks.Add(onKill, DefaultSendLocOnKill(loc));
+                if (defaultFargoOnKillChecks.TryGetValue(type.Name, out string loc))
+                {
+                    MethodInfo onKill = GetOnKill();
+                    if (onKill is null)
+                    {
+                        Logger.Warn($"Could not find OnKill for Fargo type {type.FullName}");
+                        continue;
+                    }
+
+                    MonoModHooks.Add(onKill, DefaultSendLocOnKill(loc));
+                }
+                else if (type.Name == "TrojanSquirrel")
+                {
+                    MethodInfo onKill = GetOnKill();
+                    if (onKill is null)
+                    {
+                        Logger.Warn($"Could not find OnKill for Fargo type {type.FullName}");
+                        continue;
+                    }
+
+                    // Don't spawn the Squirrel when receiving the boss flag.
+                    void ilHook(ILContext il)
+                    {
+                        var cursor = new ILCursor(il);
+                        cursor.GotoNext(i => i.MatchCall(out var method) && method.Name == "NewNPC");
+                        cursor.Remove();
+                        cursor.EmitDelegate((IEntitySource source, int x, int y, int npcType, int start, float ai0, float ai1, float ai2, float ai3, int target) =>
+                            Temp ? Main.maxNPCs : NPC.NewNPC(source, x, y, npcType, start, ai0, ai1, ai2, ai3, target));
+                    }
+
+                    // On a real kill, send the check and spawn the Squirrel
+                    void hook(OnKill orig, ModNPC self)
+                    {
+                        if (Temp)
+                        {
+                            orig(self);
+                            return;
+                        }
+
+                        var system = ModContent.GetInstance<ArchipelagoSystem>();
+                        system.QueueLocation("Trojan Squirrel");
+                        if (Main.netMode != NetmodeID.MultiplayerClient && ArchipelagoSystem.npcNameToID.TryGetValue("Squirrel", out int squirrelType))
+                        {
+                            NPC boss = self.NPC;
+                            IEntitySource source = boss.GetSource_FromAI();
+                            int x = (int)boss.Center.X;
+                            int y = (int)boss.Center.Y;
+
+                            if (system.ActiveSlot() is SlotData slot && slot.NpcRando && slot.RandomizedNPCs.Contains(squirrelType))
+                            {
+                                if (!system.Sent("Squirrel") && !GhostNPC.AnyGhosts(squirrelType) && !system.world.ghostNPCqueue.Contains(squirrelType))
+                                    SpawnFargoGhost(source, x, y, squirrelType);
+                            }
+                            else
+                                NPC.NewNPC(source, x, y, squirrelType);
+                        }
+                    }
+
+                    MonoModHooks.Modify(onKill, ilHook);
+                    MonoModHooks.Add(onKill, hook);
+                }
             }
         }
         #endregion
