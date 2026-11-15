@@ -507,9 +507,9 @@ namespace SeldomDespArchipelago.Systems
                 npcNameToID.Add("Deviantt NPC", devi.Type);
                 npcNameToID.Add("Abominationn NPC", abom.Type);
                 npcNameToID.Add("Mutant NPC", mutant.Type);
-
-                npcIDtoName = npcNameToID.ToDictionary(x => x.Value, x => x.Key);
             }
+
+            npcIDtoName = npcNameToID.ToDictionary(x => x.Value, x => x.Key);
         }
 
         public static Dictionary<int, string> npcIDtoName = npcNameToID.ToDictionary(x => x.Value, x => x.Key);
