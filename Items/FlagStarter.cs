@@ -15,7 +15,7 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using static SeldomDespArchipelago.Systems.ArchipelagoSystem;
 
-namespace SeldomDespArchipelago.FlagItem
+namespace SeldomDespArchipelago.Items
 {
     public class FlagStarter : ModItem
     {
