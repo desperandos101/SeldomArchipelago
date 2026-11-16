@@ -50,6 +50,7 @@ For in-depth information on what each feature does, scroll down to the **Feature
   - Additional configuration for randomizing checks after the set goal
 - Additional achievement classifications
 - Shimmer logic toggle
+- Fishing logic toggle
 - Health logic
 - YAML-less UT Support
 - Spoiler log compression
@@ -162,6 +163,11 @@ Sequence breaks involving shimmer transmutations can now be disabled or enabled 
 If disabled, all transmutations or decrafting using Shimmer are disregarded in logic.
 ### Notes
 This option only covers optional transmutations via Shimmer. The player may still be expected to utilize the Shimmer when mandatory, i.e. transmuting a sparkle slime balloon into the diva slime.
+## Fishing Logic Toggle
+Sequence breaks involving fishing or crates can now be disabled or enabled in the `.yaml`.
+If disabled, item paths involving fishing are disregarded in logic.
+### Notes
+An exception is made for bosses and enemies that can be procured via fishing, such as Duke Fishron and Dreadnautilus.
 ## Health Logic
 The randomizer considers a maximum health requirement for each boss, invasion, and event, requiring access to prior health upgrades depending on their intended stage of progression in vanilla.
 ### Notes
@@ -195,7 +201,7 @@ Provides the ability to toggle the color and visibility of AP messages unrelated
 - WoF + Princess goals
 - 'Shuffle Up To' config
 - Achievement classifications
-- Shimmer + Health logic
+- Shimmer + Fishing + Health logic
 - Manual Flag configuration
 - AP Chat configuration
 ## @zuils
