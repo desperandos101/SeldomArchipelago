@@ -32,7 +32,7 @@ namespace SeldomDespArchipelago.Systems.Data
     /// </summary>
     public class SessionState
     {
-        public static readonly Version APversion = new Version(0, 6, 200);
+        public static readonly Version APversion = new Version(0, 6, 210);
         public const string APWorldName = "Terraria Beta";
         // Keeps track of the last APworld version the game tried to connect to for player convenience
         public static int[] desiredAPversion = null;
