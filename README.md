@@ -15,7 +15,7 @@ Alternatively, you can download the `SeldomDespArchipelago.tmod` file in the cor
 ## Connecting to a Game
 1. Launch tModLoader, navigate to Workshop > Manage Mods, and check to see if Archipelago Randomizer (BETA) is properly installed.
 2. Configure the server address, port, slot/player name, password as necessary, and the rest to your liking.
-3. Launch a world (creating a new one is recommended). If the chat displays "Archipelago is Active," you are connected successfully!
+3. Press the AP icon in the main menu to connect, or type `/apconnect` once connected to a world.
 ## Downpatching Content Mods
 Sometimes content mods receive updates that impact randomizer logic overnight and are thus no longer compatible with a multiworld. If this happens in the midst of a playthrough, you will need to downpatch.
 ### Via modpack
@@ -45,6 +45,7 @@ For in-depth information on what each feature does, scroll down to the **Feature
 - Compatibility with latest version of Fargo Souls (1.7.3.9)
   - Includes new Fargo-themed goals
 - NPC randomization (Vanilla Town NPCs only, no pets)
+- Depth randomization
 - Wall of Flesh + Princess goals
   - Additional configuration for randomizing checks after the set goal
 - Additional achievement classifications
@@ -113,6 +114,19 @@ A real NPC will only move in if the corresponding item is received (you need the
 Both the real Truffle and the ghost Truffle will only spawn in a glowing mushroom field.
 
 Incompatible with the getfixedboi option.
+## Depth Randomization
+Depth Randomization is a setting you can enable in your `.yaml` prior to generating a multiworld.
+If enabled:
+- On worldstart, you will be blocked from traversing below the surface by the Depth Guardian.
+- Three `Progressive Depth` items are added into the multiworld. Each successive one allows you to access the Underground, Caverns, and Underworld respectively.
+- The achievements `Into Orbit`, `It's Getting Hot in Here`, and `Rock Bottom` are made into locations.
+### Notes
+Since the multiworld cannot account for random world generation placing certain structures at different depths, additional toggles are provided to alter what's considered for logic.
+- By default, logic assumes that all features can be accessed at their highest possible depth. (i.e. only Underground required for Aether biome)
+- `gen_safety`: Logic assumes that all features can only be accessed at their lowest possible depth. (i.e. Caverns required for Aether biome)
+- `gen_safety_small`: Accounts for small world scaling. (i.e. Crimson Hearts require Caverns to access as they can generate below the Underground)
+
+If you're carrying a depth meter in game, you may notice that when guarding the Caverns layer, the Depth Guardian will appear slightly above where the Caverns layer actually begins. This is because the depth meter misrepresents where the caverns actually begin.
 ## New goals
 These are additional goals you can enable in your `.yaml` prior to generating a multiworld.
 - Wall of Flesh
@@ -173,6 +187,7 @@ Provides the ability to toggle the color and visibility of AP messages unrelated
 ## Desperandos
 - Calamity compatibility (2.2.0 - Present)
 - NPC Randomization
+- Depth Randomization
 - WoF + Princess goals
 - 'Shuffle Up To' config
 - Achievement classifications
