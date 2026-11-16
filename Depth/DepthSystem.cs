@@ -17,8 +17,7 @@ namespace SeldomDespArchipelago.Depth
             0 => Main.worldSurface,
             1 => Main.rockLayer,
             2 => Main.UnderworldLayer,
-            3 => null,
-            _ => throw new Exception($"Too many Progressive Depths! {type} counted")
+            _ => null
         };
         public static string DepthUnlockText(int newCount) {
             if (newCount < 1)

@@ -122,8 +122,8 @@ namespace SeldomDespArchipelago.Systems
         {
             if (!ConnectionData.SafeStatus)
             {
-                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status == ConnectStatus.Disconnecting ? "dis" : "")}connection.");
-                return null;
+                Mod.Logger.Info($"Slot Data was accessed mid {(ConnectionData.Status == ConnectStatus.Disconnecting ? "dis" : "")}connection. Offline is {(offline is not null ? "not " : "")}null.");
+                return offline?.slotData;
             }
             if (Main.netMode == NetmodeID.MultiplayerClient) return clientSlot;
             if (ConnectionData.Status == ConnectStatus.Valid) return session.slotData;
@@ -285,6 +285,7 @@ namespace SeldomDespArchipelago.Systems
                 offline = tag.Get<OfflineCache>("ApOfflineCache");
             }
         }
+        public void PostWorldLoad(Task _) => PostWorldLoad();
         public override void PostWorldLoad()
         {
             if (session is null) return;
@@ -768,6 +769,14 @@ namespace SeldomDespArchipelago.Systems
             unqueue.Reverse();
             foreach (var i in unqueue) session.locationQueue.RemoveAt(i);
 
+            // Re-collect items in case a pre-existing session joins a new world
+            if (world.collectedItems < session.currentItem)
+            {
+                List<string> collectedItems = (from item in session.session.Items.AllItemsReceived select item.ItemName).ToList();
+                while (world.collectedItems < session.currentItem)
+                    Collect(collectedItems[world.collectedItems++]);
+            }
+
             while (session.session.Items.Any())
             {
                 var itemName = session.session.Items.DequeueItem().ItemName;
@@ -910,7 +919,7 @@ namespace SeldomDespArchipelago.Systems
 
             if (world is not null) info.Add($@"WORLD INFORMATION
             You have collected {world.collectedItems} items
-            You have received the following rewards: {string.Join("; ", world.collectedItems)}
+            You have received the following rewards: {string.Join("; ", world.receivedRewards)}
             The following flags are suspended: {string.Join("; ", world.suspendedFlags)}
             The following items have been cheated in via /apcollect: {string.Join("; ", world.cheatedItems)}
             The following ghosts are awaiting spawn: {string.Join("; ", from id in world.ghostNPCqueue select npcIDtoName[id])}

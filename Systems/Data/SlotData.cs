@@ -76,7 +76,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 }
                 else  // TODO: Have better backup plan
                 {
-                    ModContent.GetInstance<ArchipelagoSystem>().Mod.Logger.Info("Failed to properly initialize " + nameof(ItemsByNPC));
+                    throw new Exception("Failed to properly initialize " + nameof(ItemsByNPC) + ". Please reconnect.");
                 }
             }
             ItemsByNPC = NpcRando ? itemsByNPC.ToImmutableDictionary() : null;
