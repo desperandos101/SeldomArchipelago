@@ -155,8 +155,8 @@ namespace SeldomDespArchipelago.Systems.Data
             string valueString = reader.ReadString();
             if (!string.IsNullOrEmpty(keyString))
             {
-                itemsByNPCKeys = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
-                itemsByNPCValues = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
+                itemsByNPCKeys = (from i in keyString.Split(';') select int.Parse(i)).ToArray();
+                itemsByNPCValues = (from i in valueString.Split(';') select int.Parse(i)).ToArray();
             }
             bool depthRando = reader.ReadBoolean();
             bool calamity = reader.ReadBoolean();
