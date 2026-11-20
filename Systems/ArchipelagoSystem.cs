@@ -337,7 +337,17 @@ namespace SeldomDespArchipelago.Systems
                 Mod.Logger.Info($"NetReceive: SLOT NOT RECEIVED");
                 return;
             }
-            clientSlot = SlotData.ReadSlotData(reader);
+            try
+            {
+                clientSlot = SlotData.ReadSlotData(reader);
+            }
+            catch (Exception e)
+            {
+                Chat("An error occured while parsing slot data. Please exit the game and contact the developer.", Color.Red);
+                Mod.Logger.Info(e);
+                ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Failed to receive slotdata: {e}");
+                return;
+            }
             Mod.Logger.Info($"NetReceive: RECEIVED SLOT:\n{clientSlot}");
         }
 

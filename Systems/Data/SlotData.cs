@@ -142,28 +142,26 @@ namespace SeldomDespArchipelago.Systems.Data
         }
         public static SlotData? ReadSlotData(BinaryReader reader)
         {
-            try
+            int slot = reader.ReadInt32();
+            string name = reader.ReadString();
+            string seed = reader.ReadString();
+            ImmutableArray<string> goals = reader.ReadString().Split(';').ToImmutableArray();
+            bool deathlink = reader.ReadBoolean();
+            bool npcRando = reader.ReadBoolean();
+            ImmutableHashSet<int> randomizedNPCs = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToImmutableHashSet();
+            int[] itemsByNPCKeys = [];
+            int[] itemsByNPCValues = [];
+            string keyString = reader.ReadString();
+            string valueString = reader.ReadString();
+            if (!string.IsNullOrEmpty(keyString))
             {
-                int slot = reader.ReadInt32();
-                string name = reader.ReadString();
-                string seed = reader.ReadString();
-                ImmutableArray<string> goals = reader.ReadString().Split(';').ToImmutableArray();
-                bool deathlink = reader.ReadBoolean();
-                bool npcRando = reader.ReadBoolean();
-                ImmutableHashSet<int> randomizedNPCs = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToImmutableHashSet();
-                int[] itemsByNPCKeys = [];
-                int[] itemsByNPCValues = [];
-                string keyString = reader.ReadString();
-                string valueString = reader.ReadString();
-                if (!string.IsNullOrEmpty(keyString))
-                {
-                    itemsByNPCKeys = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
-                    itemsByNPCValues = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
-                }
-                bool depthRando = reader.ReadBoolean();
-                bool calamity = reader.ReadBoolean();
-                bool fargo = reader.ReadBoolean();
-                return new SlotData
+                itemsByNPCKeys = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
+                itemsByNPCValues = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
+            }
+            bool depthRando = reader.ReadBoolean();
+            bool calamity = reader.ReadBoolean();
+            bool fargo = reader.ReadBoolean();
+            return new SlotData
             {
                 Slot = slot,
                 Name = name,
@@ -177,12 +175,6 @@ namespace SeldomDespArchipelago.Systems.Data
                 Calamity = calamity,
                 Fargo = fargo,
             };
-            }
-            catch (Exception e)
-            {
-                ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Failed to receive slotdata: {e}");
-                return null;
-            }
         }
         public override string ToString()
         {
