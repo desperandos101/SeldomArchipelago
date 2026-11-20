@@ -151,8 +151,15 @@ namespace SeldomDespArchipelago.Systems.Data
                 bool deathlink = reader.ReadBoolean();
                 bool npcRando = reader.ReadBoolean();
                 ImmutableHashSet<int> randomizedNPCs = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToImmutableHashSet();
-                var itemsByNPCKeys = from i in reader.ReadString().Split(';') select int.Parse(i);
-                var itemsByNPCValues = from i in reader.ReadString().Split(';') select int.Parse(i);
+                int[] itemsByNPCKeys = [];
+                int[] itemsByNPCValues = [];
+                string keyString = reader.ReadString();
+                string valueString = reader.ReadString();
+                if (!string.IsNullOrEmpty(keyString))
+                {
+                    itemsByNPCKeys = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
+                    itemsByNPCValues = (from i in reader.ReadString().Split(';') select int.Parse(i)).ToArray();
+                }
                 bool depthRando = reader.ReadBoolean();
                 bool calamity = reader.ReadBoolean();
                 bool fargo = reader.ReadBoolean();
