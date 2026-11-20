@@ -322,13 +322,21 @@ namespace SeldomDespArchipelago.Systems
             if (s is not SlotData slot)
             {
                 Mod.Logger.Info($"NetSend: SLOT NOT SENT");
+                writer.Write(false);
                 return;
             }
+            writer.Write(true);
             slot.Write(writer);
             Mod.Logger.Info($"NetSend: SENT SLOT:\n{slot}");
         }
         public override void NetReceive(BinaryReader reader)
         {
+            bool slotReceived = reader.ReadBoolean();
+            if (!slotReceived)
+            {
+                Mod.Logger.Info($"NetReceive: SLOT NOT RECEIVED");
+                return;
+            }
             clientSlot = SlotData.ReadSlotData(reader);
             Mod.Logger.Info($"NetReceive: RECEIVED SLOT:\n{clientSlot}");
         }
