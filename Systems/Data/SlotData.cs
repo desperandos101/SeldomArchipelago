@@ -10,6 +10,7 @@ using System.Data;
 using static SeldomDespArchipelago.Systems.ArchipelagoSystem;
 using System.IO;
 using System.Configuration;
+using System.Text;
 
 namespace SeldomDespArchipelago.Systems.Data
 {
@@ -175,6 +176,20 @@ namespace SeldomDespArchipelago.Systems.Data
                 ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Failed to receive slotdata: {e}");
                 return null;
             }
+        }
+        public override string ToString()
+        {
+            string EnabledOrDisabled(bool b) => b ? "enabled" : "disabled";
+            return
+            $"SLOT {Slot}, NAME {Name}, SEED {Seed}\n" +
+            $"GOALS: {string.Join("; ", Goals)}\n" +
+            $"Deathlink is {EnabledOrDisabled(Deathlink)}\n" +
+            $"NPC rando is {EnabledOrDisabled(NpcRando)}\n" +
+            $"Randomized NPCs: {string.Join("; ", from id in RandomizedNPCs select npcIDtoName[id])}\n" +
+            $"NPC to NPC placements: {string.Join("; ", from pair in ItemsByNPC select $"{npcIDtoName[pair.Key]} to {npcIDtoName[pair.Value]}")}\n" +
+            $"Depth rando is {EnabledOrDisabled(DepthRando)}\n" +
+            $"Calamity is {EnabledOrDisabled(Calamity)}\n" +
+            $"Fargo is {EnabledOrDisabled(Fargo)}";
         }
     }
 }
