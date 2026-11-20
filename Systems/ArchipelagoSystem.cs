@@ -230,6 +230,7 @@ namespace SeldomDespArchipelago.Systems
             }
             session.ConnectionClosed += (_, _) => DisconnectSession();
             Chat("Connection successful!");
+            if (Main.netMode == NetmodeID.Server) NetMessage.SendData(MessageID.WorldData);
         }
         public void DisconnectSession()
         {
