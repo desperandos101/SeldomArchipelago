@@ -85,7 +85,6 @@ namespace SeldomDespArchipelago.Systems.Data
             };
 
             var success = (LoginSuccessful)result;
-            sess.slotData = new SlotData(sess.session, success);
 
             #region Validate
             bool versionSlotData = success.SlotData.TryGetValue("version", out var versionObj);
@@ -102,6 +101,8 @@ namespace SeldomDespArchipelago.Systems.Data
                 sess.Reset();
                 return null;
             }
+
+            sess.slotData = new SlotData(sess.session, success);
 
             bool calamityActive = ModLoader.HasMod("CalamityMod");
             if (calamityActive != sess.slotData.Calamity)
