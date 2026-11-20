@@ -52,6 +52,7 @@ For in-depth information on what each feature does, scroll down to the **Feature
 - Shimmer logic toggle
 - Fishing logic toggle
 - Health logic
+- Item & Location Groups
 - YAML-less UT Support
 - Spoiler log compression
 - Advanced configuration for manual flag activation (building off of Hardmode Starter)
@@ -177,6 +178,17 @@ The randomizer considers a maximum health requirement for each boss, invasion, a
 - Currently, each boss's health requirement cannot be fine-tuned. However, there is an additional handicap setting that allows you to decrease how many different types of max HP upgrades are needed for each boss.
   - For example, with Calamity enabled, setting the handicap to -2 would remove both the Sanguine Tangerine and Life Fruit requirement for Plantera, while Yharon would only require Life Crystals, Fruits, and one Calamity health upgrade (chosen between Sanguine Tangerine, Miracle Fruit, or Tainted Cloudberry)
 - If this option is enabled, UT will show a boss/event as glitched logic if they could otherwise be fought barring the health requirement.
+## Item & Location Groups
+Item/Location groups have been added for convenience.
+### Item Groups
+- Flags: All boss-flags (e.g. Hardmode, Post-Eye of Cthulhu)
+- NPCs: All randomized NPCs
+- Rewards: All filler reward items
+
+### Location Groups
+- Bosses and Events: All bosses, invasions, and events (e.g. Wall of Flesh, Old One's Army Tier 1)
+- NPCs: All NPC checks
+- Achievements: All achievements
 ## YAML-less UT Support
 No YAML is required to connect the Universal Tracker to a Terraria Beta slot.
 ## Spoiler log compression
@@ -202,6 +214,7 @@ Provides the ability to toggle the color and visibility of AP messages unrelated
 - 'Shuffle Up To' config
 - Achievement classifications
 - Shimmer + Fishing + Health logic
+- Item & Location Groups
 - Manual Flag configuration
 - AP Chat configuration
 ## @zuils
