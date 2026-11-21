@@ -19,6 +19,9 @@
     <Reference Include="FargowiltasSouls">
       <HintPath>=ref\FargowiltasSouls.dll</HintPath>
     </Reference>
+    <Reference Include="Fargowiltas">
+      <HintPath>=ref\Fargowiltas.dll</HintPath>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>lib\Newtonsoft.Json.dll</HintPath>
     </Reference>
